@@ -15,6 +15,7 @@ import {ModListComponent} from '@src/Components/Mods/ModListComponent';
 import {PlannerComponent} from '@src/Components/Planner/PlannerComponent';
 import {SettingsComponent} from '@src/Components/Settings/SettingsComponent';
 import {ShareRedirectComponent} from '@src/Components/Shares/ShareRedirectComponent';
+import {CoopJoinComponent} from '@src/Components/Coop/CoopJoinComponent';
 import {AuthGuard} from '@src/Model/Auth/AuthGuard';
 import {HelpEditorGuard} from '@src/Model/Help/HelpEditorGuard';
 import {NotFoundComponent} from '@src/Components/Errors/NotFoundComponent';
@@ -205,6 +206,12 @@ export class RouteList
 					// Must precede the ':versionSlug' catch-all.
 					path: 'shared/:shareId',
 					component: ShareRedirectComponent,
+				},
+				{
+					// Must precede the ':versionSlug' catch-all.
+					path: 'coop/join',
+					title: 'Join co-op space',
+					component: CoopJoinComponent,
 				},
 				{
 					// Must precede the ':versionSlug' catch-all, which would send them home.

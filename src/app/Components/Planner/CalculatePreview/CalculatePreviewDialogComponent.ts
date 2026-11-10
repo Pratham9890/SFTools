@@ -4,8 +4,11 @@ import {FaIconComponent} from '@fortawesome/angular-fontawesome';
 import {faLock} from '@fortawesome/free-solid-svg-icons';
 import {HotkeyBlockDirective} from '@src/Components/Common/HotkeyBlockDirective';
 import {CalculateChangeRow} from '@src/Components/Planner/CalculatePreview/CalculateChangeRow';
+import {CoopPlayer} from '@src/Model/Coop/CoopApi';
+import {CoopSession} from '@src/Model/Coop/CoopSession';
 import {Graph} from '@src/Model/Planner/Graph/Graph';
 import {GraphComposer} from '@src/Model/Planner/Graph/GraphComposer';
+import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {RateFormatter} from '@src/Model/RateFormatter';
 import {ItemAmountNode} from '@src/Model/Planner/Solver/Response/ItemAmountNode';
 import {MachineGroup} from '@src/Model/Planner/Solver/Response/MachineGroup';
@@ -46,6 +49,8 @@ export class CalculatePreviewDialogComponent
 	public constructor(
 		private readonly graphComposer: GraphComposer,
 		private readonly rateFormatter: RateFormatter,
+		private readonly coop: CoopSession,
+		private readonly planManager: PlanManager,
 	)
 	{
 	}
@@ -95,6 +100,7 @@ export class CalculatePreviewDialogComponent
 					title: `Removed: ${this.describe(existing)}`,
 					detail: null,
 					lockable: existing.canToggleLock(),
+					claim: this.claimOf(existing.id),
 				});
 				return;
 			}
@@ -107,6 +113,7 @@ export class CalculatePreviewDialogComponent
 				title: this.changedTitle(existing, incoming),
 				detail: this.changedDetail(existing, incoming),
 				lockable: existing.canToggleLock(),
+				claim: this.claimOf(existing.id),
 			});
 		});
 
@@ -118,6 +125,8 @@ export class CalculatePreviewDialogComponent
 					title: `New: ${this.describe(incoming)}`,
 					detail: null,
 					lockable: false,
+					// A block that does not exist yet cannot have been claimed.
+					claim: null,
 				});
 			}
 		});
@@ -125,11 +134,33 @@ export class CalculatePreviewDialogComponent
 		return rows;
 	}
 
+	/** Changed or removed blocks that belong to a player of the co-op space. */
+	public get claimedRows(): CalculateChangeRow[]
+	{
+		return this.rows.filter(row => row.claim !== null);
+	}
+
+	/** "you" for this browser's player, the other player's name otherwise. */
+	public claimerName(claim: CoopPlayer): string
+	{
+		return claim.id === this.coop.player()?.id ? 'you' : claim.name;
+	}
+
 	public onCalculate(): void
 	{
 		if (!this.busy && this.graph !== null) {
 			this.calculate.emit();
 		}
+	}
+
+	/** Only the active plan while it is in a co-op space has claims to warn about. */
+	private claimOf(nodeId: string): CoopPlayer | null
+	{
+		const plan = this.planManager.activePlan();
+		if (plan === null || !this.coop.active() || !this.planManager.plans().some(p => p.id === plan.id)) {
+			return null;
+		}
+		return this.coop.claimHolder(plan.id, nodeId);
 	}
 
 	private sameBlock(before: Node, after: Node): boolean

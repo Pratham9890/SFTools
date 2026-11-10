@@ -13,8 +13,8 @@
 		(drop)="onDrop($event, null)"
 	>
 		<fa-icon class="tree-section-caret" [icon]="rootOpen() ? faCaretDown : faCaretRight"></fa-icon>
-		<fa-icon class="tree-section-icon" [icon]="faLayerGroup"></fa-icon>
-		<span class="tree-section-label">Your plans</span>
+		<fa-icon class="tree-section-icon" [icon]="inCoopSpace() ? faUsers : faLayerGroup"></fa-icon>
+		<span class="tree-section-label">{{ inCoopSpace() ? spaceName() : 'Your plans' }}</span>
 		<span class="tree-section-count">{{ planCount() }}</span>
 		<span class="tree-section-actions" (click)="$event.stopPropagation()">
 			<button class="btn btn-outline-success btn-sm tree-create" type="button" (click)="startCreateFolder(currentFolderId())" [tooltip]="'New folder' + hotkeys.suffix('plans.newFolder')" placement="top" aria-label="New folder"><fa-icon [icon]="faFolderPlus"></fa-icon></button>
@@ -24,7 +24,9 @@
 	</div>
 
 	@if (rootOpen() && rootEmpty() && !editState()) {
-		<div class="tree-empty">No plans yet. Press New plan above to start your first factory.</div>
+		<div class="tree-empty">{{ inCoopSpace()
+			? 'No plans in this space yet. Press New plan above, or drag one in from On this device.'
+			: 'No plans yet. Press New plan above to start your first factory.' }}</div>
 	}
 
 	@for (item of treeItems(); track item.type + ':' + (item.type === 'plan' ? item.plan.id : item.type === 'folder' ? item.id : item.parentId + ':' + item.mode)) {
@@ -170,7 +172,11 @@
 		</div>
 
 		@if (localOpen()) {
-			<info-note class="tree-section-note">Made while signed out. Saved only on {{ platform.device }}. To edit one, drag it onto &ldquo;Your plans&rdquo; or use its menu.</info-note>
+			@if (inCoopSpace()) {
+				<info-note class="tree-section-note">Only on {{ platform.device }}, not shared. To share one, drag it onto &ldquo;{{ spaceName() }}&rdquo; or use its menu.</info-note>
+			} @else {
+				<info-note class="tree-section-note">Made while signed out. Saved only on {{ platform.device }}. To edit one, drag it onto &ldquo;Your plans&rdquo; or use its menu.</info-note>
+			}
 
 			@for (item of localTreeItems(); track item.kind + ':' + item.id) {
 				<div

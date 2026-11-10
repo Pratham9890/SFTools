@@ -756,6 +756,27 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			}
 			this.pageMeta.clear();
 		});
+
+		// Claims of the active plan show on its nodes; the service keeps them across redraws.
+		effect(() => {
+			const plan = this.planManager.activePlan();
+			const markers = new Map<string, {color: string; label: string}>();
+			if (plan !== null && this.planInCoopSpace(plan.id)) {
+				const localPlayerId = this.coop.player()?.id ?? null;
+				const prefix = `${plan.id}:`;
+				this.coop.claims().forEach((_playerId, key) => {
+					if (!key.startsWith(prefix)) {
+						return;
+					}
+					const nodeId = key.slice(prefix.length);
+					const holder = this.coop.claimHolder(plan.id, nodeId);
+					if (holder !== null) {
+						markers.set(nodeId, {color: holder.color, label: holder.id === localPlayerId ? 'you' : holder.name});
+					}
+				});
+			}
+			this.plannerGraph.setClaimMarkers(markers);
+		});
 	}
 
 	public ngAfterViewInit(): void

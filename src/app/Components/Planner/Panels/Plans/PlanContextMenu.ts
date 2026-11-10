@@ -1,4 +1,4 @@
-import {faClone, faFileExport, faImage, faPen, faRotateLeft, faShareNodes, faXmark} from '@fortawesome/free-solid-svg-icons';
+import {faClone, faFileExport, faImage, faPen, faRotateLeft, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {ContextMenuItem} from '@src/Components/Planner/ContextMenu/ContextMenuItem';
 import {PlannerContextMenu} from '@src/Components/Planner/ContextMenu/PlannerContextMenu';
 import {PlanTreeMenuHost} from '@src/Components/Planner/Panels/Plans/PlanTreeMenuHost';
@@ -52,14 +52,6 @@ export class PlanContextMenu extends PlannerContextMenu
 			icon: faClone,
 			hotkey: 'plans.clonePlan',
 			action: () => this.host.clonePlan(this.plan, this.displayName),
-		});
-
-		// Always offered: sharePlan() explains the account requirement rather than the entry quietly disappearing.
-		items.push({
-			label: 'Share…',
-			icon: faShareNodes,
-			hotkey: 'plans.sharePlan',
-			action: () => this.host.sharePlan(this.plan),
 		});
 
 		items.push({

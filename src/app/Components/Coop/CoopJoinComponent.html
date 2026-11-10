@@ -1,0 +1,43 @@
+<div class="container py-5">
+	<div class="card border-secondary mx-auto" style="max-width: 420px;">
+		<div class="card-body p-4">
+			<h1 class="h4 mb-3 text-center">Join co-op space</h1>
+
+			@if (invite === null) {
+				<p class="mb-3">This invite link is incomplete. Ask for a new one.</p>
+				<div class="text-center">
+					<a routerLink="/">Back to the version list</a>
+				</div>
+			} @else if (error(); as message) {
+				<div class="alert alert-danger py-2">{{ message }}</div>
+				<button type="button" class="btn btn-primary w-100" [disabled]="busy()" (click)="join()">Retry</button>
+			} @else if (player() === null) {
+				<form (ngSubmit)="submit()">
+					<div class="mb-3">
+						<label class="form-label" for="coop-player-name">Your name</label>
+						<input class="form-control" id="coop-player-name" name="playerName" maxlength="40" [(ngModel)]="playerName" required>
+					</div>
+					<div class="mb-3">
+						<span class="form-label d-block">Colour</span>
+						<div class="d-flex flex-wrap gap-2">
+							@for (color of colors; track color) {
+								<button type="button" class="swatch" [class.selected]="color === playerColor" [style.background]="color" [attr.aria-label]="'Colour ' + color" (click)="playerColor = color"></button>
+							}
+						</div>
+					</div>
+					<button type="submit" class="btn btn-primary w-100" [disabled]="busy() || playerName.trim() === ''">
+						@if (busy()) {
+							<span class="spinner-border spinner-border-sm me-2" role="status"></span>
+						}
+						Join
+					</button>
+				</form>
+			} @else {
+				<div class="text-center py-2">
+					<div class="spinner-border mb-3" role="status"></div>
+					<div class="text-secondary">Joining as {{ player()!.name }}…</div>
+				</div>
+			}
+		</div>
+	</div>
+</div>

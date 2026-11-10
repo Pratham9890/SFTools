@@ -1,4 +1,4 @@
-import {faDownload, faLink, faXmark} from '@fortawesome/free-solid-svg-icons';
+import {faDownload, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {ContextMenuItem} from '@src/Components/Planner/ContextMenu/ContextMenuItem';
 import {PlannerContextMenu} from '@src/Components/Planner/ContextMenu/PlannerContextMenu';
 import {PlanTreeMenuHost} from '@src/Components/Planner/Panels/Plans/PlanTreeMenuHost';
@@ -29,11 +29,6 @@ export class VisitedShareContextMenu extends PlannerContextMenu
 				label: sameVersion ? 'Add to my plans' : `Add to my plans (switches to ${this.share.version.name})`,
 				icon: faDownload,
 				action: () => this.host.addShareToMyPlans(this.share),
-			},
-			{
-				label: 'Copy share link',
-				icon: faLink,
-				action: () => this.host.copyShareLink(this.share),
 			},
 			{
 				label: 'Remove from this list',

@@ -91,6 +91,8 @@ const DONE_ICON_SIZE = 20;
 const DONE_FILL = '#1b212a';
 const DONE_STROKE = '#525e6c';
 const LOCK_ROW2_Y = CORNER_INSET + SLOOP_ICON_SIZE + 3;
+const CLAIM_BAR_WIDTH = 6;
+const CLAIM_TITLE_SELECTORS = ['body', 'name', 'machines', 'stats', 'zoomedOutName'];
 
 const SUBPLAN_IO_MAX = 5;
 const SUBPLAN_IO_ICON = 20;
@@ -249,6 +251,7 @@ function registerPlannerShapes(scale: number): void
 		inherit: 'rect',
 		markup: [
 			{tagName: 'rect', selector: 'body', className: 'pn-body'},
+			{tagName: 'rect', selector: 'claimBar', className: 'pn-claim'},
 			{tagName: 'text', selector: 'name', className: 'pn-detail'},
 			{tagName: 'text', selector: 'machines', className: 'pn-detail'},
 			{tagName: 'text', selector: 'stats', className: 'pn-detail'},
@@ -267,6 +270,7 @@ function registerPlannerShapes(scale: number): void
 			rect: {fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
 			text: {fill: NODE_FALLBACK_TEXT},
 			body: {refWidth: '100%', refHeight: '100%', fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
+			claimBar: {x: 0, y: 0, refHeight: '100%', width: px(CLAIM_BAR_WIDTH), fill: '', display: 'none', rx: px(3), ry: px(3), pointerEvents: 'none'},
 			...statSloopAttrs,
 			machineIcon: {
 				refX: 0,
@@ -364,6 +368,7 @@ function registerPlannerShapes(scale: number): void
 		inherit: 'rect',
 		markup: [
 			{tagName: 'rect', selector: 'body', className: 'pn-body'},
+			{tagName: 'rect', selector: 'claimBar', className: 'pn-claim'},
 			{tagName: 'text', selector: 'name', className: 'pn-detail'},
 			{tagName: 'text', selector: 'stats', className: 'pn-detail'},
 			{tagName: 'text', selector: 'zoomedOutName', className: 'pn-zoomed-out-name'},
@@ -377,6 +382,7 @@ function registerPlannerShapes(scale: number): void
 			rect: {fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
 			text: {fill: NODE_FALLBACK_TEXT},
 			body: {refWidth: '100%', refHeight: '100%', fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
+			claimBar: {x: 0, y: 0, refHeight: '100%', width: px(CLAIM_BAR_WIDTH), fill: '', display: 'none', rx: px(3), ry: px(3), pointerEvents: 'none'},
 			name: {refX: 0.5, refY: 0.5, y: px(-10), textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fontSize: px(SUBPLAN_NAME_FONT_SIZE), fill: NODE_NAME_TEXT},
 			stats: {refX: 0.5, refY: 0.5, y: px(12), textAnchor: 'middle', textVerticalAnchor: 'middle', fontSize: px(13), fill: NODE_STATS_TEXT},
 			zoomedOutName: {refX: 0.5, refY: 0.5, textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fill: NODE_NAME_TEXT, display: 'none'},
@@ -438,6 +444,7 @@ export class PlannerGraphService implements OnDestroy
 	private readonly movedNodeIds = new Set<string>();
 	private readonly nodeById = new Map<string, Node>();
 	private doneNodeIds = new Set<string>();
+	private claimMarkers: ReadonlyMap<string, {color: string; label: string}> = new Map();
 	private readonly edgeById = new Map<string, GraphEdge>();
 	private readonly baseZIndexById = new Map<string, number>();
 	private readonly pendingZChanges = new Map<string, {cell: Cell; zIndex: number | null}>();
@@ -649,6 +656,18 @@ export class PlannerGraphService implements OnDestroy
 			this.zoomToVisibleArea(x6Graph);
 		}
 		this.trackNodeMoves(x6Graph, graph.nodes);
+	}
+
+	/** A colour bar on the node's left edge and a claim tooltip, keyed by node id; an empty map clears them. */
+	public setClaimMarkers(markers: ReadonlyMap<string, {color: string; label: string}>): void
+	{
+		this.claimMarkers = markers;
+		this.nodeById.forEach((_node, id) => {
+			const cell = this.x6Graph?.getCellById(id);
+			if (cell?.isNode()) {
+				this.applyClaimMarker(cell, id);
+			}
+		});
 	}
 
 	public clear(): void
@@ -1226,6 +1245,17 @@ export class PlannerGraphService implements OnDestroy
 		};
 	}
 
+	private applyClaimMarker(cell: X6Node, nodeId: string): void
+	{
+		const marker = this.claimMarkers.get(nodeId);
+		const title = marker === undefined ? '' : `Claimed by ${marker.label}`;
+		cell.attr('claimBar/width', CLAIM_BAR_WIDTH * this.nodeScale());
+		cell.attr('claimBar/fill', marker?.color ?? '');
+		cell.attr('claimBar/display', marker === undefined ? 'none' : 'inline');
+		// Every part of the node the pointer can rest on carries the tooltip; the icons keep their own.
+		CLAIM_TITLE_SELECTORS.forEach(selector => cell.attr(`${selector}/title`, title));
+	}
+
 	private addNode(x6Graph: X6Graph, node: Node): void
 	{
 		if (node instanceof SubplanNode) {
@@ -1256,7 +1286,7 @@ export class PlannerGraphService implements OnDestroy
 			: {name: {}, machines: {}, stats: {}};
 		// Faded per element so the `done` check stays opaque.
 		const fade = node.done ? {opacity: DONE_OPACITY} : {};
-		x6Graph.addNode({
+		const cell = x6Graph.addNode({
 			id: node.id,
 			shape: 'planner-node',
 			zIndex: NODE_BASE_Z,
@@ -1299,6 +1329,7 @@ export class PlannerGraphService implements OnDestroy
 				},
 			},
 		});
+		this.applyClaimMarker(cell, node.id);
 	}
 
 	private addSubplanNode(x6Graph: X6Graph, node: SubplanNode): void
@@ -1323,7 +1354,7 @@ export class PlannerGraphService implements OnDestroy
 			Object.values(attrs).forEach(attr => attr['opacity'] = DONE_OPACITY);
 		}
 		attrs['done'] = this.iconAttrs(style.done);
-		x6Graph.addNode({
+		const cell = x6Graph.addNode({
 			id: node.id,
 			shape: 'planner-subplan-node',
 			zIndex: NODE_BASE_Z,
@@ -1334,6 +1365,7 @@ export class PlannerGraphService implements OnDestroy
 			ports: this.portsFor(node),
 			attrs,
 		});
+		this.applyClaimMarker(cell, node.id);
 	}
 
 	private zoomedOutNameAttrs(name: string, size: {width: number; height: number}, leftInset: number, rightInset: number): Record<string, string | number>

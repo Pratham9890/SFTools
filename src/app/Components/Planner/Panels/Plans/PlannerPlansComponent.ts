@@ -3,7 +3,7 @@ import {toObservable} from '@angular/core/rxjs-interop';
 import {Router} from '@angular/router';
 import {FormsModule} from '@angular/forms';
 import {FaIconComponent} from '@fortawesome/angular-fontawesome';
-import {faCaretDown, faCaretRight, faClockRotateLeft, faEllipsisVertical, faFileExport, faFileImport, faFileLines, faFolder, faFolderPlus, faLaptop, faLayerGroup, faLock, faPlus, faShareNodes, faSquareMinus, faSquarePlus} from '@fortawesome/free-solid-svg-icons';
+import {faCaretDown, faCaretRight, faClockRotateLeft, faEllipsisVertical, faFileExport, faFileImport, faFileLines, faFolder, faFolderPlus, faLaptop, faLayerGroup, faLock, faPlus, faShareNodes, faSquareMinus, faSquarePlus, faUsers} from '@fortawesome/free-solid-svg-icons';
 import {AppTooltipDirective} from '@src/Components/Common/AppTooltipDirective';
 import {SupporterBadgeComponent} from '@src/Components/Supporters/SupporterBadgeComponent';
 import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
@@ -29,6 +29,7 @@ import {HotkeyRegistration} from '@src/Model/Hotkeys/HotkeyRegistration';
 import {HotkeyService} from '@src/Model/Hotkeys/HotkeyService';
 import {VisitedShareContextMenu} from '@src/Components/Planner/Panels/Plans/VisitedShareContextMenu';
 import {VersionManager} from '@src/Model/Data/VersionManager';
+import {CoopSession} from '@src/Model/Coop/CoopSession';
 import {NotificationService} from '@src/Model/NotificationService';
 import {Folder} from '@src/Model/Planner/Folder';
 import {Plan} from '@src/Model/Planner/Plan';
@@ -157,9 +158,14 @@ export class PlannerPlansComponent implements AfterViewChecked, OnDestroy, PlanT
 	public readonly faLock = faLock;
 	public readonly faPlus = faPlus;
 	public readonly faShareNodes = faShareNodes;
+	public readonly faUsers = faUsers;
 
 	public readonly activePlanId: Signal<string | null>;
 	public readonly activeFolderId: Signal<string | null>;
+
+	/** A co-op space borrows the account list: it shows the space's plans and names it in the labels. */
+	public readonly inCoopSpace: Signal<boolean>;
+	public readonly spaceName: Signal<string>;
 
 	public readonly foldState: CollapsibleSections;
 	private readonly editStateSignal = signal<EditState | null>(null);
@@ -481,6 +487,7 @@ export class PlannerPlansComponent implements AfterViewChecked, OnDestroy, PlanT
 
 	public constructor(
 		private readonly planManager: PlanManager,
+		private readonly coop: CoopSession,
 		private readonly contextMenu: PlannerContextMenuService,
 		protected readonly platform: AppPlatform,
 		private readonly planIcons: PlanIconResolver,
@@ -519,6 +526,8 @@ export class PlannerPlansComponent implements AfterViewChecked, OnDestroy, PlanT
 		this.activeFolderId = planManager.activeFolderId;
 		this.allShares = visitedShares.visitedShares;
 		this.activeShareId = activeShare.shareId;
+		this.inCoopSpace = planManager.inCoopSpace;
+		this.spaceName = computed(() => coop.spaceName() ?? 'Co-op space');
 	}
 
 	public ngOnDestroy(): void
@@ -823,7 +832,7 @@ export class PlannerPlansComponent implements AfterViewChecked, OnDestroy, PlanT
 		} else if (section === 'local') {
 			items.push({label: 'Export to a file…', icon: faFileExport, action: () => this.exportAll('local')});
 		}
-		const title = section === 'root' ? 'Your plans' : section === 'local' ? 'On this device' : 'Shared with you';
+		const title = section === 'root' ? (this.inCoopSpace() ? this.spaceName() : 'Your plans') : section === 'local' ? 'On this device' : 'Shared with you';
 		this.contextMenu.open(new PlanSectionContextMenu(title, items), event.clientX, event.clientY);
 	}
 
@@ -868,13 +877,13 @@ export class PlannerPlansComponent implements AfterViewChecked, OnDestroy, PlanT
 	{
 		event.preventDefault();
 		event.stopPropagation();
-		this.contextMenu.open(new LocalItemContextMenu(item.id, item.kind, item.name, this), event.clientX, event.clientY);
+		this.contextMenu.open(new LocalItemContextMenu(item.id, item.kind, item.name, this.inCoopSpace() ? this.spaceName() : null, this), event.clientX, event.clientY);
 	}
 
 	public addLocalToMyPlans(id: string, kind: 'plan' | 'folder', folderId: string | null = null): void
 	{
 		this.planManager.moveLocalToAccount(id, kind, folderId);
-		this.notifications.showSuccess('Moved to your plans.');
+		this.notifications.showSuccess(this.inCoopSpace() ? `Moved to ${this.spaceName()}.` : 'Moved to your plans.');
 	}
 
 	public removeVisitedShare(share: VisitedShare): void

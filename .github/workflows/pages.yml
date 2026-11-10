@@ -1,0 +1,55 @@
+name: Pages (fork)
+
+# Publishes the web app of this fork to GitHub Pages at https://pratham9890.github.io/SFTools/.
+# index.html is copied to 404.html so reloading a path route (e.g. /coop/join) is served by the app.
+on:
+    push:
+        branches: [coop-planner-features]
+    workflow_dispatch:
+
+concurrency:
+    group: pages
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v5
+
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 24
+                    cache: npm
+
+            -   run: npm ci
+
+            -   name: Create env.ts from env.prod.ts
+                run: cp src/env/env.prod.ts src/env/env.ts
+
+            -   name: Build the web app
+                run: npx ng build --base-href /SFTools/
+
+            -   name: Add the 404 fallback and skip Jekyll
+                run: |
+                    cp dist/index.html dist/404.html
+                    touch dist/.nojekyll
+
+            -   uses: actions/upload-pages-artifact@v3
+                with:
+                    path: dist
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            -   id: deployment
+                uses: actions/deploy-pages@v4

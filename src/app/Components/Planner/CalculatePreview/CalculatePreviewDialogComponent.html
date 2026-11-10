@@ -8,6 +8,10 @@
 		<div class="p-3 d-flex flex-column gap-2" style="overflow-y: auto;">
 			<div class="small text-secondary">Lock a block to keep it as it is.</div>
 
+			@if (claimedRows.length > 0) {
+				<div class="small text-warning">This changes {{ claimedRows.length }} claimed part{{ claimedRows.length === 1 ? '' : 's' }}. Lock them to keep them as they are.</div>
+			}
+
 			@if (busy) {
 				<div class="d-flex align-items-center gap-2 small text-secondary">
 					<span class="spinner-border spinner-border-sm" role="status"></span>Updating…
@@ -23,7 +27,13 @@
 					@for (row of rows; track row.nodeId) {
 						<li class="d-flex align-items-start gap-2 p-2 rounded" style="background: rgba(255, 255, 255, 0.04);">
 							<div class="small flex-grow-1">
-								<div>{{ row.title }}</div>
+								<div>
+									{{ row.title }}@if (row.claim; as claim) {<span
+										class="badge ms-1"
+										style="border: 1px solid; background: transparent;"
+										[style.color]="claim.color"
+									>claimed by {{ claimerName(claim) }}</span>}
+								</div>
 								@if (row.detail; as detail) {
 									<div class="text-secondary">{{ detail }}</div>
 								}
