@@ -74,7 +74,8 @@ export class SolverService implements OnDestroy
 	{
 		const worker = new Worker(
 			new URL('./Worker/SolverWorker', import.meta.url),
-			{type: 'module'},
+			// The worker cannot see the page's <base href>, and the site may live below the domain root (GitHub Pages), so the assets folder travels in the name.
+			{type: 'module', name: new URL('assets', document.baseURI).href},
 		);
 		worker.addEventListener('message', ({data}: MessageEvent<SolverWorkerResponse>) => {
 			this.pendingIds.delete(data.id);

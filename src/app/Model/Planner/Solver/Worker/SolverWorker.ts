@@ -13,7 +13,8 @@ let highs: HighsInstance | null = null;
 // which bypasses Vite's @fs/ resolution in dev and avoids importScripts(), which module workers lack.
 async function loadHighs(): Promise<HighsInstance>
 {
-    const base = `${self.location.origin}/assets`;
+    // SolverService names the worker after the page's assets folder; the fallback is the domain root.
+    const base = self.name.startsWith('http') || self.name.startsWith('tauri') ? self.name.replace(/\/$/, '') : `${self.location.origin}/assets`;
     const text = await fetch(`${base}/highs.js`).then(r => r.text());
     const blob = new Blob([patchSolutionPrecision(text), '\nexport default Module;'], {type: 'application/javascript'});
     const blobUrl = URL.createObjectURL(blob);

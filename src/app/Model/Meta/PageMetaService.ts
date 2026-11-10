@@ -72,7 +72,7 @@ export class PageMetaService
 
 	private defaultImage(): string
 	{
-		return window.location.origin + PageMetaService.DEFAULT_IMAGE_PATH;
+		return new URL(PageMetaService.DEFAULT_IMAGE_PATH.slice(1), document.baseURI).href;
 	}
 
 }
