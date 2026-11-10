@@ -29,8 +29,10 @@ import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphLayoutResolver} from '@src/Model/Planner/GraphLayoutResolver';
 import {GraphLayoutSettings} from '@src/Model/Planner/GraphLayoutSettings';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
+import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
 import {GraphMetrics} from '@src/Model/Planner/Graph/GraphMetrics';
 import {GraphNodeCapacityWarning} from '@src/Model/Planner/Graph/GraphNodeCapacityWarning';
+import {GraphNodeExtractorWarning} from '@src/Model/Planner/Graph/GraphNodeExtractorWarning';
 import {GraphNodeWarnings} from '@src/Model/Planner/Graph/GraphNodeWarnings';
 import {GraphWarningDetail} from '@src/Model/Planner/Graph/GraphWarningDetail';
 import {GraphWarningEntry} from '@src/Model/Planner/Graph/GraphWarningEntry';
@@ -596,6 +598,7 @@ export class PlannerGraphService implements OnDestroy
 			: null;
 
 		this.warningsById = this.reconciler.computeWarnings(graph);
+		this.addExtractorWarnings(this.warningsById, graph);
 		const x6Graph = this.createGraph(container);
 
 		// Before addEdge, so edges between done nodes fade too.
@@ -737,10 +740,39 @@ export class PlannerGraphService implements OnDestroy
 					...warnings.inputs.map(warning => this.inputWarningDetail(warning.itemClassName, warning.required, warning.supplied)),
 					...warnings.outputs.map(warning => this.outputWarningDetail(warning.itemClassName, warning.produced, warning.consumed)),
 					...(warnings.capacity !== null ? [this.capacityWarningDetail(warnings.capacity)] : []),
+					...(warnings.extractors ? [this.extractorWarningDetail(warnings.extractors, node)] : []),
 				],
 			});
 		});
 		return entries;
+	}
+
+	/** Mine nodes carry their own extractor setup, which the flow reconciler does not know about. */
+	private addExtractorWarnings(warnings: Map<string, GraphNodeWarnings>, graph: Graph): void
+	{
+		const data = this.versionManager.activeVersionData();
+		if (!data) {
+			return;
+		}
+		graph.nodes.forEach(node => {
+			if (!(node instanceof MineNode) || node.extractors === null || node.extractors.length === 0) {
+				return;
+			}
+			const capacity = ExtractorCapacity.capacity(node.extractors, data, node.item, this.extractorBeltCap(node.item));
+			// Relative tolerance: the capacity is computed locally, so only real shortfalls should warn.
+			const tolerance = Math.max(Math.abs(node.amount), Math.abs(capacity), 1) * 1e-6;
+			if (capacity >= node.amount - tolerance) {
+				return;
+			}
+			const existing = warnings.get(node.id) ?? {inputs: [], outputs: [], capacity: null};
+			warnings.set(node.id, {...existing, extractors: {capacity, needed: node.amount}});
+		});
+	}
+
+	private extractorBeltCap(item: Item): number | null
+	{
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		return limit === undefined ? null : ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
 	}
 
 	/** Deliberately ignores the graph display settings, unlike nodeIconFor. */
@@ -2309,7 +2341,7 @@ export class PlannerGraphService implements OnDestroy
 				bodyStroke: '#d4663f',
 				inputWarning: warnings.inputs.length > 0 ? this.warningIconUri : '',
 				outputWarning: warnings.outputs.length > 0 ? this.warningIconUri : '',
-				capacityWarning: warnings.capacity !== null ? this.warningIconUri : '',
+				capacityWarning: warnings.capacity !== null || warnings.extractors ? this.warningIconUri : '',
 			};
 		}
 		return style;
@@ -2458,6 +2490,9 @@ export class PlannerGraphService implements OnDestroy
 		if (node instanceof SinkNode) {
 			return this.statLinesSize(node.getDisplayName(), this.sinkPointsLine(node), this.sinkStats(node));
 		}
+		if (node instanceof MineNode && this.extractorStats(node) !== null) {
+			return this.statLinesSize(node.getDisplayName(), '', this.mineStats(node), 0, this.horizontalPadding(node));
+		}
 		if (this.hasLeftIcon(node)) {
 			const style = this.baseStyleFor(node);
 			const textWidth = Math.max(
@@ -2527,7 +2562,7 @@ export class PlannerGraphService implements OnDestroy
 			return {...colors, name: node.getDisplayName(), machines: this.sinkPointsLine(node), stats: this.sinkStats(node), ...icons};
 		}
 		if (node instanceof MineNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.ioStats('Resource', node.amount, node.item), machines: '', ...icons};
+			return {...colors, name: node.getDisplayName(), stats: this.mineStats(node), machines: '', ...icons};
 		}
 		if (node instanceof InputNode) {
 			return {...colors, name: node.getDisplayName(), stats: this.ioStats('Input', node.amount, node.item), machines: '', ...icons};
@@ -2594,8 +2629,11 @@ export class PlannerGraphService implements OnDestroy
 			}
 			if (indicator.classList.contains('pn-capacity-warning')) {
 				content = {
-					title: `${node.getDisplayName()} - machines`,
-					lines: warnings.capacity !== null ? [this.capacityWarningLine(warnings.capacity)] : [],
+					title: `${node.getDisplayName()} - ${warnings.capacity === null && warnings.extractors ? 'extractors' : 'machines'}`,
+					lines: [
+						...(warnings.capacity !== null ? [this.capacityWarningLine(warnings.capacity)] : []),
+						...(warnings.extractors ? [this.warningLine(this.extractorWarningDetail(warnings.extractors, node))] : []),
+					],
 				};
 			} else {
 				content = indicator.classList.contains('pn-input-warning')
@@ -2734,6 +2772,18 @@ export class PlannerGraphService implements OnDestroy
 		};
 	}
 
+	private extractorWarningDetail(warning: GraphNodeExtractorWarning, node: Node): GraphWarningDetail
+	{
+		const item = node instanceof MineNode ? node.item : null;
+		return {
+			kind: 'extractors',
+			iconHash: item?.icon ?? null,
+			title: 'Extractors',
+			text: `give ${this.rateFormatter.rate(warning.capacity, item)}, `
+				+ `plan needs ${this.rateFormatter.rate(warning.needed, item)}`,
+		};
+	}
+
 	private outputWarningDetail(itemClassName: string, produced: number, consumed: number): GraphWarningDetail
 	{
 		const item = this.warningItem(itemClassName);
@@ -2770,6 +2820,26 @@ export class PlannerGraphService implements OnDestroy
 	private ioStats(role: string, amount: number, item: Item): string
 	{
 		return `${role} · ${this.rateFormatter.rate(amount, item)}`;
+	}
+
+	private mineStats(node: MineNode): string
+	{
+		const stats = this.ioStats('Resource', node.amount, node.item);
+		const extractors = this.extractorStats(node);
+		return extractors === null ? stats : `${stats}\n${extractors}`;
+	}
+
+	private extractorStats(node: MineNode): string | null
+	{
+		const rows = node.extractors;
+		if (rows === null || rows.length === 0) {
+			return null;
+		}
+		const data = this.versionManager.activeVersionData();
+		const capacity = data ? ExtractorCapacity.capacity(rows, data, node.item, this.extractorBeltCap(node.item)) : 0;
+		const count = ExtractorCapacity.buildings(rows);
+		return `${this.rateFormatter.amount(count)} extractor${count === 1 ? '' : 's'} · `
+			+ `cap ${this.rateFormatter.rate(capacity, node.item)}`;
 	}
 
 	private subplanStats(node: SubplanNode): string

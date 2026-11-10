@@ -647,7 +647,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		// Belt and pipe limits only change the labels: no solve, no layout. After the render above, so a plan switch lands first.
 		this.subscription.add(
 			toObservable(computed(() => this.planManager.activePlan()?.settings.conveyorLimit)).pipe(pairwise())
-				.subscribe(() => this.plannerGraph.refreshConveyorLimits()),
+				.subscribe(() => this.applyConveyorLimit()),
 		);
 
 		this.subscription.add(
@@ -1688,6 +1688,18 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 	{
 		this.closeOverclock();
 		this.actions.requestNodeUpdate(node);
+	}
+
+	/** Edge labels update in place; an extractor setup's capped capacity lives on its node, so those plans redraw (still no solve). */
+	private applyConveyorLimit(): void
+	{
+		const hasSetup = this.planManager.activePlan()?.graph?.nodes
+			.some(node => (node as {extractors?: unknown[]}).extractors?.length) ?? false;
+		if (hasSetup) {
+			this.restyleGraph();
+		} else {
+			this.plannerGraph.refreshConveyorLimits();
+		}
 	}
 
 	private restyleGraph(): void

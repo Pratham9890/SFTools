@@ -1,22 +1,40 @@
 import {Component, ChangeDetectionStrategy, Input, OnChanges, OnDestroy} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {FaIconComponent} from '@fortawesome/angular-fontawesome';
-import {faLock, faLockOpen} from '@fortawesome/free-solid-svg-icons';
+import {faLock, faLockOpen, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {AppTooltipDirective} from '@src/Components/Common/AppTooltipDirective';
 import {GameIconComponent} from '@src/Components/Common/GameIconComponent';
+import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
 import {GoToNodeButtonComponent} from '@src/Components/Planner/Panels/GoToNode/GoToNodeButtonComponent';
+import {ClockSpeedInputComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Overclocking/ClockSpeedInputComponent';
 import {Subject, Subscription} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
+import {Building} from '@src/Model/Data/Entities/Building';
 import {Item} from '@src/Model/Data/Entities/Item';
+import {VersionManager} from '@src/Model/Data/VersionManager';
+import {MapPurity} from '@src/Model/Map/MapPurity';
+import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
+import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
+import {ExtractorRow} from '@src/Model/Planner/ExtractorSetup';
 import {Formulas} from '@src/Model/Planner/Formulas';
 import {NodeResizer} from '@src/Model/Planner/NodeResizer';
+import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {GeneratorNode} from '@src/Model/Planner/Solver/Response/GeneratorNode';
 import {ItemAmountNode} from '@src/Model/Planner/Solver/Response/ItemAmountNode';
+import {MineNode} from '@src/Model/Planner/Solver/Response/MineNode';
 import {Node} from '@src/Model/Planner/Solver/Response/Node';
 import {RateFormatter} from '@src/Model/RateFormatter';
 
 const APPLY_DEBOUNCE_MS = 400;
+
+interface ExtractorDraft
+{
+	count: number;
+	purity: MapPurity;
+	buildingClassName: string;
+	clockSpeed: number;
+}
 
 const TYPE_LABELS: Record<string, string> = {
 	input: 'Input',
@@ -31,19 +49,42 @@ const TYPE_LABELS: Record<string, string> = {
 	selector: 'amount-node-editor',
 	templateUrl: './AmountNodeEditorComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
-	imports: [FormsModule, FaIconComponent, AppTooltipDirective, GameIconComponent, GoToNodeButtonComponent],
+	imports: [FormsModule, FaIconComponent, AppTooltipDirective, GameIconComponent, InfoNoteComponent, ClockSpeedInputComponent, GoToNodeButtonComponent],
+	styles: [`
+		@container panel (max-width: 300px) {
+			.extractors-table td.stack-grow {
+				display: flex;
+				flex: 1 1 4rem;
+				flex-direction: column;
+				align-items: stretch;
+			}
+			.extractors-table td.stack-grow[data-label]::before {
+				margin: 0 0 0.1rem;
+				white-space: nowrap;
+			}
+			.extractors-table tbody td:last-child { margin-left: auto; }
+		}
+	`],
 })
 export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 {
 
 	public readonly faLock = faLock;
 	public readonly faLockOpen = faLockOpen;
+	public readonly faXmark = faXmark;
+	public readonly purityOptions: ReadonlyArray<MapPurity> = ['impure', 'normal', 'pure'];
 
 	@Input({required: true}) public node!: Node;
 
 	public amount = 0;
 
 	public clockSpeed = 100;
+
+	public extractorRows: ExtractorDraft[] = [];
+
+	public extractorOptions: Building[] = [];
+
+	private extractorsPending = false;
 
 	private draftClockBase = 100;
 
@@ -57,6 +98,8 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 	public constructor(
 		private readonly actions: PlannerActionsService,
 		private readonly resizer: NodeResizer,
+		private readonly versionManager: VersionManager,
+		private readonly planManager: PlanManager,
 		public readonly rateFormatter: RateFormatter,
 	)
 	{
@@ -74,12 +117,17 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 				this.amount = this.node.amount;
 				this.clockSpeed = this.draftClockBase = this.generator?.clockSpeed ?? 100;
 			}
+			if (!this.extractorsPending) {
+				this.loadExtractorDraft(this.node);
+			}
 			return;
 		}
 		this.flushPendingApply();
 		this.loadedNode = this.node;
 		this.amount = this.node.amount;
 		this.clockSpeed = this.draftClockBase = this.generator?.clockSpeed ?? 100;
+		this.loadExtractorOptions(this.node);
+		this.loadExtractorDraft(this.node);
 	}
 
 	public ngOnDestroy(): void
@@ -103,6 +151,11 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 		return this.node instanceof GeneratorNode ? this.node : null;
 	}
 
+	public get mine(): MineNode | null
+	{
+		return this.node instanceof MineNode ? this.node : null;
+	}
+
 	public get iconHash(): string | null
 	{
 		return this.item?.icon ?? this.generator?.generator.icon ?? null;
@@ -124,6 +177,144 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 	{
 		const item = this.item;
 		return item ? this.rateFormatter.unit(item) : null;
+	}
+
+	public get extractorCapacity(): number
+	{
+		const data = this.versionManager.activeVersionData();
+		const item = this.item;
+		if (!data || !item) {
+			return 0;
+		}
+		return ExtractorCapacity.capacity(this.extractorRows, data, item, this.extractorBeltCap);
+	}
+
+	public get extractorNeeded(): number
+	{
+		return this.mine?.amount ?? 0;
+	}
+
+	/** Null when the setup covers the node; otherwise the missing rate. */
+	public get extractorShortfall(): number | null
+	{
+		const capacity = this.extractorCapacity;
+		const needed = this.extractorNeeded;
+		const tolerance = Math.max(Math.abs(capacity), Math.abs(needed), 1) * 1e-6;
+		return capacity < needed - tolerance ? needed - capacity : null;
+	}
+
+	public get extractorSummary(): string
+	{
+		const data = this.versionManager.activeVersionData();
+		const count = ExtractorCapacity.buildings(this.extractorRows);
+		const power = data ? ExtractorCapacity.power(this.extractorRows, data) : 0;
+		const shards = ExtractorCapacity.shards(this.extractorRows);
+		const parts = [
+			`${this.rateFormatter.amount(count)} extractor${count === 1 ? '' : 's'}`,
+			this.rateFormatter.power(power),
+		];
+		if (shards > 0) {
+			parts.push(`${this.rateFormatter.amount(shards)} power shard${shards === 1 ? '' : 's'}`);
+		}
+		return parts.join(' · ');
+	}
+
+	public rowRate(row: ExtractorDraft): number
+	{
+		const data = this.versionManager.activeVersionData();
+		const item = this.item;
+		const building = data?.searchBuildingByClassName(row.buildingClassName);
+		return building && item ? ExtractorCapacity.rowRate(row, building, item, this.extractorBeltCap) : 0;
+	}
+
+	public rowHasPurity(row: ExtractorDraft): boolean
+	{
+		const data = this.versionManager.activeVersionData();
+		const item = this.item;
+		const building = data?.searchBuildingByClassName(row.buildingClassName);
+		return building !== undefined && item !== null && ExtractorCapacity.hasPurity(building, item);
+	}
+
+	public get hasPurityColumn(): boolean
+	{
+		return this.extractorRows.some(row => this.rowHasPurity(row));
+	}
+
+	public purityLabel(purity: MapPurity): string
+	{
+		return purity.charAt(0).toUpperCase() + purity.slice(1);
+	}
+
+	/** The fastest extractor the data offers for this item, so a fresh row starts on a sensible machine. */
+	public addExtractorRow(): void
+	{
+		if (this.extractorOptions.length === 0) {
+			return;
+		}
+		const building = this.extractorOptions.reduce((best, candidate) =>
+			ExtractorCapacity.baseRate(candidate) > ExtractorCapacity.baseRate(best) ? candidate : best);
+		this.extractorRows = [...this.extractorRows, {
+			count: 1,
+			purity: 'normal',
+			buildingClassName: building.className,
+			clockSpeed: this.defaultExtractorClock,
+		}];
+		this.onExtractorsChange();
+	}
+
+	public removeExtractorRow(index: number): void
+	{
+		this.extractorRows = this.extractorRows.filter((_, rowIndex) => rowIndex !== index);
+		this.onExtractorsChange();
+	}
+
+	public onRowClockChange(row: ExtractorDraft, clockSpeed: number): void
+	{
+		row.clockSpeed = clockSpeed;
+		this.onExtractorsChange();
+	}
+
+	public onExtractorsChange(): void
+	{
+		this.extractorsPending = true;
+		this.applySubject.next();
+	}
+
+	public removeSetup(): void
+	{
+		this.extractorRows = [];
+		this.onExtractorsChange();
+	}
+
+	private get extractorBeltCap(): number | null
+	{
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		return limit === undefined ? null : ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(this.item));
+	}
+
+	private get defaultExtractorClock(): number
+	{
+		return Formulas.clampClock(this.planManager.activeSettings()?.defaultClockSpeed ?? 100);
+	}
+
+	private loadExtractorOptions(node: Node): void
+	{
+		const data = this.versionManager.activeVersionData();
+		const item = node instanceof ItemAmountNode ? node.item : null;
+		this.extractorOptions = data && item ? ExtractorCapacity.extractorsFor(data, item.className) : [];
+	}
+
+	private loadExtractorDraft(node: Node): void
+	{
+		this.extractorsPending = false;
+		this.extractorRows = node instanceof MineNode && node.extractors !== null
+			? node.extractors.map(row => ({
+				count: row.count,
+				purity: row.purity,
+				buildingClassName: row.buildingClassName,
+				clockSpeed: row.clockSpeed,
+			}))
+			: [];
 	}
 
 	public get draftPower(): number | null
@@ -174,21 +365,34 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 
 	private flushPendingApply(): void
 	{
-		if (this.applyPending) {
+		if (this.applyPending || this.extractorsPending) {
 			this.applyDraft();
 		}
 	}
 
 	private applyDraft(): void
 	{
-		if (!this.applyPending) {
+		const node = this.loadedNode;
+		const applyAmount = this.applyPending;
+		const applyExtractors = this.extractorsPending;
+		if (!node || (!applyAmount && !applyExtractors)) {
 			return;
 		}
 		this.applyPending = false;
+		this.extractorsPending = false;
 
-		const node = this.loadedNode;
 		const amount = this.amount || 0;
-		if (!node || amount <= 0) {
+		if (node instanceof MineNode) {
+			const resized = applyAmount && amount > 0 && Math.abs(amount - node.amount) > 1e-9;
+			if (!resized && !applyExtractors) {
+				return;
+			}
+			const extractors = applyExtractors ? this.extractorDraftRows() : node.extractors;
+			// Setups are a manual edit too, but they must keep the lock state the amount edit would change.
+			this.actions.requestNodeUpdate(this.withExtractors(node, extractors, resized ? amount : node.amount, resized || node.locked));
+			return;
+		}
+		if (!applyAmount || amount <= 0) {
 			return;
 		}
 		if (node instanceof GeneratorNode) {
@@ -209,6 +413,30 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 		if (updated) {
 			this.actions.requestNodeUpdate(updated);
 		}
+	}
+
+	private extractorDraftRows(): ExtractorRow[] | null
+	{
+		if (this.extractorRows.length === 0) {
+			return null;
+		}
+		return this.extractorRows.map(row => ({
+			count: Math.max(1, Math.round(row.count || 1)),
+			purity: row.purity,
+			buildingClassName: row.buildingClassName,
+			clockSpeed: Formulas.clampClock(row.clockSpeed || 100),
+		}));
+	}
+
+	private withExtractors(node: MineNode, extractors: ExtractorRow[] | null, amount: number, locked: boolean): MineNode
+	{
+		const replacement = new MineNode(node.id, amount, node.item);
+		replacement.x = node.x;
+		replacement.y = node.y;
+		replacement.locked = locked;
+		replacement.done = node.done;
+		replacement.extractors = extractors;
+		return replacement;
 	}
 
 }

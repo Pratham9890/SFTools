@@ -8,6 +8,7 @@ import {BuildCostMaterialRow} from '@src/Model/Planner/Breakdown/BuildCostMateri
 import {BuildCostRow} from '@src/Model/Planner/Breakdown/BuildCostRow';
 import {CountedExtraPower} from '@src/Model/Planner/Breakdown/CountedExtraPower';
 import {CountedNode} from '@src/Model/Planner/Breakdown/CountedNode';
+import {ExtractorBreakdown} from '@src/Model/Planner/Breakdown/ExtractorBreakdown';
 import {ItemFlowRow} from '@src/Model/Planner/Breakdown/ItemFlowRow';
 import {ItemRow} from '@src/Model/Planner/Breakdown/ItemRow';
 import {PowerBreakdown} from '@src/Model/Planner/Breakdown/PowerBreakdown';
@@ -19,6 +20,7 @@ import {RecipeUsageRow} from '@src/Model/Planner/Breakdown/RecipeUsageRow';
 import {ResourceUsageRow} from '@src/Model/Planner/Breakdown/ResourceUsageRow';
 import {ExtraPower} from '@src/Model/Planner/ExtraPower';
 import {ExtraPowerResolver} from '@src/Model/Planner/ExtraPowerResolver';
+import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
 import {Formulas} from '@src/Model/Planner/Formulas';
 import {GeothermalGenerators} from '@src/Model/Planner/GeothermalGenerators';
 import {Graph} from '@src/Model/Planner/Graph/Graph';
@@ -81,8 +83,10 @@ export class PlanBreakdownService
 			nodeIds: string[];
 			entries: Map<string, {name: string; machines: number; builtMachines: number; power: PowerDraw; nodeIds: string[]}>;
 		}>();
+		const data = this.versionManager.activeVersionData();
 		const subplanNodes: SubplanNode[] = [];
 		const augmenters: AugmenterNode[] = [];
+		const mines: CountedNode<MineNode>[] = [];
 		let consumption = PowerDraw.ZERO;
 		let production = PowerDraw.ZERO;
 
@@ -120,11 +124,30 @@ export class PlanBreakdownService
 				entry.builtMachines += built;
 				entry.power = entry.power.subtract(PowerDraw.fixed(megawatts));
 				entry.nodeIds.push(node.id);
+			} else if (node instanceof MineNode) {
+				mines.push({node, count: 1, done: node.done});
 			} else if (node instanceof SubplanNode) {
 				subplanNodes.push(node);
 			} else if (node instanceof AugmenterNode) {
 				augmenters.push(node);
 			}
+		});
+
+		ExtractorBreakdown.rows(mines, data).forEach(extractor => {
+			consumption = consumption.add(extractor.power);
+			const row = this.getOrCreate(machines, extractor.building.className,
+				() => ({building: extractor.building, machines: 0, builtMachines: 0, power: PowerDraw.ZERO, nodeIds: [], entries: new Map()}));
+			row.machines += extractor.machines;
+			row.builtMachines += extractor.builtMachines;
+			row.power = row.power.add(extractor.power);
+			row.nodeIds.push(...extractor.nodeIds);
+			const entry = this.getOrCreate(row.entries, `extractor:${extractor.building.className}`,
+				() => ({name: extractor.building.name, machines: 0, builtMachines: 0, power: PowerDraw.ZERO, groups: [], nodeIds: []}));
+			entry.machines += extractor.machines;
+			entry.builtMachines += extractor.builtMachines;
+			entry.power = entry.power.add(extractor.power);
+			entry.groups.push(...extractor.groups);
+			entry.nodeIds.push(...extractor.nodeIds);
 		});
 
 		const rows: PowerRow[] = [];
@@ -179,7 +202,7 @@ export class PlanBreakdownService
 		production = production.add(extraRows.production);
 
 		this.groupSubplans(plan.id, subplanNodes).forEach(group => {
-			const subConsumption = this.consumptionOf(group.nodes.recipes);
+			const subConsumption = this.consumptionOf(group.nodes);
 			const subProduction = this.productionOf(group.nodes);
 			consumption = consumption.add(subConsumption);
 			production = production.add(subProduction);
@@ -248,11 +271,14 @@ export class PlanBreakdownService
 		const augmenters: AugmenterNode[] = [];
 		const recipes: CountedNode<RecipeNode>[] = [];
 		const generators: CountedNode<GeneratorNode>[] = [];
+		const mines: CountedNode<MineNode>[] = [];
 		graph.nodes.forEach(node => {
 			if (node instanceof RecipeNode) {
 				recipes.push({node, count: 1, done: node.done});
 			} else if (node instanceof GeneratorNode) {
 				generators.push({node, count: 1, done: node.done});
+			} else if (node instanceof MineNode) {
+				mines.push({node, count: 1, done: node.done});
 			} else if (node instanceof SubplanNode) {
 				subplanNodes.push(node);
 			} else if (node instanceof AugmenterNode) {
@@ -260,7 +286,7 @@ export class PlanBreakdownService
 			}
 		});
 		// Only buildings are counted, so the generated MW the augmenters scale does not matter here.
-		const own: ProductionNodes = {recipes, generators, mines: [], extraPower: this.extraPowerEntries(plan, 0, false, augmenters)};
+		const own: ProductionNodes = {recipes, generators, mines, extraPower: this.extraPowerEntries(plan, 0, false, augmenters)};
 
 		// The augmenter row comes from the settings, so its node ids are attached here.
 		const augmenterIds = augmenters.map(node => node.id);
@@ -355,7 +381,7 @@ export class PlanBreakdownService
 
 		this.folderPlans(folderId).forEach(plan => {
 			const nodes = this.collectProductionNodes(plan.id, new Set());
-			const planConsumption = this.consumptionOf(nodes.recipes);
+			const planConsumption = this.consumptionOf(nodes);
 			const planProduction = this.productionOf(nodes);
 			consumption = consumption.add(planConsumption);
 			production = production.add(planProduction);
@@ -428,14 +454,18 @@ export class PlanBreakdownService
 	{
 		const nodes = this.collectProductionNodes(subplanId, new Set());
 		return {
-			consumption: this.consumptionOf(nodes.recipes).average,
+			consumption: this.consumptionOf(nodes).average,
 			production: this.productionOf(nodes).average,
 		};
 	}
 
-	private consumptionOf(recipes: CountedNode<RecipeNode>[]): PowerDraw
+	private consumptionOf(nodes: ProductionNodes): PowerDraw
 	{
-		return PowerDraw.sum(recipes.map(entry => entry.node.powerDraw().scale(entry.count)));
+		const extractors = ExtractorBreakdown.rows(nodes.mines, this.versionManager.activeVersionData());
+		return PowerDraw.sum([
+			...nodes.recipes.map(entry => entry.node.powerDraw().scale(entry.count)),
+			...extractors.map(row => row.power),
+		]);
 	}
 
 	private productionOf(nodes: ProductionNodes): PowerDraw
@@ -482,6 +512,17 @@ export class PlanBreakdownService
 			row.shards += entry.node.powerShards() * entry.count;
 			if (onCanvas) {
 				row.nodeIds.push(entry.node.id);
+			}
+		});
+
+		ExtractorBreakdown.rows(nodes.mines, this.versionManager.activeVersionData()).forEach(extractor => {
+			const row = this.getOrCreate(map, extractor.building.className,
+				() => ({building: extractor.building, machines: 0, builtMachines: 0, shards: 0, sloops: 0, nodeIds: []}));
+			row.machines += extractor.machines;
+			row.builtMachines += extractor.builtMachines;
+			row.shards += extractor.shards;
+			if (onCanvas) {
+				row.nodeIds.push(...extractor.nodeIds);
 			}
 		});
 
@@ -738,6 +779,9 @@ export class PlanBreakdownService
 	{
 		return nodes.recipes.reduce((sum, entry) => sum + (!onlyBuilt || entry.done ? entry.node.amount * entry.count : 0), 0)
 			+ nodes.generators.reduce((sum, entry) => sum + (!onlyBuilt || entry.done ? entry.node.wholeGenerators() * entry.count : 0), 0)
+			+ nodes.mines.reduce((sum, entry) => sum + (!onlyBuilt || entry.done
+				? ExtractorCapacity.buildings(entry.node.extractors ?? []) * entry.count
+				: 0), 0)
 			+ nodes.extraPower.reduce((sum, entry) => sum + entry.count * (
 				(!onlyBuilt || entry.geothermalDone ? entry.extraPower.geothermalCount : 0)
 				+ (!onlyBuilt || entry.augmentersDone ? entry.extraPower.augmenters.count : 0)

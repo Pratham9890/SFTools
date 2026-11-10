@@ -77,4 +77,126 @@
 		</div>
 	</div>
 
+	@if (mine) {
+		<div class="card">
+			<div class="card-header d-flex align-items-center gap-2 py-1 px-2">
+				<span class="fw-semibold flex-grow-1 text-truncate">Extractors</span>
+			</div>
+			<div class="card-body p-2 d-flex flex-column gap-2">
+
+				@if (extractorOptions.length === 0) {
+					<div class="fst-italic text-secondary small">No extractor in the data for this item</div>
+					@if (extractorRows.length > 0) {
+						<button class="btn btn-sm btn-outline-danger w-100" type="button" (click)="removeSetup()">
+							Remove setup
+						</button>
+					}
+				} @else if (extractorRows.length === 0) {
+					<div class="text-secondary small">Set up the resource nodes these come from to check capacity.</div>
+					<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addExtractorRow()">
+						Add resource nodes
+					</button>
+				} @else {
+					<table class="table table-dark table-sm align-middle mb-0 table-stack-sm extractors-table">
+						<thead>
+							<tr>
+								<th>Count</th>
+								@if (hasPurityColumn) {
+									<th>Purity</th>
+								}
+								<th>Extractor</th>
+								<th>Clock %</th>
+								<th class="text-end">Rate</th>
+								<th style="width: 36px;"></th>
+							</tr>
+						</thead>
+						<tbody>
+							@for (row of extractorRows; track $index) {
+								<tr>
+									<td class="stack-grow" data-label="Count">
+										<input
+											type="number"
+											class="form-control form-control-sm bg-dark text-light border-secondary"
+											[(ngModel)]="row.count"
+											(ngModelChange)="onExtractorsChange()"
+											min="1"
+											step="1"
+										>
+									</td>
+									@if (hasPurityColumn) {
+										<td class="stack-grow" data-label="Purity">
+											@if (rowHasPurity(row)) {
+												<select
+													class="form-select form-select-sm bg-dark text-light border-secondary"
+													[(ngModel)]="row.purity"
+													(ngModelChange)="onExtractorsChange()"
+												>
+													@for (purity of purityOptions; track purity) {
+														<option [value]="purity">{{ purityLabel(purity) }}</option>
+													}
+												</select>
+											} @else {
+												<span class="text-secondary">—</span>
+											}
+										</td>
+									}
+									<td class="stack-grow" data-label="Extractor">
+										<select
+											class="form-select form-select-sm bg-dark text-light border-secondary"
+											[(ngModel)]="row.buildingClassName"
+											(ngModelChange)="onExtractorsChange()"
+										>
+											@for (building of extractorOptions; track building.className) {
+												<option [value]="building.className">{{ building.name }}</option>
+											}
+										</select>
+									</td>
+									<td class="stack-grow" data-label="Clock %">
+										<clock-speed-input
+											[value]="row.clockSpeed"
+											(valueChange)="onRowClockChange(row, $event)"
+										></clock-speed-input>
+									</td>
+									<td class="stack-grow text-nowrap" data-label="Rate">{{ rateFormatter.rate(rowRate(row), item) }}</td>
+									<td>
+										<button
+											class="btn btn-sm btn-outline-danger px-2"
+											type="button"
+											tooltip="Remove extractor row" container="body" placement="left"
+											[disabled]="extractorRows.length === 1"
+											(click)="removeExtractorRow($index)"
+										><fa-icon [icon]="faXmark"></fa-icon></button>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+
+					<div class="d-flex flex-column gap-1">
+						@if (extractorShortfall; as shortfall) {
+							<info-note kind="warning">
+								Capacity {{ rateFormatter.rate(extractorCapacity, item) }} · needs {{ rateFormatter.rate(extractorNeeded, item) }}: {{ rateFormatter.rate(shortfall, item) }} short
+							</info-note>
+						} @else {
+							<div class="small text-success">
+								Capacity {{ rateFormatter.rate(extractorCapacity, item) }} · needs {{ rateFormatter.rate(extractorNeeded, item) }}
+							</div>
+						}
+						<div class="small text-secondary">{{ extractorSummary }}</div>
+					</div>
+
+					<div class="d-flex flex-wrap align-items-center gap-2">
+						<button class="btn btn-sm btn-outline-success flex-grow-1" type="button" (click)="addExtractorRow()">
+							+ Add row
+						</button>
+						<button class="btn btn-sm btn-outline-danger" type="button" (click)="removeSetup()">
+							Remove setup
+						</button>
+					</div>
+				}
+
+			</div>
+		</div>
+	}
+
 </div>

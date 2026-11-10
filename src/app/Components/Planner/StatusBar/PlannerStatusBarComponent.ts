@@ -242,6 +242,8 @@ import {WarningKindFilter} from '@src/Components/Planner/StatusBar/WarningKindFi
 		.warning-row.kind-input .row-kind, .warning-row.kind-output .row-kind, .warning-row.kind-pool .row-kind { color: #e58a72; }
 		.warning-row.kind-capacity { border-left-color: #c9962e; }
 		.warning-row.kind-capacity .row-kind { color: #e0b56a; }
+		.warning-row.kind-extractors { border-left-color: #c9962e; }
+		.warning-row.kind-extractors .row-kind { color: #e0b56a; }
 		.warning-row.kind-surplus { border-left-color: #4a6a8c; }
 		.warning-row.kind-surplus .row-kind { color: #8fa9c2; }
 		.warnings-hint {
@@ -389,7 +391,7 @@ export class PlannerStatusBarComponent
 	});
 
 	/** Chips are listed in the order trouble usually needs fixing in. */
-	private static readonly KIND_ORDER: GraphWarningKind[] = ['input', 'output', 'capacity', 'surplus', 'pool'];
+	private static readonly KIND_ORDER: GraphWarningKind[] = ['input', 'output', 'capacity', 'extractors', 'surplus', 'pool'];
 
 	public readonly recalculationNeeded = computed(() =>
 		this.planManager.activePlan()?.metadata?.recalculationNeeded ?? false);
@@ -454,6 +456,7 @@ export class PlannerStatusBarComponent
 			case 'output': return 'Missing output';
 			case 'surplus': return 'Unused output';
 			case 'capacity': return 'Too few machines';
+			case 'extractors': return 'Too few extractors';
 			case 'pool': return 'Over the shared limit';
 		}
 	}
