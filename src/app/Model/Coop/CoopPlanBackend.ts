@@ -152,6 +152,8 @@ export class CoopPlanBackend implements DataBackend<PlanStore>
 		const store = this.currentStore();
 		const conflictedPlans: string[] = [];
 		const conflictedFolders: string[] = [];
+		/** Who saved first, from the refused save; null when the record was deleted. */
+		let savedFirstBy: string | null = null;
 		let failed = false;
 
 		const attempt = async (call: () => Promise<void>): Promise<void> => {
@@ -178,6 +180,7 @@ export class CoopPlanBackend implements DataBackend<PlanStore>
 					this.syncedFolders.set(folder.id, {name: folder.name, parentId: folder.parentId, data, revision: result.revision!});
 				} else {
 					conflictedFolders.push(folder.id);
+					savedFirstBy ??= result.updatedBy ?? null;
 				}
 			});
 		}
@@ -199,6 +202,7 @@ export class CoopPlanBackend implements DataBackend<PlanStore>
 					this.syncedPlans.set(plan.id, {name: plan.name, description, folderId: plan.folderId, parentPlanId: plan.parentPlanId, data, revision: result.revision!});
 				} else {
 					conflictedPlans.push(plan.id);
+					savedFirstBy ??= result.updatedBy ?? null;
 				}
 			});
 		}
@@ -220,10 +224,11 @@ export class CoopPlanBackend implements DataBackend<PlanStore>
 
 		if (conflictedPlans.length > 0 || conflictedFolders.length > 0) {
 			const names = conflictedPlans.map(id => store.plans.find(p => p.id === id)?.name || 'a plan');
+			const who = this.session.playerById(savedFirstBy)?.name ?? 'Someone else';
 			this.notifications.show(
 				conflictedPlans.length > 0
-					? `Someone else saved ${names.join(', ')} first, so your last change to it was replaced with their version.`
-					: 'Someone else changed a folder first, so your last change to it was replaced with their version.',
+					? `${who} saved ${names.join(', ')} first, so your last change to it was replaced with their version.`
+					: `${who} changed a folder first, so your last change to it was replaced with their version.`,
 				8_000,
 			);
 			await this.fetch(credentials, conflictedPlans, conflictedFolders, true);

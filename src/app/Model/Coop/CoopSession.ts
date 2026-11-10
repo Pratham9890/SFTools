@@ -192,7 +192,11 @@ export class CoopSession implements OnDestroy
 		if (credentials === null) return;
 		const previous = this.claimsSignal().get(`${planId}:${nodeId}`) ?? null;
 		this.setClaim(planId, nodeId, null);
-		const done = await this.guard(() => this.api.unclaim(credentials, planId, nodeId));
+		// The call itself resolves to nothing, so success is marked explicitly: undefined from guard() means it failed.
+		const done = await this.guard(async () => {
+			await this.api.unclaim(credentials, planId, nodeId);
+			return true;
+		});
 		if (done === undefined && previous !== null) {
 			this.setClaim(planId, nodeId, previous);
 		}
