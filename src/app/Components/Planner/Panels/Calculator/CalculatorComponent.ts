@@ -23,6 +23,7 @@ import {CalculatorOptimisationTabComponent} from '@src/Components/Planner/Panels
 import {CalculatorOverclockingTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Overclocking/CalculatorOverclockingTabComponent';
 import {CalculatorPowerTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Power/CalculatorPowerTabComponent';
 import {CalculatorInputTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Input/CalculatorInputTabComponent';
+import {CalculatorLogisticsTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Logistics/CalculatorLogisticsTabComponent';
 import {CalculatorMachinesTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Machines/CalculatorMachinesTabComponent';
 import {CalculatorProductionTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Production/CalculatorProductionTabComponent';
 import {CalculatorRecipesTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Recipes/CalculatorRecipesTabComponent';
@@ -63,6 +64,7 @@ import {CalculatorQuickStartComponent} from '@src/Components/Planner/Panels/Calc
 		HelpButtonComponent,
 		CalculatorByproductsTabComponent,
 		CalculatorInputTabComponent,
+		CalculatorLogisticsTabComponent,
 		CalculatorMachinesTabComponent,
 		CalculatorOptimisationTabComponent,
 		CalculatorOverclockingTabComponent,
@@ -439,6 +441,7 @@ export class CalculatorComponent implements OnDestroy
 		power: 'request.power',
 		sink: 'request.sink',
 		sloops: 'request.sloops',
+		logistics: 'request.logistics',
 		overclocking: 'request.overclocking',
 		optimisation: 'request.optimisation',
 	};

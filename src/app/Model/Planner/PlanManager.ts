@@ -692,6 +692,7 @@ export class PlanManager extends SyncableService<PlanStore>
 			disabledResources: parent?.settings.disabledResources ? [...parent.settings.disabledResources] : undefined,
 			resourceArea: parent?.settings.resourceArea ? structuredClone(parent.settings.resourceArea) : undefined,
 			mapConveyors: parent?.settings.mapConveyors ? {...parent.settings.mapConveyors} : undefined,
+			conveyorLimit: parent?.settings.conveyorLimit ? {...parent.settings.conveyorLimit} : undefined,
 			factorySite: parent?.settings.factorySite ? {...parent.settings.factorySite} : undefined,
 			enabledFuels: parent?.settings.enabledFuels
 				? Object.fromEntries(Object.entries(parent.settings.enabledFuels).map(([gen, fuels]) => [gen, [...fuels]]))
@@ -833,6 +834,7 @@ export class PlanManager extends SyncableService<PlanStore>
 			generatorClockSpeeds: settings.generatorClockSpeeds ? settings.generatorClockSpeeds.map(entry => ({...entry})) : undefined,
 			maxSloops: settings.maxSloops,
 			sloopAccuracy: settings.sloopAccuracy,
+			conveyorLimit: settings.conveyorLimit ? {...settings.conveyorLimit} : undefined,
 		};
 	}
 

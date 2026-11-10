@@ -28,6 +28,7 @@ import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphLayoutResolver} from '@src/Model/Planner/GraphLayoutResolver';
 import {GraphLayoutSettings} from '@src/Model/Planner/GraphLayoutSettings';
+import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {GraphMetrics} from '@src/Model/Planner/Graph/GraphMetrics';
 import {GraphNodeCapacityWarning} from '@src/Model/Planner/Graph/GraphNodeCapacityWarning';
 import {GraphNodeWarnings} from '@src/Model/Planner/Graph/GraphNodeWarnings';
@@ -145,6 +146,8 @@ const STAT_SLOOP_CENTER_OFFSET = 5.5;
 const CORNER_PREVIEW_SNAP = 10;
 const EDGE_STROKE = '#5c718a';
 const EDGE_STROKE_WIDTH = 1.5;
+// Amber like the status bar's warnings: a dark-canvas constant, readable in both themes.
+const EDGE_OVER_LIMIT_STROKE = '#e0b56a';
 const PARALLEL_EDGE_GAP = 40;
 const SELECTED_STROKE = '#f0ad4e';
 const EXPORT_MARGIN = 40;
@@ -435,6 +438,10 @@ export class PlannerGraphService implements OnDestroy
 	private readonly warningEntriesSignal = signal<GraphWarningEntry[]>([]);
 	public readonly warningEntries: Signal<GraphWarningEntry[]> = this.warningEntriesSignal.asReadonly();
 
+	private readonly edgesSignal = signal<GraphEdge[]>([]);
+	/** The edges of the rendered graph, for readers outside the canvas such as the status bar. */
+	public readonly edges: Signal<GraphEdge[]> = this.edgesSignal.asReadonly();
+
 	private readonly contextMenuSubject = new Subject<GraphContextMenuRequest>();
 	public readonly contextMenuRequests: Observable<GraphContextMenuRequest> = this.contextMenuSubject.asObservable();
 
@@ -604,6 +611,7 @@ export class PlannerGraphService implements OnDestroy
 			}
 		});
 		this.warningEntriesSignal.set(this.buildWarningEntries(graph));
+		this.edgesSignal.set([...this.edgeById.values()]);
 
 		if (previous) {
 			x6Graph.zoom(previous.zoom, {absolute: true});
@@ -640,6 +648,7 @@ export class PlannerGraphService implements OnDestroy
 		this.warningsById = new Map();
 		this.selectedNodesSignal.set([]);
 		this.warningEntriesSignal.set([]);
+		this.edgesSignal.set([]);
 	}
 
 	public nodeSize(node: Node): {width: number; height: number}
@@ -857,19 +866,36 @@ export class PlannerGraphService implements OnDestroy
 			body.setAttribute('stroke', modelNode ? this.styleFor(modelNode).bodyStroke : NODE_FALLBACK_STROKE);
 			body.setAttribute('stroke-width', String(NODE_STROKE_WIDTH));
 		});
+		const clonedMarkers = new Set<string>();
 		svg.querySelectorAll(`path.${EDGE_HIGHLIGHT_CLASS}`).forEach(line => {
-			line.setAttribute('stroke', EDGE_STROKE);
+			const cellId = line.closest('[data-cell-id]')?.getAttribute('data-cell-id') ?? '';
+			const stroke = this.edgeStrokeFor(this.edgeById.get(cellId));
+			line.setAttribute('stroke', stroke);
 			line.setAttribute('stroke-width', String(EDGE_STROKE_WIDTH));
 			line.setAttribute('class', EDGE_LINE_CLASS);
-			// x6 keeps one <marker> per arrowhead colour, so a highlighted edge points at an orange one.
+			// x6 keeps one <marker> per arrowhead colour, so a highlighted edge points at an orange one. Cloned per
+			// colour: over-limit lines and normal ones can share that marker in the same export.
 			['marker-start', 'marker-mid', 'marker-end'].forEach(name => {
 				const markerId = line.getAttribute(name)?.match(/url\(#(.+)\)/)?.[1];
-				if (markerId !== undefined) {
-					svg.querySelectorAll(`#${CSS.escape(markerId)} [stroke="${SELECTED_STROKE}"]`).forEach(arrow => {
-						arrow.setAttribute('stroke', EDGE_STROKE);
-						arrow.setAttribute('fill', EDGE_STROKE);
-					});
+				if (markerId === undefined) {
+					return;
 				}
+				const marker = svg.querySelector(`#${CSS.escape(markerId)}`);
+				if (marker === null) {
+					return;
+				}
+				const cloneId = `${markerId}-export-${stroke.slice(1)}`;
+				if (!clonedMarkers.has(cloneId)) {
+					const clone = marker.cloneNode(true) as Element;
+					clone.setAttribute('id', cloneId);
+					clone.querySelectorAll(`[stroke="${SELECTED_STROKE}"]`).forEach(arrow => {
+						arrow.setAttribute('stroke', stroke);
+						arrow.setAttribute('fill', stroke);
+					});
+					marker.parentNode?.appendChild(clone);
+					clonedMarkers.add(cloneId);
+				}
+				line.setAttribute(name, `url(#${cloneId})`);
 			});
 		});
 		svg.querySelectorAll(`rect.${LABEL_BOX_HIGHLIGHT_CLASS}`).forEach(box => {
@@ -1066,6 +1092,7 @@ export class PlannerGraphService implements OnDestroy
 		this.selection = selection;
 		this.selectedNodesSignal.set([]);
 		this.edgeById.clear();
+		this.edgesSignal.set([]);
 		this.baseZIndexById.clear();
 		this.pendingZChanges.clear();
 		this.vertexGestureActive = false;
@@ -1618,7 +1645,7 @@ export class PlannerGraphService implements OnDestroy
 			attrs: {
 				line: {
 					class: EDGE_LINE_CLASS,
-					stroke: EDGE_STROKE,
+					stroke: this.edgeStrokeFor(edge),
 					strokeWidth: EDGE_STROKE_WIDTH,
 					...fade,
 				},
@@ -1718,11 +1745,54 @@ export class PlannerGraphService implements OnDestroy
 	private labelTextFor(edge: GraphEdge): {name: string; rate: string; iconUrl: string | null}
 	{
 		const item = this.itemFor(edge);
+		const rate = this.rateFormatter.rate(edge.amount, item);
+		const overLimit = this.overLimitLabelFor(edge, item);
 		return {
 			name: this.wrapLabelName(item?.name ?? edge.itemClassName),
-			rate: this.rateFormatter.rate(edge.amount, item),
+			rate: overLimit === null ? rate : `${rate} · ${overLimit}`,
 			iconUrl: this.iconUrls.url(item?.icon ?? null, 64),
 		};
+	}
+
+	/** Appended to the rate label only when the connection needs more than one line. */
+	private overLimitLabelFor(edge: GraphEdge, item: Item | null): string | null
+	{
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		if (limit === undefined) {
+			return null;
+		}
+		const fluid = ConveyorCapacity.isFluid(item);
+		const count = ConveyorCapacity.countNeeded(edge.amount, ConveyorCapacity.capacity(limit, fluid));
+		return count > 1 ? ConveyorCapacity.label(limit, fluid, count) : null;
+	}
+
+	private edgeStrokeFor(edge: GraphEdge | undefined): string
+	{
+		return edge !== undefined && this.overLimitLabelFor(edge, this.itemFor(edge)) !== null
+			? EDGE_OVER_LIMIT_STROKE
+			: EDGE_STROKE;
+	}
+
+	/** Re-labels the rendered edges in place: a limit change must not re-solve or re-lay out the graph. */
+	public refreshConveyorLimits(): void
+	{
+		if (!this.x6Graph) {
+			return;
+		}
+		const scale = this.edgeScale();
+		const boxPad = this.settings.graph().showEdgeLabelBoxes ? LABEL_BOX_PILL_PAD * scale : 0;
+		this.x6Graph.getEdges().forEach(cell => {
+			const edge = this.edgeById.get(cell.id);
+			if (edge === undefined) {
+				return;
+			}
+			const label = this.labelTextFor(edge);
+			const size = this.labelSizeFor(label);
+			cell.prop('labels/0/attrs/rate/text', label.rate);
+			cell.prop('labels/0/attrs/rect/x', -size.width / 2 - boxPad);
+			cell.prop('labels/0/attrs/rect/width', size.width + boxPad * 2);
+			this.applyEdgeStyle(cell as X6Edge);
+		});
 	}
 
 	private labelSizeFor(label: {name: string; rate: string; iconUrl: string | null}): {width: number; height: number}
@@ -1968,7 +2038,7 @@ export class PlannerGraphService implements OnDestroy
 	{
 		const highlighted = this.isEdgeHighlighted(edge);
 
-		edge.attr('line/stroke', highlighted ? SELECTED_STROKE : EDGE_STROKE);
+		edge.attr('line/stroke', highlighted ? SELECTED_STROKE : this.edgeStrokeFor(this.edgeById.get(edge.id)));
 		edge.attr('line/strokeWidth', highlighted ? SELECTED_EDGE_STROKE_WIDTH : EDGE_STROKE_WIDTH);
 		edge.attr('line/class', highlighted ? `${EDGE_LINE_CLASS} ${EDGE_HIGHLIGHT_CLASS}` : EDGE_LINE_CLASS);
 

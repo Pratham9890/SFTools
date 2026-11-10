@@ -7,6 +7,8 @@ import {GameIconComponent} from '@src/Components/Common/GameIconComponent';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
 import {PlannerGraphService} from '@src/Components/Planner/PlannerGraphService';
 import {BuildCostBreakdown} from '@src/Model/Planner/Breakdown/BuildCostBreakdown';
+import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
+import {Item} from '@src/Model/Data/Entities/Item';
 import {PlanBreakdownService} from '@src/Model/Planner/Breakdown/PlanBreakdownService';
 import {SubplanBuildCounter} from '@src/Model/Planner/SubplanBuildCounter';
 import {PowerBreakdown} from '@src/Model/Planner/Breakdown/PowerBreakdown';
@@ -303,6 +305,15 @@ export class PlannerStatusBarComponent
 
 	public readonly shards = computed(() => this.buildCost().shards);
 
+	/** Zero unless the plan shows belt and pipe limits; display only, so it never affects the graph. */
+	public readonly overLimitCount = computed(() => {
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		if (limit === undefined) {
+			return 0;
+		}
+		return ConveyorCapacity.overLimitCount(this.plannerGraph.edges(), limit, className => this.itemFor(className));
+	});
+
 	public readonly sloopIcon = computed(() =>
 		this.versionManager.activeVersionData()?.iconForClassName(SpecialClasses.SomersloopItem) ?? null);
 
@@ -400,6 +411,11 @@ export class PlannerStatusBarComponent
 	public focusWarning(entry: GraphWarningEntry): void
 	{
 		this.plannerGraph.focusNode(entry.nodeId);
+	}
+
+	private itemFor(className: string): Item | null
+	{
+		return this.versionManager.activeVersionData()?.searchItemByClassName(className) ?? null;
 	}
 
 	public selectWarningFilter(kind: GraphWarningKind): void

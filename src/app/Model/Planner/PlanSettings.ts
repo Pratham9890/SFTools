@@ -1,5 +1,6 @@
 import {AlienPowerAugmenters} from '@src/Model/Planner/AlienPowerAugmenters';
 import {CalculationMode} from '@src/Model/Planner/CalculationMode';
+import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
 import {GraphLayoutSettings} from '@src/Model/Planner/GraphLayoutSettings';
 import {GroupingMode} from '@src/Model/Planner/GroupingMode';
 import {GeneratorClockSpeed} from '@src/Model/Planner/GeneratorClockSpeed';
@@ -48,4 +49,6 @@ export interface PlanSettings
 	readonly generatorClockSpeeds?: GeneratorClockSpeed[];
 	readonly maxSloops?: number;
 	readonly sloopAccuracy?: SloopAccuracy;
+	/** Display only: how many belts or pipes each connection needs. Undefined hides the annotations. In no settings group: it changes no result. */
+	readonly conveyorLimit?: ConveyorLimit;
 }

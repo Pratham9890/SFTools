@@ -39,6 +39,7 @@ export class HelpTopicCatalog
 		{topic: 'request.power', group: 'request', label: 'Power tab', where: 'Production request panel, Power tab.'},
 		{topic: 'request.sink', group: 'request', label: 'Sink tab', where: 'Production request panel, Sink tab.'},
 		{topic: 'request.sloops', group: 'request', label: 'Sloops tab', where: 'Production request panel, Sloops tab.'},
+		{topic: 'request.logistics', group: 'request', label: 'Logistics tab', where: 'Production request panel, Logistics tab.'},
 		{topic: 'request.overclocking', group: 'request', label: 'Overclocking tab', where: 'Production request panel, Overclocking tab.'},
 		{topic: 'request.optimisation', group: 'request', label: 'Optimisation tab', where: 'Production request panel, Optimisation tab.'},
 

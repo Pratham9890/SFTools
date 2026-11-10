@@ -34,6 +34,7 @@ export type HelpTopicId =
 	| 'request.power'
 	| 'request.sink'
 	| 'request.sloops'
+	| 'request.logistics'
 	| 'request.overclocking'
 	| 'request.optimisation'
 	| 'settings.numbers'

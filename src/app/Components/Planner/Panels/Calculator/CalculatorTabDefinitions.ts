@@ -1,4 +1,4 @@
-import {faBolt, faGaugeHigh, faIndustry, faListCheck, faMountain, faRecycle, faRightFromBracket, faRightToBracket, faScroll, faSliders, faWandMagicSparkles} from '@fortawesome/free-solid-svg-icons';
+import {faArrowRightArrowLeft, faBolt, faGaugeHigh, faIndustry, faListCheck, faMountain, faRecycle, faRightFromBracket, faRightToBracket, faScroll, faSliders, faWandMagicSparkles} from '@fortawesome/free-solid-svg-icons';
 import {CalculatorTab} from '@src/Components/Planner/Panels/Calculator/CalculatorTab';
 import {CalculatorTabDefinition} from '@src/Components/Planner/Panels/Calculator/CalculatorTabDefinition';
 
@@ -16,11 +16,12 @@ export class CalculatorTabDefinitions
 		{id: 'power', label: 'Power', icon: faBolt},
 		{id: 'sink', label: 'Sink', icon: faRecycle},
 		{id: 'sloops', label: 'Sloops', icon: faWandMagicSparkles},
+		{id: 'logistics', label: 'Logistics', icon: faArrowRightArrowLeft},
 		{id: 'overclocking', label: 'Overclocking', icon: faGaugeHigh},
 		{id: 'optimisation', label: 'Optimisation', icon: faSliders},
 	];
 
-	public static readonly DEFAULT_MORE: readonly CalculatorTab[] = ['machines', 'byproducts', 'sink', 'sloops', 'overclocking', 'optimisation'];
+	public static readonly DEFAULT_MORE: readonly CalculatorTab[] = ['machines', 'byproducts', 'sink', 'sloops', 'logistics', 'overclocking', 'optimisation'];
 
 	public static labelOf(tab: CalculatorTab): string
 	{

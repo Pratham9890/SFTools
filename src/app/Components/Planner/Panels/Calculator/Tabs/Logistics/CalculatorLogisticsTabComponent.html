@@ -1,0 +1,52 @@
+<div class="p-2 d-flex flex-column gap-2">
+
+	<info-note>
+		Shows how many belts or pipes each connection needs, and highlights the connections that need more than one.
+		This is display only: it never changes the plan.
+	</info-note>
+
+	<div class="form-check">
+		<input
+			class="form-check-input"
+			type="checkbox"
+			id="conveyor-limit"
+			[checked]="enabled"
+			(change)="setEnabled($any($event.target).checked)"
+		/>
+		<label class="form-check-label" for="conveyor-limit">Show belt and pipe limits</label>
+	</div>
+
+	@if (enabled) {
+		<div class="row g-2">
+			<div class="col-12 col-sm-6">
+				<label class="form-label mb-1" for="conveyor-belt">Fastest belt</label>
+				<select
+					class="form-select form-select-sm bg-dark text-light border-secondary"
+					id="conveyor-belt"
+					[value]="beltMark"
+					(change)="setBeltMark(+$any($event.target).value)"
+				>
+					@for (mark of beltMarks; track mark) {
+						<option [value]="mark" [selected]="mark === beltMark">{{ beltLabel(mark) }}</option>
+					}
+				</select>
+			</div>
+			<div class="col-12 col-sm-6">
+				<label class="form-label mb-1" for="conveyor-pipe">Fastest pipe</label>
+				<select
+					class="form-select form-select-sm bg-dark text-light border-secondary"
+					id="conveyor-pipe"
+					[value]="pipeMark"
+					(change)="setPipeMark(+$any($event.target).value)"
+				>
+					@for (mark of pipeMarks; track mark) {
+						<option [value]="mark" [selected]="mark === pipeMark">{{ pipeLabel(mark) }}</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="text-secondary">{{ overLimitText }}</div>
+	}
+
+</div>

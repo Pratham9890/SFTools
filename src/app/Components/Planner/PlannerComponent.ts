@@ -635,6 +635,12 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			}),
 		);
 
+		// Belt and pipe limits only change the labels: no solve, no layout. After the render above, so a plan switch lands first.
+		this.subscription.add(
+			toObservable(computed(() => this.planManager.activePlan()?.settings.conveyorLimit)).pipe(pairwise())
+				.subscribe(() => this.plannerGraph.refreshConveyorLimits()),
+		);
+
 		this.subscription.add(
 			this.planManager.scrubbedGraphs.subscribe(planIds => this.refreshScrubbedGraph(planIds)),
 		);
