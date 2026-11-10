@@ -1,6 +1,5 @@
 @if (!desktop) {
 	<div class="d-flex flex-column gap-3">
-		<desktop-download></desktop-download>
 		<settings-section title="Desktop app" [icon]="sectionIcon" description="How this browser works together with the app.">
 			<div class="subsection-title">Links</div>
 			<div class="form-check">
@@ -13,35 +12,7 @@
 		</settings-section>
 	</div>
 } @else {
-	<settings-section title="Desktop app" [icon]="sectionIcon" description="Updates, links, offline use and where your data is saved.">
-		<div class="subsection-title">Updates</div>
-		<p class="mb-2">
-			Version {{ updates.currentVersion }}.
-			@if (updates.available(); as update) {
-				Version {{ update.version }} is available.
-			} @else if (updates.upToDate()) {
-				This is the latest version.
-			}
-		</p>
-		@if (updates.error(); as error) {
-			<info-note kind="warning" class="mb-2 selectable">{{ error }}</info-note>
-		}
-		<div class="d-flex flex-wrap gap-2 mb-2">
-			@if (updates.available()) {
-				<button type="button" class="btn btn-sm btn-primary" [disabled]="updates.progress() !== undefined" (click)="updates.install()">
-					{{ updates.progress() === undefined ? 'Update and restart' : 'Updating…' }}
-				</button>
-			} @else {
-				<button type="button" class="btn btn-sm btn-outline-primary" [disabled]="updates.checking() || !connectivity.online()" (click)="updates.check()">
-					{{ updates.checking() ? 'Checking…' : 'Check for updates' }}
-				</button>
-			}
-		</div>
-		<div class="form-check">
-			<input class="form-check-input" type="checkbox" id="check-updates" [ngModel]="preferences.preferences().checkForUpdates" (ngModelChange)="preferences.update({checkForUpdates: $event})"/>
-			<label class="form-check-label" for="check-updates">Check for updates when the app starts</label>
-		</div>
-
+	<settings-section title="Desktop app" [icon]="sectionIcon" description="Links, offline use and where your data is saved.">
 		<div class="subsection-title">Links</div>
 		<div class="form-check mb-2">
 			<input class="form-check-input" type="checkbox" id="open-links" [ngModel]="preferences.preferences().openLinks" (ngModelChange)="preferences.update({openLinks: $event})"/>

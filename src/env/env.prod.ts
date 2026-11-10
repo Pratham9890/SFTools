@@ -2,10 +2,11 @@ export const env = {
 	production: true,
 	webUrl: 'https://www.satisfactorytools.com',
 	apiUrl: 'https://api.new.satisfactorytools.com',
-	desktopAppPublic: true,
+	desktopAppPublic: false,
+	// Analytics off in this fork: the original Matomo instance belongs to the upstream project.
 	matomo: {
-		url: 'https://analytics.greeny.dev/',
-		siteId: 7,
-		platformDimensionId: 1,
+		url: '',
+		siteId: null as number | null,
+		platformDimensionId: null as number | null,
 	},
 };

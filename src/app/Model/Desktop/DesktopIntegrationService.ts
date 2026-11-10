@@ -4,10 +4,8 @@ import {DesktopOAuthFlow} from '@src/Model/Auth/DesktopOAuthFlow';
 import {AppLinks} from '@src/Model/Desktop/AppLinks';
 import {DesktopBridge} from '@src/Model/Desktop/DesktopBridge';
 import {DesktopPreferencesService} from '@src/Model/Desktop/DesktopPreferencesService';
-import {DesktopUpdateService} from '@src/Model/Desktop/DesktopUpdateService';
 import {PlanFileContent} from '@src/Model/PlanFiles/PlanFileContent';
 import {PlanFileOpenService} from '@src/Model/PlanFiles/PlanFileOpenService';
-import {ConnectivityService} from '@src/Model/Network/ConnectivityService';
 import {NotificationService} from '@src/Model/NotificationService';
 
 @Injectable({providedIn: 'root'})
@@ -19,8 +17,6 @@ export class DesktopIntegrationService
 	public constructor(
 		@Optional() private readonly desktop: DesktopBridge | null,
 		private readonly preferences: DesktopPreferencesService,
-		private readonly updates: DesktopUpdateService,
-		private readonly connectivity: ConnectivityService,
 		private readonly router: Router,
 		private readonly zone: NgZone,
 		private readonly injector: Injector,
@@ -57,10 +53,6 @@ export class DesktopIntegrationService
 			desktop.invoke('deep_link_set_enabled', {enabled})
 				.catch(error => console.error('Could not change the sftools:// link registration:', error));
 		}, {injector: this.injector});
-
-		if (this.preferences.preferences().checkForUpdates && this.connectivity.online()) {
-			this.updates.check();
-		}
 	}
 
 	public open(link: string): boolean

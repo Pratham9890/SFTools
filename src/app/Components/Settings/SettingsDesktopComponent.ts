@@ -1,15 +1,12 @@
 import {Component, ChangeDetectionStrategy, Optional, Signal, computed, signal} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {faDesktop} from '@fortawesome/free-solid-svg-icons';
-import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
-import {DesktopDownloadComponent} from '@src/Components/Settings/DesktopDownloadComponent';
 import {SettingsSectionComponent} from '@src/Components/Settings/SettingsSectionComponent';
 import {Version} from '@src/Model/API/Schema/Version';
 import {VersionManager} from '@src/Model/Data/VersionManager';
 import {DesktopBridge} from '@src/Model/Desktop/DesktopBridge';
 import {DesktopIntegrationService} from '@src/Model/Desktop/DesktopIntegrationService';
 import {DesktopPreferencesService} from '@src/Model/Desktop/DesktopPreferencesService';
-import {DesktopUpdateService} from '@src/Model/Desktop/DesktopUpdateService';
 import {OfflineVersionsService} from '@src/Model/Desktop/OfflineVersionsService';
 import {WebLinkHandoffService} from '@src/Model/Desktop/WebLinkHandoffService';
 import {ConnectivityService} from '@src/Model/Network/ConnectivityService';
@@ -19,7 +16,7 @@ import {NotificationService} from '@src/Model/NotificationService';
 	selector: 'settings-desktop',
 	templateUrl: './SettingsDesktopComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
-	imports: [FormsModule, SettingsSectionComponent, InfoNoteComponent, DesktopDownloadComponent],
+	imports: [FormsModule, SettingsSectionComponent],
 	styles: [`
 		.offline-row {
 			display: flex;
@@ -54,7 +51,6 @@ export class SettingsDesktopComponent
 	public constructor(
 		@Optional() private readonly bridge: DesktopBridge | null,
 		protected readonly preferences: DesktopPreferencesService,
-		protected readonly updates: DesktopUpdateService,
 		protected readonly offlineVersions: OfflineVersionsService,
 		protected readonly handoff: WebLinkHandoffService,
 		protected readonly connectivity: ConnectivityService,

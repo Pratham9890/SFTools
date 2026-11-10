@@ -3,7 +3,6 @@ import {RouterOutlet} from '@angular/router';
 import {FaIconComponent} from '@fortawesome/angular-fontawesome';
 import {faPlugCircleXmark} from '@fortawesome/free-solid-svg-icons';
 import {HelpImageViewerComponent} from '@src/Components/Help/HelpImageViewerComponent';
-import {DesktopUpdateBannerComponent} from '@src/Components/Root/DesktopUpdateBannerComponent';
 import {OpenInDesktopComponent} from '@src/Components/Root/OpenInDesktopComponent';
 import {ServerStatusService} from '@src/Model/API/ServerStatusService';
 import {AnalyticsService} from '@src/Model/Analytics/AnalyticsService';
@@ -20,7 +19,6 @@ import {PageScrollbarService} from '@src/PageScrollbarService';
         RouterOutlet,
         FaIconComponent,
         HelpImageViewerComponent,
-        DesktopUpdateBannerComponent,
         OpenInDesktopComponent,
     ]
 })

@@ -1,0 +1,53 @@
+name: Desktop build (fork)
+
+# Builds an unsigned Windows installer of this fork and attaches it to the run.
+# The upstream CI's desktop jobs need the original author's signing keys and servers, so they don't run here.
+on:
+    push:
+        branches: [coop-planner-features]
+    workflow_dispatch:
+
+concurrency:
+    group: desktop-fork-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    windows:
+        runs-on: windows-latest
+        steps:
+            -   uses: actions/checkout@v5
+
+            -   uses: actions/setup-node@v5
+                with:
+                    node-version: 24
+                    cache: npm
+
+            -   run: npm ci
+
+            -   name: Create env.ts from env.prod.ts
+                shell: bash
+                run: cp src/env/env.prod.ts src/env/env.ts
+
+            -   name: Build the web app
+                run: npm run build
+
+            -   uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+
+            -   uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+                with:
+                    workspaces: desktop
+
+            -   name: Build the desktop app
+                shell: bash
+                run: npx tauri build --bundles nsis --config '{"version":"1.0.${{ github.run_number }}","build":{"beforeBuildCommand":""}}'
+
+            -   name: Upload the installer
+                uses: actions/upload-artifact@v7
+                with:
+                    name: satisfactory-tools-windows
+                    path: desktop/target/release/bundle/nsis/*-setup.exe
+                    if-no-files-found: error
+                    retention-days: 30
