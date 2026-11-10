@@ -48,6 +48,12 @@
 
 		<div class="text-secondary">{{ overLimitText }}</div>
 
+		@if (lineSplitCount > 0) {
+			<button type="button" class="btn btn-sm btn-outline-secondary align-self-start" (click)="splitIntoLines()">
+				Split {{ lineSplitCount }} {{ lineSplitCount === 1 ? 'connection' : 'connections' }} into lines
+			</button>
+		}
+
 		<div class="border-top border-secondary pt-2 d-flex flex-column gap-2">
 			<div class="fw-semibold">Belt management</div>
 

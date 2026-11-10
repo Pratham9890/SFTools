@@ -1,7 +1,8 @@
-import {faCompress, faExpand, faTrashCan} from '@fortawesome/free-solid-svg-icons';
+import {faArrowsSplitUpAndLeft, faCompress, faExpand, faTrashCan} from '@fortawesome/free-solid-svg-icons';
 import {ContextMenuItem} from '@src/Components/Planner/ContextMenu/ContextMenuItem';
 import {EdgeAmountAction} from '@src/Components/Planner/ContextMenu/EdgeAmountAction';
 import {PlannerContextMenu} from '@src/Components/Planner/ContextMenu/PlannerContextMenu';
+import {LineSplitMenuOptions} from '@src/Components/Planner/LineSplit/LineSplitMenuOptions';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
 import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 
@@ -13,6 +14,7 @@ export class EdgeContextMenu extends PlannerContextMenu
 		private readonly title: string,
 		private readonly minimise: EdgeAmountAction | null,
 		private readonly maximise: EdgeAmountAction | null,
+		private readonly lineSplit: LineSplitMenuOptions,
 		private readonly actions: PlannerActionsService,
 	)
 	{
@@ -29,6 +31,13 @@ export class EdgeContextMenu extends PlannerContextMenu
 		return [
 			this.amountItem('Minimise', faCompress, this.minimise),
 			this.amountItem('Maximise', faExpand, this.maximise),
+			{
+				label: 'Split into lines…',
+				icon: faArrowsSplitUpAndLeft,
+				disabled: this.lineSplit.disabled,
+				hint: this.lineSplit.hint,
+				action: () => this.actions.requestLineSplit({edgeIndex: this.lineSplit.edgeIndex}),
+			},
 			{
 				label: 'Delete connection',
 				icon: faTrashCan,

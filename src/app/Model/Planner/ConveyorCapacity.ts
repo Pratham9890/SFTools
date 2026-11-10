@@ -12,13 +12,16 @@ export class ConveyorCapacity
 		return isFluid ? ConveyorTiers.pipe(limit.pipeMark) : ConveyorTiers.belt(limit.beltMark);
 	}
 
+	/** Typed targets such as 10.6667 leave the solver a few millionths over a tier's rate: not an extra line. */
+	private static readonly ROUNDING = 1e-4;
+
 	/** Amounts just over a tier's rate come from rounding, not an extra line. */
 	public static countNeeded(amount: number, capacity: number): number
 	{
 		if (amount <= 0) {
 			return 0;
 		}
-		return Math.max(1, Math.ceil(amount / capacity - 1e-6));
+		return Math.max(1, Math.ceil(amount / capacity - ConveyorCapacity.ROUNDING));
 	}
 
 	public static label(limit: ConveyorLimit, isFluid: boolean, count: number): string

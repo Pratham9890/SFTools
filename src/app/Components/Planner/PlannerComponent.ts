@@ -8,6 +8,9 @@ import {PanelCodexNavigation} from '@src/Components/Codex/PanelCodexNavigation';
 import {AddNodeDialogComponent} from '@src/Components/Planner/AddNode/AddNodeDialogComponent';
 import {AddNodeFilter} from '@src/Components/Planner/AddNode/AddNodeFilter';
 import {BeltProposalRequest} from '@src/Components/Planner/BeltProposalRequest';
+import {LineSplitDialogComponent} from '@src/Components/Planner/LineSplit/LineSplitDialogComponent';
+import {LineSplitDialogState} from '@src/Components/Planner/LineSplit/LineSplitDialogState';
+import {LineSplitMenuOptions} from '@src/Components/Planner/LineSplit/LineSplitMenuOptions';
 import {OverclockDialogComponent} from '@src/Components/Planner/Overclock/OverclockDialogComponent';
 import {BlankContextMenu} from '@src/Components/Planner/ContextMenu/BlankContextMenu';
 import {EdgeAmountAction} from '@src/Components/Planner/ContextMenu/EdgeAmountAction';
@@ -66,6 +69,7 @@ import {OldToolsImportRequestService} from '@src/Model/OldTools/OldToolsImportRe
 import {OldToolsShareService} from '@src/Model/OldTools/OldToolsShareService';
 import {BeltProposal} from '@src/Model/Planner/BeltLayoutResult';
 import {CalculationMode} from '@src/Model/Planner/CalculationMode';
+import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {EnabledRecipesResolver} from '@src/Model/Planner/EnabledRecipesResolver';
 import {Graph} from '@src/Model/Planner/Graph/Graph';
 import {GraphComposer} from '@src/Model/Planner/Graph/GraphComposer';
@@ -78,6 +82,8 @@ import {GraphDirection} from '@src/Model/Planner/GraphDirection';
 import {GraphSnapshot} from '@src/Model/Planner/Graph/GraphSnapshot';
 import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphReconciler} from '@src/Model/Planner/Graph/GraphReconciler';
+import {LineSplitPlan} from '@src/Model/Planner/LineSplit';
+import {LineSplitter} from '@src/Model/Planner/LineSplitter';
 import {NodeResizer} from '@src/Model/Planner/NodeResizer';
 import {NodeTypeConverter} from '@src/Model/Planner/NodeTypeConverter';
 import {NodeSplitter} from '@src/Model/Planner/NodeSplitter';
@@ -126,7 +132,7 @@ const RATIO_TOLERANCE = 1e-4;
 
 @Component({
 	templateUrl: './PlannerComponent.html',
-	imports: [PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, OverclockDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
+	imports: [PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, OverclockDialogComponent, LineSplitDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
 	providers: [
 		FolderRecalculationService,
 		PlannerGraphService,
@@ -179,6 +185,11 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 	private readonly overclockNodeSignal = signal<RecipeNode | null>(null);
 	public readonly overclockNode = this.overclockNodeSignal.asReadonly();
+
+	private readonly lineSplitStateSignal = signal<LineSplitDialogState | null>(null);
+	public readonly lineSplitState = this.lineSplitStateSignal.asReadonly();
+
+	private readonly lineSplitter = new LineSplitter();
 
 	public constructor(
 		private readonly planManager: PlanManager,
@@ -390,6 +401,14 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 		this.subscription.add(
 			this.actions.nodeOverclockRequests.subscribe(node => this.overclockNodeSignal.set(node)),
+		);
+
+		this.subscription.add(
+			this.actions.lineSplitRequests.subscribe(request => this.openLineSplit(request.edgeIndex)),
+		);
+
+		this.subscription.add(
+			this.actions.lineSplitAllRequests.subscribe(() => this.applyAllLineSplits()),
 		);
 
 		this.subscription.add(
@@ -846,7 +865,8 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		let menu: PlannerContextMenu;
 		if (request.edge) {
 			const amounts = this.edgeAmountActions(request.edge);
-			menu = new EdgeContextMenu(request.edge, this.edgeMenuTitle(request.edge), amounts.minimise, amounts.maximise, this.actions);
+			menu = new EdgeContextMenu(request.edge, this.edgeMenuTitle(request.edge), amounts.minimise, amounts.maximise,
+				this.lineSplitOptions(request.edge), this.actions);
 		} else if (request.nodes.length === 0) {
 			menu = new BlankContextMenu(this.actions, request.local, this.planManager.activePlan() !== null);
 		} else if (request.nodes.length === 1) {
@@ -898,6 +918,32 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 				? {amount: upper, label: `Maximise (${this.rateFormatter.rate(upper, item)})`}
 				: null,
 		};
+	}
+
+	private lineSplitOptions(edge: GraphEdge): LineSplitMenuOptions
+	{
+		const graph = this.reviveActiveGraph();
+		const edgeIndex = graph?.edges.findIndex(candidate =>
+			candidate.sourceId === edge.sourceId
+			&& candidate.targetId === edge.targetId
+			&& candidate.itemClassName === edge.itemClassName) ?? -1;
+		if (this.planManager.activePlanReadOnly()) {
+			return {edgeIndex: Math.max(0, edgeIndex), disabled: true, hint: 'This plan is read-only'};
+		}
+		const data = this.versionManager.activeVersionData();
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		if (!graph || !data || edgeIndex < 0) {
+			return {edgeIndex: 0, disabled: true, hint: 'The connection is no longer available'};
+		}
+		if (limit === undefined) {
+			return {edgeIndex, disabled: true, hint: 'Set a belt limit in the Logistics tab first'};
+		}
+		const item = data.searchItemByClassName(edge.itemClassName) ?? null;
+		const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
+		const result = this.lineSplitter.plan(graph, edgeIndex, capacity, 'full', data);
+		return 'blocked' in result
+			? {edgeIndex, disabled: true, hint: result.blocked}
+			: {edgeIndex, disabled: false};
 	}
 
 	private nodeResizeOptions(node: Node): NodeResizeOptions
@@ -982,6 +1028,133 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.plannerGraph.restore(this.graphContainerRef.nativeElement, updated, false);
 		this.plannerGraph.selectNodesById(pieceIds);
 		this.planManager.setGraph(plan.id, updated, true);
+	}
+
+	private openLineSplit(edgeIndex: number): void
+	{
+		if (this.planManager.activePlanReadOnly()) {
+			return;
+		}
+		const plan = this.planManager.activePlan();
+		const data = this.versionManager.activeVersionData();
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		if (!plan?.graph || plan.id !== this.renderedPlanId || !data || limit === undefined) {
+			return;
+		}
+
+		let graph: Graph;
+		try {
+			graph = this.planSerializer.reviveGraph(plan.graph);
+		} catch (err) {
+			this.notifications.show('Could not open the line split: ' + String(err));
+			return;
+		}
+		const edge = graph.edges[edgeIndex];
+		if (!edge) {
+			return;
+		}
+
+		const item = data.searchItemByClassName(edge.itemClassName) ?? null;
+		const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
+		const result = this.lineSplitter.plan(graph, edgeIndex, capacity, 'full', data);
+		if ('blocked' in result) {
+			this.notifications.show(result.blocked);
+			return;
+		}
+		this.lineSplitStateSignal.set({graph, edgeIndex, capacity, data});
+	}
+
+	private onLineSplitApply(plan: LineSplitPlan): void
+	{
+		const state = this.lineSplitStateSignal();
+		this.lineSplitStateSignal.set(null);
+		if (state === null || this.planManager.activePlanReadOnly()) {
+			return;
+		}
+		const active = this.planManager.activePlan();
+		if (!active?.graph || active.id !== this.renderedPlanId) {
+			return;
+		}
+
+		let graph: Graph;
+		try {
+			graph = this.planSerializer.reviveGraph(active.graph);
+		} catch (err) {
+			this.notifications.show('Could not split into lines: ' + String(err));
+			return;
+		}
+		const result = this.lineSplitter.plan(graph, state.edgeIndex, state.capacity, plan.style, state.data);
+		if ('blocked' in result) {
+			this.notifications.show(result.blocked);
+			return;
+		}
+
+		// Snapshot before reconcile, which mutates edge amounts in place.
+		this.history.push(this.snapshotOf(active));
+
+		const reconciled = this.graphReconciler.reconcile(this.lineSplitter.apply(graph, result), result.sourceId);
+		const selectedIds = this.plannerGraph.selectedNodes().map(node => node.id);
+		this.plannerGraph.restore(this.graphContainerRef.nativeElement, reconciled, false);
+		this.plannerGraph.selectNodesById(selectedIds.length > 0
+			? selectedIds
+			: (result.sourceParts ?? []).map(node => node.id));
+		this.planManager.setGraph(active.id, reconciled, true);
+	}
+
+	private closeLineSplit(): void
+	{
+		this.lineSplitStateSignal.set(null);
+	}
+
+	/** One undo step for the whole batch: eligibility is recomputed after each split because ids and indices change. */
+	private applyAllLineSplits(): void
+	{
+		if (this.planManager.activePlanReadOnly()) {
+			return;
+		}
+		const plan = this.planManager.activePlan();
+		const data = this.versionManager.activeVersionData();
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		if (!plan?.graph || plan.id !== this.renderedPlanId || !data || limit === undefined) {
+			return;
+		}
+
+		let graph: Graph;
+		try {
+			graph = this.planSerializer.reviveGraph(plan.graph);
+		} catch (err) {
+			this.notifications.show('Could not split into lines: ' + String(err));
+			return;
+		}
+
+		const safetyLimit = graph.edges.length * 4;
+		let changed = false;
+		for (let step = 0; step < safetyLimit; step++) {
+			const eligible = this.lineSplitter.eligibleEdges(graph, limit, data);
+			if (eligible.length === 0) {
+				break;
+			}
+			const edge = graph.edges[eligible[0]];
+			const item = data.searchItemByClassName(edge.itemClassName) ?? null;
+			const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
+			const result = this.lineSplitter.plan(graph, eligible[0], capacity, 'full', data);
+			if ('blocked' in result) {
+				break;
+			}
+			if (!changed) {
+				this.history.push(this.snapshotOf(plan));
+				changed = true;
+			}
+			graph = this.graphReconciler.reconcile(this.lineSplitter.apply(graph, result), result.sourceId);
+		}
+		if (!changed) {
+			return;
+		}
+
+		const selectedIds = this.plannerGraph.selectedNodes().map(node => node.id);
+		this.plannerGraph.restore(this.graphContainerRef.nativeElement, graph, false);
+		this.plannerGraph.selectNodesById(selectedIds);
+		this.planManager.setGraph(plan.id, graph, true);
 	}
 
 	private applyNodeUpdate(updates: Node[]): void

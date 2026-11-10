@@ -26,6 +26,9 @@ interface BeltLineView
 
 	readonly to: string;
 
+	/** " · 2 splitters", or empty when this belt feeds at most one machine. */
+	readonly manifold: string;
+
 }
 
 interface BeltProposalView
@@ -57,7 +60,17 @@ interface BeltConnectionView
 
 }
 
-/** Read-only belt breakdown of the selected node's multi-belt connections. */
+interface BeltBreakdownView
+{
+
+	readonly connections: BeltConnectionView[];
+
+	/** "Manifold parts for this block: 2 splitters · 2 mergers", or null when the block needs none. */
+	readonly manifold: string | null;
+
+}
+
+/** Read-only belt breakdown of the selected node's connections with a belt plan. */
 @Component({
 	selector: 'node-belts',
 	templateUrl: './NodeBeltsComponent.html',
@@ -93,20 +106,22 @@ export class NodeBeltsComponent
 	{
 	}
 
-	public connections(): BeltConnectionView[]
+	public connections(): BeltBreakdownView
 	{
 		const settings = this.planManager.activeSettings();
 		const graph = this.planManager.activePlan()?.graph ?? null;
 		const data = this.versionManager.activeVersionData();
 		if (settings?.conveyorLimit === undefined || settings.beltLayout === undefined || graph === null || data === null) {
-			return [];
+			return {connections: [], manifold: null};
 		}
 
 		const nodeById = new Map(graph.nodes.map(node => [node.id, node]));
 		const connections: BeltConnectionView[] = [];
+		let splitters = 0;
+		let mergers = 0;
 		for (const [index, plan] of this.plannerGraph.beltPlan()) {
 			const edge = plan.edge;
-			if (plan.layout.belts.length < 2 || (edge.sourceId !== this.node.id && edge.targetId !== this.node.id)) {
+			if (edge.sourceId !== this.node.id && edge.targetId !== this.node.id) {
 				continue;
 			}
 			const source = nodeById.get(edge.sourceId);
@@ -120,10 +135,21 @@ export class NodeBeltsComponent
 			const capacityLabel = ConveyorCapacity.label(settings.conveyorLimit, plan.isFluid, plan.layout.belts.length);
 			const sourceTotals = NodeBeltsComponent.totals(plan.layout.belts.flatMap(belt => belt.parts));
 			const consumerTotals = NodeBeltsComponent.totals(plan.consumers.flat());
+			// This node is the source: its machines feed the belts through mergers; as the target they are fed through splitters.
+			const feeds = edge.sourceId === this.node.id;
+			const partCounts = plan.layout.belts.map((belt, beltIndex) => NodeBeltsComponent.machineCount(
+				feeds ? belt.parts : (plan.consumers[beltIndex] ?? []),
+			));
+			const manifoldParts = partCounts.reduce((sum, count) => sum + Math.max(0, count - 1), 0);
+			if (feeds) {
+				mergers += manifoldParts;
+			} else {
+				splitters += manifoldParts;
+			}
 			connections.push({
 				index,
 				lineName: plan.isFluid ? 'Pipe' : 'Belt',
-				header: edge.sourceId === this.node.id
+				header: feeds
 					? `Out: ${itemName} → ${target.getDisplayName()} · ${capacityLabel}`
 					: `In: ${itemName} ← ${source.getDisplayName()} · ${capacityLabel}`,
 				belts: plan.layout.belts.map((belt, beltIndex) => ({
@@ -132,12 +158,35 @@ export class NodeBeltsComponent
 					percent: Math.round(belt.fill * 100),
 					from: BeltPlanner.describe(belt.parts, source, sourceTotals, data),
 					to: BeltPlanner.describe(plan.consumers[beltIndex] ?? [], target, consumerTotals, data),
+					manifold: NodeBeltsComponent.manifoldText(partCounts[beltIndex], feeds ? 'merger' : 'splitter'),
 				})),
 				suggestion: proposal !== null ? this.suggestionFor(proposal, plan.layout, item) : null,
 				proposal: proposal !== null ? this.proposalFor(proposal, index, edge, graph.edges) : null,
 			});
 		}
-		return connections.sort((left, right) => left.index - right.index);
+		connections.sort((left, right) => left.index - right.index);
+		const total = splitters > 0 || mergers > 0
+			? `Manifold parts for this block: ${NodeBeltsComponent.partText(splitters, 'splitter')} · `
+				+ NodeBeltsComponent.partText(mergers, 'merger')
+			: null;
+		return {connections, manifold: total};
+	}
+
+	/** "· 2 splitters", or empty when the belt carries at most one machine. The last machine connects straight to the belt end. */
+	private static manifoldText(machines: number | undefined, noun: 'splitter' | 'merger'): string
+	{
+		const count = Math.max(0, (machines ?? 0) - 1);
+		return count > 0 ? ` · ${NodeBeltsComponent.partText(count, noun)}` : '';
+	}
+
+	private static partText(count: number, noun: string): string
+	{
+		return `${count} ${noun}${count === 1 ? '' : 's'}`;
+	}
+
+	private static machineCount(parts: readonly {unitId: string}[]): number
+	{
+		return new Set(parts.map(part => part.unitId)).size;
 	}
 
 	private suggestionFor(proposal: BeltProposal, layout: BeltLayoutResult, item: Item | null): string

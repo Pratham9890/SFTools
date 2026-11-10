@@ -27,6 +27,17 @@
 	></overclock-dialog>
 }
 
+@if (lineSplitState(); as state) {
+	<line-split-dialog
+		[graph]="state.graph"
+		[edgeIndex]="state.edgeIndex"
+		[capacity]="state.capacity"
+		[data]="state.data"
+		(applyPlan)="onLineSplitApply($event)"
+		(close)="closeLineSplit()"
+	></line-split-dialog>
+}
+
 @if (shareDialog.target(); as target) {
 	<plan-share-dialog [shareTarget]="target"></plan-share-dialog>
 }

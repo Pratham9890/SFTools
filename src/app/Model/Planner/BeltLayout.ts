@@ -35,6 +35,8 @@ export class BeltLayout
 			return {belts: [], changed: false, proposal: null};
 		}
 		const count = ConveyorCapacity.countNeeded(amount, capacity);
+		// The belt count forgives rounding, so let the belts hold those last millionths instead of spilling them.
+		capacity = Math.max(capacity, amount / count);
 		const normalized = BeltLayout.normalize(units, amount);
 		const rate = ratePerMachineAt100 !== undefined && ratePerMachineAt100 > 0 ? ratePerMachineAt100 : null;
 		const clockLimit = maxClock !== undefined && maxClock > 0 ? maxClock : null;

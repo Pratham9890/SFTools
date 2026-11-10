@@ -1,11 +1,11 @@
-@if (connections(); as connections) {
-	@if (connections.length > 0) {
+@if (connections(); as view) {
+	@if (view.connections.length > 0) {
 		<div class="card">
 			<div class="card-header d-flex align-items-center gap-2 py-1 px-2">
 				<span class="fw-semibold flex-grow-1 text-truncate">Belts</span>
 			</div>
 			<div class="card-body p-2 d-flex flex-column gap-2">
-				@for (connection of connections; track connection.index) {
+				@for (connection of view.connections; track connection.index) {
 					<div class="d-flex flex-column gap-1">
 						<div class="small fw-semibold">{{ connection.header }}</div>
 						@for (belt of connection.belts; track belt.index) {
@@ -24,7 +24,12 @@
 										<div class="progress-bar" [style.width.%]="belt.percent"></div>
 									</div>
 								</div>
-								<div class="small text-secondary">from {{ belt.from }} · to {{ belt.to }}</div>
+								<div class="small text-secondary">
+									<span>from {{ belt.from }} · to {{ belt.to }}</span>
+									@if (belt.manifold) {
+										<span>{{ belt.manifold }}</span>
+									}
+								</div>
 							</div>
 						}
 						@if (connection.proposal; as proposal) {
@@ -41,6 +46,12 @@
 							</div>
 						}
 					</div>
+				}
+				@if (view.manifold; as manifold) {
+					<div
+						class="small text-secondary border-top pt-1"
+						title="Minimum for a manifold: one splitter or merger per machine, except the last one on each belt."
+					>{{ manifold }}</div>
 				}
 			</div>
 		</div>

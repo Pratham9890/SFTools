@@ -5,6 +5,7 @@ import {GraphConnectToBlankRequest} from '@src/Components/Planner/GraphConnectTo
 import {GraphEdgeAddRequest} from '@src/Components/Planner/GraphEdgeAddRequest';
 import {GraphEdgeAmountRequest} from '@src/Components/Planner/GraphEdgeAmountRequest';
 import {FuelDisableRequest} from '@src/Components/Planner/FuelDisableRequest';
+import {LineSplitRequest} from '@src/Components/Planner/LineSplit/LineSplitRequest';
 import {NodeDoneRequest} from '@src/Components/Planner/NodeDoneRequest';
 import {NodeLockRequest} from '@src/Components/Planner/NodeLockRequest';
 import {NodeSplitRequest} from '@src/Components/Planner/NodeSplitRequest';
@@ -66,6 +67,14 @@ export class PlannerActionsService
 
 	private readonly nodeSplitSubject = new Subject<NodeSplitRequest>();
 	public readonly nodeSplitRequests: Observable<NodeSplitRequest> = this.nodeSplitSubject.asObservable();
+
+	private readonly lineSplitSubject = new Subject<LineSplitRequest>();
+	/** Opens the line-split dialog for one connection. */
+	public readonly lineSplitRequests: Observable<LineSplitRequest> = this.lineSplitSubject.asObservable();
+
+	private readonly lineSplitAllSubject = new Subject<void>();
+	/** Splits every eligible connection into lines as one undo step. */
+	public readonly lineSplitAllRequests: Observable<void> = this.lineSplitAllSubject.asObservable();
 
 	private readonly nodeDeleteSubject = new Subject<string[]>();
 	public readonly nodeDeleteRequests: Observable<string[]> = this.nodeDeleteSubject.asObservable();
@@ -204,6 +213,16 @@ export class PlannerActionsService
 	public requestNodeSplit(request: NodeSplitRequest): void
 	{
 		this.nodeSplitSubject.next(request);
+	}
+
+	public requestLineSplit(request: LineSplitRequest): void
+	{
+		this.lineSplitSubject.next(request);
+	}
+
+	public requestLineSplitAll(): void
+	{
+		this.lineSplitAllSubject.next();
 	}
 
 	public requestNodeDelete(nodeIds: string[]): void
