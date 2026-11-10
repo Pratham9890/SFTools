@@ -210,26 +210,22 @@ export class LineSplitter
 					continue;
 				}
 
-				// Each incoming connection becomes its own line, cut into belts first if it is over the limit itself.
-				const rate = this.machineRate(node, item, 'input');
-				const flows: number[] = [];
-				const fixed = new Map<number, GraphEdge[]>();
-				const pending: {index: number; line: number; amount: number}[] = [];
-				for (const index of indices) {
-					const edge = graph.edges[index];
-					LineSplitter.lineFlows(edge.amount, capacity, rate, mode).forEach(flow => {
-						pending.push({index, line: flows.length, amount: flow});
-						flows.push(flow);
-					});
+				// Incoming connections are packed onto as few belts as possible, so small pieces share a line instead of each getting its own buildings.
+				// Bins are whole belts: a belt feeding 4.5 machines' worth stays one line, its last machine underclocked.
+				const lines = LineSplitter.pack(indices.map(index => ({index, amount: graph.edges[index].amount})), capacity);
+				if (lines.length < 2) {
+					continue;
 				}
+				const flows = lines.map(line => line.reduce((sum, piece) => sum + piece.amount, 0));
+				const fixed = new Map<number, GraphEdge[]>();
 				const other = graph.nodes.find(candidate => candidate.id === graph.edges[indices[0]].sourceId) ?? node;
 				const parts = this.parts(node, flows, total, mode, LineSplitter.stackAlongX(other, node));
-				pending.forEach(({index, line, amount}) => {
+				lines.forEach((line, lineIndex) => line.forEach(({index, amount}) => {
 					const edge = graph.edges[index];
 					const pieces = fixed.get(index) ?? [];
-					pieces.push({sourceId: edge.sourceId, targetId: parts[line].id, itemClassName: edge.itemClassName, amount});
+					pieces.push({sourceId: edge.sourceId, targetId: parts[lineIndex].id, itemClassName: edge.itemClassName, amount});
 					fixed.set(index, pieces);
-				});
+				}));
 				return this.rewrite(graph, new Map([[node.id, {parts, shares: flows.map(flow => flow / total)}]]), fixed);
 			}
 		}
@@ -391,6 +387,37 @@ export class LineSplitter
 		return mode === 'clock-equally'
 			? LineSplitter.evenFlows(amount, capacity)
 			: LineSplitter.fullFlows(amount, capacity, machineRate);
+	}
+
+	/** First-fit decreasing: connections stay whole where they fit, ones over a line are cut into full lines first. */
+	private static pack(items: readonly {index: number; amount: number}[], perLine: number): {index: number; amount: number}[][]
+	{
+		const pieces: {index: number; amount: number}[] = [];
+		items.forEach(({index, amount}) => {
+			let left = amount;
+			while (left > perLine * (1 + 1e-6) + LineSplitter.NOISE) {
+				pieces.push({index, amount: perLine});
+				left -= perLine;
+			}
+			if (left > LineSplitter.NOISE) {
+				pieces.push({index, amount: left});
+			}
+		});
+		pieces.sort((a, b) => b.amount - a.amount);
+
+		const lines: {index: number; amount: number}[][] = [];
+		const loads: number[] = [];
+		pieces.forEach(piece => {
+			const fit = loads.findIndex(load => load + piece.amount <= perLine * (1 + 1e-6) + LineSplitter.NOISE);
+			if (fit < 0) {
+				lines.push([piece]);
+				loads.push(piece.amount);
+			} else {
+				lines[fit].push(piece);
+				loads[fit] += piece.amount;
+			}
+		});
+		return lines;
 	}
 
 	private static evenFlows(amount: number, capacity: number): number[]
