@@ -6,7 +6,11 @@ use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 
 pub fn storage_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-	let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("sftools-data");
+	let base = match crate::portable::data_dir() {
+		Some(dir) => dir,
+		None => app.path().app_data_dir().map_err(|e| e.to_string())?,
+	};
+	let dir = base.join("sftools-data");
 	fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 	Ok(dir)
 }

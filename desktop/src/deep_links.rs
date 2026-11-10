@@ -58,6 +58,11 @@ pub fn page_loading(app: &AppHandle) {
 /// AppImage, whose path changes with every update, reachable.
 #[tauri::command]
 pub fn deep_link_set_enabled(app: AppHandle, enabled: bool) -> Result<(), String> {
+	// Portable copies leave the registry alone: the link would point at wherever this folder happens to be.
+	if crate::portable::data_dir().is_some() {
+		let _ = (app, enabled);
+		return Ok(());
+	}
 	#[cfg(any(windows, target_os = "linux"))]
 	{
 		let result = if enabled {

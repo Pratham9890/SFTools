@@ -3,6 +3,7 @@ mod deep_links;
 mod exports;
 mod links;
 mod opened_files;
+mod portable;
 mod state;
 mod storage;
 mod updates;
@@ -105,7 +106,12 @@ pub fn run() {
 			config.title = name;
 			let handle = app.handle().clone();
 			let new_window_handle = app.handle().clone();
-			WebviewWindowBuilder::from_config(app.handle(), &config)?
+			let mut builder = WebviewWindowBuilder::from_config(app.handle(), &config)?;
+			if let Some(dir) = portable::data_dir() {
+				// The webview's storage would otherwise go to the user's local app data folder.
+				builder = builder.data_directory(dir.join("webview"));
+			}
+			builder
 				.on_navigation(move |url| links::allow_navigation(&handle, url))
 				.on_new_window(move |url, _features| links::deny_new_window(&new_window_handle, url))
 				.on_page_load(|window, payload| {

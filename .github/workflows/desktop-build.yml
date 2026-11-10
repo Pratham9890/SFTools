@@ -1,6 +1,6 @@
 name: Desktop build (fork)
 
-# Builds an unsigned Windows installer of this fork and attaches it to the run.
+# Builds an unsigned Windows installer and a portable zip of this fork and attaches them to the run.
 # The upstream CI's desktop jobs need the original author's signing keys and servers, so they don't run here.
 on:
     push:
@@ -49,5 +49,23 @@ jobs:
                 with:
                     name: satisfactory-tools-windows
                     path: desktop/target/release/bundle/nsis/*-setup.exe
+                    if-no-files-found: error
+                    retention-days: 30
+
+            # Portable: the same app with a "portable" marker next to it, so it keeps everything in a data folder beside the exe.
+            -   name: Pack the portable version
+                shell: pwsh
+                run: |
+                    $dir = Join-Path $env:RUNNER_TEMP 'Satisfactory Tools Portable'
+                    New-Item -ItemType Directory -Path $dir | Out-Null
+                    Copy-Item desktop/target/release/satisfactory-tools.exe $dir
+                    Set-Content -Path (Join-Path $dir 'portable') -Value 'This file keeps all data in the data folder next to satisfactory-tools.exe. Delete it to use the normal per-user folders.'
+                    Compress-Archive -Path $dir -DestinationPath satisfactory-tools-portable.zip
+
+            -   name: Upload the portable version
+                uses: actions/upload-artifact@v7
+                with:
+                    name: satisfactory-tools-portable
+                    path: satisfactory-tools-portable.zip
                     if-no-files-found: error
                     retention-days: 30

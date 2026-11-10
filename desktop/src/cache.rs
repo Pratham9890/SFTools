@@ -23,7 +23,11 @@ pub fn image_base() -> &'static str {
 }
 
 fn cache_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-	Ok(app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("sftools-cache"))
+	let base = match crate::portable::data_dir() {
+		Some(dir) => dir,
+		None => app.path().app_local_data_dir().map_err(|e| e.to_string())?,
+	};
+	Ok(base.join("sftools-cache"))
 }
 
 /// Answers fetched while signed in (OfflineCacheKey ends those keys with " account") live apart,
