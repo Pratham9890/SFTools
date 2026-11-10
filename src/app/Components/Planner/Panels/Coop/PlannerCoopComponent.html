@@ -90,7 +90,8 @@
 						<li class="part" [class.done]="row.done" [style.border-left-color]="row.holder?.color ?? 'transparent'">
 							<game-icon [hash]="row.icon" [size]="22" [alt]="row.detail"></game-icon>
 							<div class="flex-grow-1 min-w-0">
-								<div class="text-truncate" [title]="row.name">{{ rateFormatter.amount(row.buildings) }}× {{ row.name }}</div>
+								<!-- A resource node without a miner setup has no building count to show. -->
+								<div class="text-truncate" [title]="row.name">@if (row.buildings > 0) {{{ rateFormatter.amount(row.buildings) }}×&ngsp;}{{ row.name }}</div>
 								<div class="small text-secondary text-truncate">
 									{{ row.detail }}
 									@if (row.holder; as holder) {
