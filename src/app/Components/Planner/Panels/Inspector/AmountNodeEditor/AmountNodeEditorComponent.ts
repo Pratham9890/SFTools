@@ -10,6 +10,7 @@ import {ClockSpeedInputComponent} from '@src/Components/Planner/Panels/Calculato
 import {Subject, Subscription} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
+import {NodeBeltsComponent} from '@src/Components/Planner/Panels/Inspector/NodeBelts/NodeBeltsComponent';
 import {Building} from '@src/Model/Data/Entities/Building';
 import {Item} from '@src/Model/Data/Entities/Item';
 import {VersionManager} from '@src/Model/Data/VersionManager';
@@ -50,7 +51,7 @@ const TYPE_LABELS: Record<string, string> = {
 	selector: 'amount-node-editor',
 	templateUrl: './AmountNodeEditorComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
-	imports: [FormsModule, FaIconComponent, AppTooltipDirective, GameIconComponent, InfoNoteComponent, ClockSpeedInputComponent, GoToNodeButtonComponent],
+	imports: [FormsModule, FaIconComponent, AppTooltipDirective, GameIconComponent, InfoNoteComponent, ClockSpeedInputComponent, GoToNodeButtonComponent, NodeBeltsComponent],
 	styles: [`
 		.extractors-table {
 			display: flex;

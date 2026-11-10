@@ -644,9 +644,12 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			}),
 		);
 
-		// Belt and pipe limits only change the labels: no solve, no layout. After the render above, so a plan switch lands first.
+		// Belt and pipe limits and belt layout modes only change the labels: no solve, no layout. After the render above, so a plan switch lands first.
 		this.subscription.add(
-			toObservable(computed(() => this.planManager.activePlan()?.settings.conveyorLimit)).pipe(pairwise())
+			toObservable(computed(() => {
+				const settings = this.planManager.activePlan()?.settings;
+				return JSON.stringify([settings?.conveyorLimit ?? null, settings?.beltLayout ?? null]);
+			})).pipe(pairwise())
 				.subscribe(() => this.applyConveyorLimit()),
 		);
 
@@ -1696,7 +1699,12 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		const hasSetup = this.planManager.activePlan()?.graph?.nodes
 			.some(node => (node as {extractors?: unknown[]}).extractors?.length) ?? false;
 		if (hasSetup) {
+			// A redraw clears the selection; keep it so the inspector stays on the node being looked at.
+			const selectedIds = this.plannerGraph.selectedNodes().map(node => node.id);
 			this.restyleGraph();
+			if (selectedIds.length > 0) {
+				this.plannerGraph.selectNodesById(selectedIds);
+			}
 		} else {
 			this.plannerGraph.refreshConveyorLimits();
 		}

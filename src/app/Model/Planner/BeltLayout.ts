@@ -1,5 +1,5 @@
 import {BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
-import {Belt, BeltLayoutResult, BeltPart, BeltProposal, BeltUnit} from '@src/Model/Planner/BeltLayoutResult';
+import {Belt, BeltConsumerPart, BeltLayoutResult, BeltPart, BeltProposal, BeltUnit} from '@src/Model/Planner/BeltLayoutResult';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 
 interface BeltBin
@@ -68,6 +68,43 @@ export class BeltLayout
 			changed: proposal !== null && rate !== null && BeltLayout.changesLayout(belts, proposal, rate),
 			proposal,
 		};
+	}
+
+	/**
+	 * Pours consumer machines onto belts in order: each draws its rate from the current belt, then continues on the next.
+	 * A machine larger than the remaining belt room therefore has a part on each belt it straddles.
+	 */
+	public static assignConsumers(belts: readonly Belt[], consumers: readonly BeltUnit[]): BeltConsumerPart[][]
+	{
+		const parts: BeltConsumerPart[][] = belts.map(() => []);
+		let beltIndex = 0;
+		let beltRemaining = belts.length > 0 ? belts[0].load : 0;
+		for (const consumer of consumers) {
+			let remaining = consumer.rate;
+			while (remaining > BeltLayout.EPSILON && beltIndex < belts.length) {
+				while (beltRemaining <= BeltLayout.EPSILON && beltIndex < belts.length) {
+					beltIndex++;
+					beltRemaining = beltIndex < belts.length ? belts[beltIndex].load : 0;
+				}
+				if (beltIndex >= belts.length) {
+					break;
+				}
+				const take = Math.min(remaining, beltRemaining);
+				if (!(take > 0)) {
+					break;
+				}
+				const beltParts = parts[beltIndex];
+				const last = beltParts[beltParts.length - 1];
+				if (last !== undefined && last.unitId === consumer.id) {
+					beltParts[beltParts.length - 1] = {unitId: consumer.id, rate: last.rate + take};
+				} else {
+					beltParts.push({unitId: consumer.id, rate: take});
+				}
+				beltRemaining -= take;
+				remaining -= take;
+			}
+		}
+		return parts;
 	}
 
 	private static normalize(units: readonly BeltUnit[], amount: number): BeltUnit[]

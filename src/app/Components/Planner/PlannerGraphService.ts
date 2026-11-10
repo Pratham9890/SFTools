@@ -28,6 +28,7 @@ import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphLayoutResolver} from '@src/Model/Planner/GraphLayoutResolver';
 import {GraphLayoutSettings} from '@src/Model/Planner/GraphLayoutSettings';
+import {BeltGraphPlan, BeltPlanner} from '@src/Model/Planner/BeltPlanner';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
 import {GraphMetrics} from '@src/Model/Planner/Graph/GraphMetrics';
@@ -433,6 +434,7 @@ export class PlannerGraphService implements OnDestroy
 	private readonly pendingZChanges = new Map<string, {cell: Cell; zIndex: number | null}>();
 	private zChangeScheduled = false;
 	private parallelOffsets = new Map<GraphEdge, GraphPoint>();
+	private renderedGraph: Graph | null = null;
 
 	private readonly selectedNodesSignal = signal<Node[]>([]);
 	public readonly selectedNodes: Signal<Node[]> = this.selectedNodesSignal.asReadonly();
@@ -443,6 +445,10 @@ export class PlannerGraphService implements OnDestroy
 	private readonly edgesSignal = signal<GraphEdge[]>([]);
 	/** The edges of the rendered graph, for readers outside the canvas such as the status bar. */
 	public readonly edges: Signal<GraphEdge[]> = this.edgesSignal.asReadonly();
+
+	private readonly beltPlanSignal = signal<BeltGraphPlan>(new Map());
+	/** The belt layout of the rendered graph, keyed by edge index. Empty unless belt management is on. */
+	public readonly beltPlan: Signal<BeltGraphPlan> = this.beltPlanSignal.asReadonly();
 
 	private readonly contextMenuSubject = new Subject<GraphContextMenuRequest>();
 	public readonly contextMenuRequests: Observable<GraphContextMenuRequest> = this.contextMenuSubject.asObservable();
@@ -510,6 +516,8 @@ export class PlannerGraphService implements OnDestroy
 	{
 		if (response.nodes.length === 0) {
 			this.createGraph(container);
+			this.renderedGraph = null;
+			this.beltPlanSignal.set(new Map());
 			return {nodes: [], edges: []};
 		}
 
@@ -600,6 +608,8 @@ export class PlannerGraphService implements OnDestroy
 		this.warningsById = this.reconciler.computeWarnings(graph);
 		this.addExtractorWarnings(this.warningsById, graph);
 		const x6Graph = this.createGraph(container);
+		this.renderedGraph = graph;
+		this.refreshBeltPlan(graph);
 
 		// Before addEdge, so edges between done nodes fade too.
 		this.doneNodeIds = new Set(graph.nodes.filter(node => node.done).map(node => node.id));
@@ -652,6 +662,8 @@ export class PlannerGraphService implements OnDestroy
 		this.selectedNodesSignal.set([]);
 		this.warningEntriesSignal.set([]);
 		this.edgesSignal.set([]);
+		this.renderedGraph = null;
+		this.beltPlanSignal.set(new Map());
 	}
 
 	public nodeSize(node: Node): {width: number; height: number}
@@ -1650,7 +1662,7 @@ export class PlannerGraphService implements OnDestroy
 
 	private addEdge(x6Graph: X6Graph, edge: GraphEdge, index: number): void
 	{
-		const label = this.labelTextFor(edge);
+		const label = this.labelTextFor(edge, index);
 		const size = this.labelSizeFor(label);
 		const id = `edge-${index}`;
 		this.edgeById.set(id, edge);
@@ -1774,16 +1786,31 @@ export class PlannerGraphService implements OnDestroy
 		return this.versionManager.activeVersionData()?.searchItemByClassName(edge.itemClassName) ?? null;
 	}
 
-	private labelTextFor(edge: GraphEdge): {name: string; rate: string; iconUrl: string | null}
+	private labelTextFor(edge: GraphEdge, index?: number): {name: string; rate: string; iconUrl: string | null}
 	{
 		const item = this.itemFor(edge);
 		const rate = this.rateFormatter.rate(edge.amount, item);
 		const overLimit = this.overLimitLabelFor(edge, item);
+		const fills = this.beltFillsLabelFor(index);
+		const suffix = [overLimit, fills].filter((part): part is string => part !== null).join(' · ');
 		return {
 			name: this.wrapLabelName(item?.name ?? edge.itemClassName),
-			rate: overLimit === null ? rate : `${rate} · ${overLimit}`,
+			rate: suffix === '' ? rate : `${rate} · ${suffix}`,
 			iconUrl: this.iconUrls.url(item?.icon ?? null, 64),
 		};
+	}
+
+	/** One-belt connections keep today's label; multi-belt ones gain each belt's fill, e.g. "100/100/100/25%". */
+	private beltFillsLabelFor(index: number | undefined): string | null
+	{
+		if (index === undefined) {
+			return null;
+		}
+		const plan = this.beltPlanSignal().get(index);
+		if (plan === undefined || plan.layout.belts.length < 2) {
+			return null;
+		}
+		return `${plan.layout.belts.map(belt => Math.round(belt.fill * 100)).join('/')}%`;
 	}
 
 	/** Appended to the rate label only when the connection needs more than one line. */
@@ -1805,12 +1832,13 @@ export class PlannerGraphService implements OnDestroy
 			: EDGE_STROKE;
 	}
 
-	/** Re-labels the rendered edges in place: a limit change must not re-solve or re-lay out the graph. */
+	/** Re-labels the rendered edges in place: a limit or belt-mode change must not re-solve or re-lay out the graph. */
 	public refreshConveyorLimits(): void
 	{
 		if (!this.x6Graph) {
 			return;
 		}
+		this.refreshBeltPlan(this.renderedGraph);
 		const scale = this.edgeScale();
 		const boxPad = this.settings.graph().showEdgeLabelBoxes ? LABEL_BOX_PILL_PAD * scale : 0;
 		this.x6Graph.getEdges().forEach(cell => {
@@ -1818,13 +1846,29 @@ export class PlannerGraphService implements OnDestroy
 			if (edge === undefined) {
 				return;
 			}
-			const label = this.labelTextFor(edge);
+			const index = this.renderedGraph?.edges.indexOf(edge);
+			const label = this.labelTextFor(edge, index !== undefined && index >= 0 ? index : undefined);
 			const size = this.labelSizeFor(label);
 			cell.prop('labels/0/attrs/rate/text', label.rate);
 			cell.prop('labels/0/attrs/rect/x', -size.width / 2 - boxPad);
 			cell.prop('labels/0/attrs/rect/width', size.width + boxPad * 2);
 			this.applyEdgeStyle(cell as X6Edge);
 		});
+	}
+
+	/** Recomputes the cached plan for the rendered graph; labels and the inspector both read the same map. */
+	private refreshBeltPlan(graph: Graph | null): void
+	{
+		const settings = this.planManager.activeSettings();
+		const data = this.versionManager.activeVersionData();
+		if (graph === null
+			|| settings?.conveyorLimit === undefined
+			|| settings.beltLayout === undefined
+			|| data === null) {
+			this.beltPlanSignal.set(new Map());
+			return;
+		}
+		this.beltPlanSignal.set(BeltPlanner.planGraph(graph, settings.conveyorLimit, settings.beltLayout, data));
 	}
 
 	private labelSizeFor(label: {name: string; rate: string; iconUrl: string | null}): {width: number; height: number}

@@ -11,6 +11,7 @@ import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
 import {GoToNodeButtonComponent} from '@src/Components/Planner/Panels/GoToNode/GoToNodeButtonComponent';
 import {ClockSpeedInputComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Overclocking/ClockSpeedInputComponent';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
+import {NodeBeltsComponent} from '@src/Components/Planner/Panels/Inspector/NodeBelts/NodeBeltsComponent';
 import {GroupingModeOption} from '@src/Components/Planner/Panels/Inspector/RecipeNodeEditor/GroupingModeOption';
 import {IORateDraft} from '@src/Components/Planner/Panels/Inspector/RecipeNodeEditor/IORateDraft';
 import {MachineGroupDraft} from '@src/Components/Planner/Panels/Inspector/RecipeNodeEditor/MachineGroupDraft';
@@ -30,7 +31,7 @@ const APPLY_DEBOUNCE_MS = 400;
 	selector: 'recipe-node-editor',
 	templateUrl: './RecipeNodeEditorComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
-	imports: [FormsModule, FaIconComponent, BsDropdownModule, AppTooltipDirective, GameIconComponent, InfoNoteComponent, ClockSpeedInputComponent, HelpButtonComponent, GoToNodeButtonComponent],
+	imports: [FormsModule, FaIconComponent, BsDropdownModule, AppTooltipDirective, GameIconComponent, InfoNoteComponent, ClockSpeedInputComponent, HelpButtonComponent, GoToNodeButtonComponent, NodeBeltsComponent],
 	styles: [`
 		@container panel (max-width: 300px) {
 			.groups-table td.stack-grow {

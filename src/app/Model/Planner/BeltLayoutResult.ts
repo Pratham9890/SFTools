@@ -18,6 +18,17 @@ export interface BeltPart
 
 }
 
+/** One consumer machine's draw from a belt; a machine straddling two belts has a part on each. */
+export interface BeltConsumerPart
+{
+
+	readonly unitId: string;
+
+	/** This unit's draw on this belt. */
+	readonly rate: number;
+
+}
+
 export interface Belt
 {
 
