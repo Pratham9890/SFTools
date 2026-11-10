@@ -30,7 +30,8 @@ export abstract class SyncableService<T> implements OnDestroy
 	private readonly subscription = new Subscription();
 
 	protected constructor(
-		protected readonly authService: AuthService,
+		/** Usually AuthService; the plan manager also counts being in a co-op space as signed in. */
+		protected readonly authService: Pick<AuthService, 'isAuthenticated'>,
 		protected readonly localBackend: DataBackend<T>,
 		protected readonly remoteBackend: DataBackend<T> | null,
 		private readonly conflictResolver: ConflictResolver<T>,

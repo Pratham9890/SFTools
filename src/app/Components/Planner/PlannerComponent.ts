@@ -689,6 +689,17 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			this.planManager.scrubbedGraphs.subscribe(planIds => this.refreshScrubbedGraph(planIds)),
 		);
 
+		// Undo would put back this side's older copy over what the other player saved.
+		this.subscription.add(
+			this.planManager.remoteChanged.subscribe(planIds => {
+				const id = this.planManager.activePlanId();
+				if (id !== null && planIds.includes(id)) {
+					this.history.clear();
+					this.refreshScrubbedGraph(planIds);
+				}
+			}),
+		);
+
 		this.subscription.add(
 			this.folderRecalculation.graphReplaced.subscribe(planId => this.refreshScrubbedGraph([planId])),
 		);

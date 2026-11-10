@@ -30,6 +30,7 @@
 		"@fortawesome/free-brands-svg-icons": "^7.2.0",
 		"@fortawesome/free-regular-svg-icons": "^7.2.0",
 		"@fortawesome/free-solid-svg-icons": "^7.2.0",
+		"@supabase/realtime-js": "2.118.0",
 		"bootstrap": "^5.3.8",
 		"elkjs": "^0.11.1",
 		"highs": "^1.14.2",

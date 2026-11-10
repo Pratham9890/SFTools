@@ -2,6 +2,9 @@ import {Injectable, Optional, Signal, computed, signal} from '@angular/core';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {Observable, Subject, distinctUntilChanged, filter, map, skip} from 'rxjs';
 import {AuthService} from '@src/Model/Auth/AuthService';
+import {CoopApi} from '@src/Model/Coop/CoopApi';
+import {CoopPlanBackend, CoopRemoteUpdate} from '@src/Model/Coop/CoopPlanBackend';
+import {CoopSession} from '@src/Model/Coop/CoopSession';
 import {FoldersApiService} from '@src/Model/API/FoldersApiService';
 import {PlansApiService} from '@src/Model/API/PlansApiService';
 import {VersionManager} from '@src/Model/Data/VersionManager';
@@ -101,9 +104,12 @@ export class PlanManager extends SyncableService<PlanStore>
 	public readonly localPlans: Signal<Plan[]> = computed(() => this.localStoreSignal().plans);
 	public readonly localFolders: Signal<Folder[]> = computed(() => this.localStoreSignal().folders);
 	public readonly localPlanTree: Signal<PlanTree> = computed(() => this.buildTree(this.localStoreSignal()));
+	/** Signed in to an account or in a co-op space: either way the main list is not this device's. */
 	public readonly isAuthenticated: Signal<boolean> = computed(() => this.authService.isAuthenticated());
+	public readonly inCoopSpace: Signal<boolean> = computed(() => this.coop.active());
 
 	private readonly localPlanBackend: LocalPlanStoreBackend;
+	private readonly coopBackend: CoopPlanBackend;
 
 	private readonly loadedVersionIdSignal = signal<string | null>(null);
 
@@ -114,6 +120,10 @@ export class PlanManager extends SyncableService<PlanStore>
 	});
 
 	private readonly scrubbedGraphsSubject = new Subject<string[]>();
+
+	/** Plans another player changed; an open one is redrawn from the store. */
+	private readonly remoteChangedSubject = new Subject<string[]>();
+	public readonly remoteChanged: Observable<string[]> = this.remoteChangedSubject.asObservable();
 	public readonly scrubbedGraphs: Observable<string[]> = this.scrubbedGraphsSubject.asObservable();
 
 	/** Plans imported after a version switch but before this fires are wiped by the reload. */
@@ -132,6 +142,8 @@ export class PlanManager extends SyncableService<PlanStore>
 		storage: AppStorage,
 		connectivity: ConnectivityService,
 		@Optional() desktop: DesktopBridge | null,
+		private readonly coop: CoopSession,
+		coopApi: CoopApi,
 	)
 	{
 		const localBackend = new LocalPlanStoreBackend(storage, versionManager, plannerLocation);
@@ -148,21 +160,45 @@ export class PlanManager extends SyncableService<PlanStore>
 			notifications,
 			'plans',
 		);
+		// The co-op backend reads the store back, which only exists after super().
+		const self: {manager: PlanManager | null} = {manager: null};
+		const coopBackend = new CoopPlanBackend(coopApi, coop, versionManager, notifications, () => self.manager?.data() ?? EMPTY_STORE);
+		// A co-op space wins over an account while both are on.
+		const switchingBackend: DataBackend<PlanStore> = {
+			load: () => (coop.active() ? coopBackend : remoteBackend).load(),
+			save: data => (coop.active() ? coopBackend : remoteBackend).save(data),
+			clear: () => (coop.active() ? coopBackend : remoteBackend).clear(),
+		};
+		const session = {isAuthenticated: computed(() => authService.isAuthenticated() || coop.active())};
 		super(
-			authService,
+			session,
 			localBackend,
-			remoteBackend,
+			switchingBackend,
 			new UseLocalConflictResolver<PlanStore>(),
 			EMPTY_STORE,
 			notifications,
 			'plans',
 		);
 		this.localPlanBackend = localBackend;
+		self.manager = this;
+		this.coopBackend = coopBackend;
+		coopBackend.updates.subscribe(update => this.applyCoopUpdate(update));
+		// Joining or leaving a space while signed in to an account changes nothing the base class watches.
+		toObservable(coop.active).pipe(distinctUntilChanged(), skip(1)).subscribe(() => {
+			if (authService.isAuthenticated()) {
+				this.activePlanIdSignal.set(null);
+				this.activeFolderIdSignal.set(null);
+				this.onLogin();
+			}
+		});
+		if (typeof window !== 'undefined') {
+			window.addEventListener('beforeunload', () => coopBackend.flush());
+		}
 		// A localStorage load settles synchronously inside super(), before onLoaded can reach the signal.
 		if (this.loaded()) {
 			this.loadedVersionIdSignal.set(versionManager.activeVersion()?.id ?? null);
 		}
-		if (authService.isAuthenticated()) {
+		if (session.isAuthenticated()) {
 			this.refreshLocalStore();
 		}
 
@@ -177,7 +213,7 @@ export class PlanManager extends SyncableService<PlanStore>
 				this.activeFolderIdSignal.set(null);
 			}
 			this.reload();
-			if (authService.isAuthenticated()) {
+			if (session.isAuthenticated()) {
 				this.refreshLocalStore();
 			}
 		});
@@ -1352,6 +1388,35 @@ export class PlanManager extends SyncableService<PlanStore>
 			x: Math.min(...positions.map(node => node.x ?? 0)),
 			y: Math.max(...positions.map(node => node.y ?? 0)) + NEW_NODE_GAP,
 		};
+	}
+
+	/** Changes saved by another player: written into the store as they are, without saving them back. */
+	private applyCoopUpdate(update: CoopRemoteUpdate): void
+	{
+		if (!this.coop.active()) return;
+		const store = this.data();
+		const removedPlans = new Set(update.removedPlanIds);
+		const removedFolders = new Set(update.removedFolderIds);
+		const plans = new Map(update.plans.map(p => [p.id, p]));
+		const folders = new Map(update.folders.map(f => [f.id, f]));
+		const next: PlanStore = {
+			folders: [
+				...store.folders.filter(f => !removedFolders.has(f.id)).map(f => folders.get(f.id) ?? f),
+				...update.folders.filter(f => !store.folders.some(existing => existing.id === f.id)),
+			],
+			plans: [
+				...store.plans.filter(p => !removedPlans.has(p.id)).map(p => plans.get(p.id) ?? p),
+				...update.plans.filter(p => !store.plans.some(existing => existing.id === p.id)),
+			],
+		};
+		this.setData({...next, plans: next.plans.map(plan => this.labels.assign(plan))});
+		if (this.activePlanId() !== null && removedPlans.has(this.activePlanId()!)) {
+			this.activePlanIdSignal.set(null);
+		}
+		if (this.activeFolderId() !== null && removedFolders.has(this.activeFolderId()!)) {
+			this.activeFolderIdSignal.set(null);
+		}
+		this.remoteChangedSubject.next(update.plans.map(p => p.id));
 	}
 
 	private notifyScrubbed(planIds: string[]): void

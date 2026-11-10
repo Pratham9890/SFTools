@@ -9,7 +9,7 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 import {Folder} from '@src/Model/Planner/Folder';
 import {PlanDataSerializer} from '@src/Model/Planner/PlanDataSerializer';
 import {Plan} from '@src/Model/Planner/Plan';
-import {PlanSettingsNormalizer} from '@src/Model/Planner/PlanSettingsNormalizer';
+import {PlanRecordHydrator} from '@src/Model/Planner/PlanRecordHydrator';
 import {PlanStore} from '@src/Model/Planner/PlanStore';
 import {NotificationService} from '@src/Model/NotificationService';
 import {DataBackend} from '@src/Model/Sync/DataBackend';
@@ -239,59 +239,20 @@ export class PlanApiDataBackend implements DataBackend<PlanStore>, SyncReporter<
 
 	private hydrateFolder(schema: FolderTreeSchema, parentId: string | null): Folder
 	{
-		let data: {settings?: Folder['settings']; fixedGroups?: Folder['fixedGroups']; resourcePool?: boolean; order?: number} = {};
-		try {
-			data = JSON.parse(schema.data) as typeof data;
-		} catch {
-			// malformed data - treat as inheriting
-		}
-		return {
-			id: schema.id,
-			name: schema.name,
-			parentId,
-			settings: data.settings ? PlanSettingsNormalizer.normalize(data.settings) : null,
-			fixedGroups: data.settings ? data.fixedGroups ?? [] : [],
-			resourcePool: data.resourcePool ?? false,
-			order: data.order,
-			revision: schema.revision,
-		};
+		return PlanRecordHydrator.folder({id: schema.id, name: schema.name, parentId, revision: schema.revision}, schema.data);
 	}
 
 	private hydratePlan(schema: PlanSchema): Plan
 	{
-		let data: {settings?: Plan['settings']; requests?: Plan['requests']; inputs?: Plan['inputs']; graph?: Plan['graph']; metadata?: Plan['metadata']; iconClassName?: Plan['iconClassName']; autoName?: boolean; autoIcon?: boolean; order?: number} = {};
-		try {
-			data = JSON.parse(schema.data) as typeof data;
-		} catch {
-			// malformed data - use defaults
-		}
-
-		return {
+		return PlanRecordHydrator.plan({
 			id: schema.id,
 			name: schema.name,
-			description: schema.description ?? '',
+			description: schema.description ?? null,
 			folderId: schema.folder,
 			parentPlanId: schema.parent,
-			settings: PlanSettingsNormalizer.normalize({
-				...data.settings,
-				calculationMode: data.settings?.calculationMode ?? 'automatic',
-			}),
-			requests: data.requests ?? [],
-			inputs: data.inputs ?? [],
-			graph: data.graph ?? null,
-			metadata: {
-				graphDirty: data.metadata?.graphDirty ?? false,
-				achievedMaximums: data.metadata?.achievedMaximums,
-				recalculationNeeded: data.metadata?.recalculationNeeded,
-			},
-			iconClassName: data.iconClassName,
-			autoName: data.autoName,
-			autoIcon: data.autoIcon,
-			order: data.order,
-			// Plans stored before the column existed come back without it - those are open.
-			linkAccess: schema.linkAccess ?? true,
 			revision: schema.revision,
-		};
+			linkAccess: schema.linkAccess,
+		}, schema.data);
 	}
 
 	private folderDepth(id: string, folders: Folder[]): number
