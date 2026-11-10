@@ -12,6 +12,7 @@ import {SubplanScaleRequest} from '@src/Components/Planner/SubplanScaleRequest';
 import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 import {GraphPoint} from '@src/Model/Planner/Graph/GraphPoint';
 import {Node} from '@src/Model/Planner/Solver/Response/Node';
+import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
 import {SolveSettingsError} from '@src/Model/Planner/Solver/SolveSettingsError';
 
 /** Panels are created via ngComponentOutlet and cannot use output bindings, so their actions reach PlannerComponent through here. */
@@ -27,14 +28,18 @@ export class PlannerActionsService
 	private readonly cancelSubject = new Subject<void>();
 	public readonly cancelRequests: Observable<void> = this.cancelSubject.asObservable();
 
-	private readonly nodeUpdateSubject = new Subject<Node>();
-	public readonly nodeUpdateRequests: Observable<Node> = this.nodeUpdateSubject.asObservable();
+	private readonly nodeUpdateSubject = new Subject<Node[]>();
+	/** One or more edited nodes, applied as one undo step. */
+	public readonly nodeUpdateRequests: Observable<Node[]> = this.nodeUpdateSubject.asObservable();
 
 	private readonly nodeLockSubject = new Subject<NodeLockRequest>();
 	public readonly nodeLockRequests: Observable<NodeLockRequest> = this.nodeLockSubject.asObservable();
 
 	private readonly nodeDoneSubject = new Subject<NodeDoneRequest>();
 	public readonly nodeDoneRequests: Observable<NodeDoneRequest> = this.nodeDoneSubject.asObservable();
+
+	private readonly nodeOverclockSubject = new Subject<RecipeNode>();
+	public readonly nodeOverclockRequests: Observable<RecipeNode> = this.nodeOverclockSubject.asObservable();
 
 	private readonly relayoutSubject = new Subject<void>();
 	public readonly relayoutRequests: Observable<void> = this.relayoutSubject.asObservable();
@@ -131,7 +136,14 @@ export class PlannerActionsService
 
 	public requestNodeUpdate(node: Node): void
 	{
-		this.nodeUpdateSubject.next(node);
+		this.nodeUpdateSubject.next([node]);
+	}
+
+	public requestNodesUpdate(nodes: Node[]): void
+	{
+		if (nodes.length > 0) {
+			this.nodeUpdateSubject.next(nodes);
+		}
 	}
 
 	public requestNodeLock(request: NodeLockRequest): void
@@ -142,6 +154,11 @@ export class PlannerActionsService
 	public requestNodeDone(request: NodeDoneRequest): void
 	{
 		this.nodeDoneSubject.next(request);
+	}
+
+	public requestNodeOverclock(node: RecipeNode): void
+	{
+		this.nodeOverclockSubject.next(node);
 	}
 
 	public requestRelayout(): void

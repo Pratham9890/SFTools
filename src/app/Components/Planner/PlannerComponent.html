@@ -19,6 +19,14 @@
 	></add-node-dialog>
 }
 
+@if (overclockNode(); as node) {
+	<overclock-dialog
+		[node]="node"
+		(applyNode)="onOverclockApply($event)"
+		(close)="closeOverclock()"
+	></overclock-dialog>
+}
+
 @if (shareDialog.target(); as target) {
 	<plan-share-dialog [shareTarget]="target"></plan-share-dialog>
 }

@@ -1,4 +1,4 @@
-import {Component, OnDestroy, ChangeDetectionStrategy, computed} from '@angular/core';
+import {Component, OnDestroy, ChangeDetectionStrategy, computed, signal} from '@angular/core';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {Subscription} from 'rxjs';
 import {FaIconComponent} from '@fortawesome/angular-fontawesome';
@@ -7,6 +7,10 @@ import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
 import {ClockSpeedInputComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Overclocking/ClockSpeedInputComponent';
 import {ItemPickerComponent} from '@src/Components/Common/ItemPickerComponent';
 import {ItemPickerOption} from '@src/Components/Common/ItemPickerOption';
+import {ShardBudgetDialogComponent} from '@src/Components/Planner/ShardBudget/ShardBudgetDialogComponent';
+import {ShardFitPreview} from '@src/Components/Planner/ShardBudget/ShardFitPreview';
+import {ShardFitService} from '@src/Components/Planner/ShardBudget/ShardFitService';
+import {PlanBreakdownService} from '@src/Model/Planner/Breakdown/PlanBreakdownService';
 import {Formulas} from '@src/Model/Planner/Formulas';
 import {GeneratorClockSpeed} from '@src/Model/Planner/GeneratorClockSpeed';
 import {MachineClockSpeed} from '@src/Model/Planner/MachineClockSpeed';
@@ -18,7 +22,8 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 	selector: 'calculator-overclocking-tab',
 	templateUrl: './CalculatorOverclockingTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
-	imports: [ClockSpeedInputComponent, FaIconComponent, ItemPickerComponent, InfoNoteComponent],
+	imports: [ClockSpeedInputComponent, FaIconComponent, ItemPickerComponent, InfoNoteComponent, ShardBudgetDialogComponent],
+	providers: [ShardFitService],
 })
 export class CalculatorOverclockingTabComponent implements OnDestroy
 {
@@ -31,15 +36,23 @@ export class CalculatorOverclockingTabComponent implements OnDestroy
 
 	public generatorRows: GeneratorClockSpeed[] = [];
 
+	public readonly fitPreview = signal<ShardFitPreview | null>(null);
+
 	private loadedOwnerId: string | null = null;
 	private readonly subscription = new Subscription();
 
 	private readonly ownerId = computed(() =>
 		this.planManager.activePlan()?.id ?? this.planManager.activeFolder()?.id ?? null);
 
+	/** Same count as the status bar: the breakdown also carries subplan shards. */
+	private readonly shardsUsedSignal = computed(() =>
+		this.breakdown.buildCost(this.planManager.activePlan()).shards);
+
 	public constructor(
 		private readonly planManager: PlanManager,
 		private readonly versionManager: VersionManager,
+		private readonly breakdown: PlanBreakdownService,
+		private readonly shardFit: ShardFitService,
 	)
 	{
 		this.loadedOwnerId = this.ownerId();
@@ -96,6 +109,62 @@ export class CalculatorOverclockingTabComponent implements OnDestroy
 		if (!settings || !isFinite(value)) return;
 		const clock = Formulas.clampClock(value);
 		this.planManager.updateActiveSettings({...settings, defaultClockSpeed: clock === 100 ? undefined : clock});
+	}
+
+	public get hasShardBudget(): boolean
+	{
+		return this.planManager.activeSettings()?.maxShards !== undefined;
+	}
+
+	public get shardBudget(): number
+	{
+		return this.planManager.activeSettings()?.maxShards ?? 0;
+	}
+
+	public get shardsUsed(): number
+	{
+		return this.shardsUsedSignal();
+	}
+
+	public get shardsOverBudget(): boolean
+	{
+		return this.hasShardBudget && this.shardsUsed > this.shardBudget;
+	}
+
+	public get canFitShards(): boolean
+	{
+		const plan = this.planManager.activePlan();
+		return plan !== null && !this.planManager.activePlanReadOnly() && (plan.graph?.nodes.length ?? 0) > 0;
+	}
+
+	public setShardBudgetEnabled(enabled: boolean): void
+	{
+		const settings = this.planManager.activeSettings();
+		if (!settings) return;
+		this.planManager.updateActiveSettings({
+			...settings,
+			maxShards: enabled ? Math.max(0, Math.round(this.shardsUsed)) : undefined,
+		});
+	}
+
+	public setShardBudget(value: number): void
+	{
+		const settings = this.planManager.activeSettings();
+		if (!settings || !isFinite(value)) return;
+		this.planManager.updateActiveSettings({...settings, maxShards: Math.max(0, Math.round(value))});
+	}
+
+	public openShardFit(): void
+	{
+		const preview = this.shardFit.preview();
+		if (preview !== null) {
+			this.fitPreview.set(preview);
+		}
+	}
+
+	public closeShardFit(): void
+	{
+		this.fitPreview.set(null);
 	}
 
 	public get recipeOptions(): ItemPickerOption[]

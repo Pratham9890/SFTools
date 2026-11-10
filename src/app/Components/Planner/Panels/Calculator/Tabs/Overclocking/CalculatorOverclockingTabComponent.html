@@ -1,5 +1,47 @@
 <div class="p-2 d-flex flex-column gap-2">
 
+	<div class="card">
+		<div class="card-header py-1 px-2 fw-semibold">Power shard budget</div>
+		<div class="card-body p-2 d-flex flex-column gap-2">
+			<info-note>
+				Each building has up to three shard slots, and each shard raises its maximum clock by 50 points.
+			</info-note>
+			<div class="form-check">
+				<input
+					class="form-check-input"
+					type="checkbox"
+					id="shard-budget-enabled"
+					[checked]="hasShardBudget"
+					(change)="setShardBudgetEnabled($any($event.target).checked)"
+				/>
+				<label class="form-check-label" for="shard-budget-enabled">Limit power shards</label>
+			</div>
+			@if (hasShardBudget) {
+				<div class="d-flex align-items-center gap-2 flex-wrap">
+					<label class="form-label mb-0" for="shard-budget">Shards available</label>
+					<input
+						type="number"
+						class="form-control form-control-sm bg-dark text-light border-secondary"
+						style="width: 100px; flex: none;"
+						id="shard-budget"
+						min="0"
+						step="1"
+						[value]="shardBudget"
+						(change)="setShardBudget(+$any($event.target).value)"
+					/>
+					<span class="text-secondary">
+						Used: <span [class.text-danger]="shardsOverBudget">{{ shardsUsed }} of {{ shardBudget }}</span>
+					</span>
+					@if (shardsOverBudget && canFitShards) {
+						<button class="btn btn-sm btn-outline-warning" type="button" (click)="openShardFit()">Fit to budget</button>
+					}
+				</div>
+			} @else {
+				<span class="text-secondary">Used: {{ shardsUsed }}</span>
+			}
+		</div>
+	</div>
+
 	<info-note>A recipe setting wins over a machine setting.</info-note>
 
 	<div class="d-flex align-items-center gap-2">
@@ -152,5 +194,13 @@
 			</button>
 		</div>
 	</div>
+
+	@if (fitPreview(); as preview) {
+		<shard-budget-dialog
+			[preview]="preview"
+			(close)="closeShardFit()"
+			(applied)="closeShardFit()"
+		></shard-budget-dialog>
+	}
 
 </div>

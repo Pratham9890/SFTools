@@ -7,6 +7,7 @@ import {CodexNavigation} from '@src/Components/Codex/CodexNavigation';
 import {PanelCodexNavigation} from '@src/Components/Codex/PanelCodexNavigation';
 import {AddNodeDialogComponent} from '@src/Components/Planner/AddNode/AddNodeDialogComponent';
 import {AddNodeFilter} from '@src/Components/Planner/AddNode/AddNodeFilter';
+import {OverclockDialogComponent} from '@src/Components/Planner/Overclock/OverclockDialogComponent';
 import {BlankContextMenu} from '@src/Components/Planner/ContextMenu/BlankContextMenu';
 import {EdgeAmountAction} from '@src/Components/Planner/ContextMenu/EdgeAmountAction';
 import {EdgeContextMenu} from '@src/Components/Planner/ContextMenu/EdgeContextMenu';
@@ -82,6 +83,7 @@ import {ByproductNode} from '@src/Model/Planner/Solver/Response/ByproductNode';
 import {InputNode} from '@src/Model/Planner/Solver/Response/InputNode';
 import {Node} from '@src/Model/Planner/Solver/Response/Node';
 import {ProductNode} from '@src/Model/Planner/Solver/Response/ProductNode';
+import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
 import {SolverResponse} from '@src/Model/Planner/Solver/Response/SolverResponse';
 import {SubplanNode} from '@src/Model/Planner/Solver/Response/SubplanNode';
 import {SubplanBuildCountRequest} from '@src/Components/Planner/SubplanBuildCountRequest';
@@ -120,7 +122,7 @@ const RATIO_TOLERANCE = 1e-4;
 
 @Component({
 	templateUrl: './PlannerComponent.html',
-	imports: [PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
+	imports: [PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, OverclockDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
 	providers: [
 		FolderRecalculationService,
 		PlannerGraphService,
@@ -170,6 +172,9 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 	private readonly addNodeSuggestedAmountSignal = signal<number | null>(null);
 	public readonly addNodeSuggestedAmount = this.addNodeSuggestedAmountSignal.asReadonly();
+
+	private readonly overclockNodeSignal = signal<RecipeNode | null>(null);
+	public readonly overclockNode = this.overclockNodeSignal.asReadonly();
 
 	public constructor(
 		private readonly planManager: PlanManager,
@@ -364,7 +369,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		);
 
 		this.subscription.add(
-			this.actions.nodeUpdateRequests.subscribe(node => this.applyNodeUpdate(node)),
+			this.actions.nodeUpdateRequests.subscribe(nodes => this.applyNodeUpdate(nodes)),
 		);
 
 		this.subscription.add(
@@ -373,6 +378,10 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 		this.subscription.add(
 			this.actions.nodeDoneRequests.subscribe(request => this.applyDoneChange(request)),
+		);
+
+		this.subscription.add(
+			this.actions.nodeOverclockRequests.subscribe(node => this.overclockNodeSignal.set(node)),
 		);
 
 		this.subscription.add(
@@ -964,7 +973,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.planManager.setGraph(plan.id, updated, true);
 	}
 
-	private applyNodeUpdate(updated: Node): void
+	private applyNodeUpdate(updates: Node[]): void
 	{
 		if (this.planManager.activePlanReadOnly()) {
 			return;
@@ -983,7 +992,8 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		}
 
 		// Inspector edits are debounced - the node may be gone by now.
-		if (!current.nodes.some(node => node.id === updated.id)) {
+		const byId = new Map(updates.filter(updated => current.nodes.some(node => node.id === updated.id)).map(updated => [updated.id, updated]));
+		if (byId.size === 0) {
 			return;
 		}
 
@@ -991,15 +1001,15 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.history.push(this.snapshotOf(plan));
 
 		const replaced: Graph = {
-			nodes: current.nodes.map(node => node.id === updated.id ? updated : node),
+			nodes: current.nodes.map(node => byId.get(node.id) ?? node),
 			edges: current.edges,
 		};
-		const reconciled = this.graphReconciler.reconcile(replaced, updated.id);
+		const reconciled = [...byId.keys()].reduce((graph, id) => this.graphReconciler.reconcile(graph, id), replaced);
 
 		// A debounced inspector edit may land after another node was selected.
 		const selectedIds = this.plannerGraph.selectedNodes().map(node => node.id);
 		this.plannerGraph.restore(this.graphContainerRef.nativeElement, reconciled, false);
-		this.plannerGraph.selectNodesById(selectedIds.length > 0 ? selectedIds : [updated.id]);
+		this.plannerGraph.selectNodesById(selectedIds.length > 0 ? selectedIds : [...byId.keys()]);
 		this.planManager.setGraph(plan.id, reconciled, true);
 	}
 
@@ -1667,6 +1677,17 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.addNodePositionSignal.set(null);
 		this.pendingConnectSignal.set(null);
 		this.addNodeSuggestedAmountSignal.set(null);
+	}
+
+	public closeOverclock(): void
+	{
+		this.overclockNodeSignal.set(null);
+	}
+
+	public onOverclockApply(node: RecipeNode): void
+	{
+		this.closeOverclock();
+		this.actions.requestNodeUpdate(node);
 	}
 
 	private restyleGraph(): void

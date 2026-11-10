@@ -1,4 +1,4 @@
-import {faArrowRightArrowLeft, faArrowsSplitUpAndLeft, faBan, faBoxOpen, faCheck, faCompress, faCrosshairs, faDiagramProject, faExpand, faFolderOpen, faLock, faLockOpen, faRotateLeft, faTrashCan, faXmark} from '@fortawesome/free-solid-svg-icons';
+import {faArrowRightArrowLeft, faArrowsSplitUpAndLeft, faBan, faBolt, faBoxOpen, faCheck, faCompress, faCrosshairs, faDiagramProject, faExpand, faFolderOpen, faLock, faLockOpen, faRotateLeft, faTrashCan, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {ContextMenuItem} from '@src/Components/Planner/ContextMenu/ContextMenuItem';
 import {NodeResizeOptions} from '@src/Components/Planner/ContextMenu/NodeResizeOptions';
 import {NodeSplitOptions} from '@src/Components/Planner/ContextMenu/NodeSplitOptions';
@@ -60,6 +60,26 @@ export class NodeContextMenu extends PlannerContextMenu
 				},
 			},
 		];
+
+		if (this.node instanceof RecipeNode) {
+			const recipeNode = this.node;
+			const slooped = recipeNode.groups.some(group => group.sloops > 0);
+			let overclockHint: string | undefined;
+			if (this.plannerGraph.readOnly) {
+				overclockHint = 'This plan is read-only';
+			} else if (!recipeNode.machine.canOverclock) {
+				overclockHint = 'This building can\'t be overclocked';
+			} else if (slooped) {
+				overclockHint = 'Slooped machines: use Inspect node';
+			}
+			items.push({
+				label: 'Overclock…',
+				icon: faBolt,
+				disabled: overclockHint !== undefined,
+				hint: overclockHint,
+				action: () => this.actions.requestNodeOverclock(recipeNode),
+			});
+		}
 
 		if (this.node instanceof SubplanNode) {
 			const subplanId = this.node.subplanId;

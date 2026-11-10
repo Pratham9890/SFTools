@@ -305,6 +305,25 @@ export class PlannerStatusBarComponent
 
 	public readonly shards = computed(() => this.buildCost().shards);
 
+	public readonly shardBudget = computed(() => this.planManager.activePlan() === null
+		? null
+		: this.planManager.activeSettings()?.maxShards ?? null);
+
+	public readonly shardsOverBudget = computed(() => {
+		const budget = this.shardBudget();
+		return budget !== null && this.shards() > budget;
+	});
+
+	public readonly shardText = computed(() => {
+		const budget = this.shardBudget();
+		return budget === null ? `${this.shards()}` : `${this.shards()} / ${budget}`;
+	});
+
+	public readonly shardTitle = computed(() => {
+		const budget = this.shardBudget();
+		return budget === null ? 'Power shards' : `Power shards, budget ${budget}`;
+	});
+
 	/** Zero unless the plan shows belt and pipe limits; display only, so it never affects the graph. */
 	public readonly overLimitCount = computed(() => {
 		const limit = this.planManager.activeSettings()?.conveyorLimit;

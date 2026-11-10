@@ -8,7 +8,7 @@
 }
 <span class="stat" [title]="builtBuildings() > 0 ? 'Buildings, ' + rateFormatter.amount(builtBuildings()) + ' already built' : 'Buildings'"><fa-icon class="stat-icon" [icon]="faIndustry"></fa-icon><span class="lbl">Buildings </span><b>{{ rateFormatter.amount(buildings()) }}</b>@if (builtBuildings() > 0) {<small class="range">{{ rateFormatter.amount(builtBuildings()) }} built</small>}</span>
 <span class="stat" [class.zero]="sloops() === 0" title="Somersloops"><game-icon [hash]="sloopIcon()" [size]="16" alt="Sloops"></game-icon> <b>{{ sloops() }}</b></span>
-<span class="stat" [class.zero]="shards() === 0" title="Power shards"><game-icon [hash]="shardIcon()" [size]="16" alt="Shards"></game-icon> <b>{{ shards() }}</b></span>
+<span class="stat" [class.zero]="shards() === 0" [title]="shardTitle()"><game-icon [hash]="shardIcon()" [size]="16" alt="Shards"></game-icon> <b [class.deficit]="shardsOverBudget()">{{ shardText() }}</b></span>
 @if (overLimitCount() > 0) {
 	<span class="stat" title="Connections that need more than one belt or pipe"><b>{{ overLimitCount() }}</b> over belt limit</span>
 }

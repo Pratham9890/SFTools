@@ -833,6 +833,7 @@ export class PlanManager extends SyncableService<PlanStore>
 			machineClockSpeeds: settings.machineClockSpeeds ? settings.machineClockSpeeds.map(entry => ({...entry})) : undefined,
 			generatorClockSpeeds: settings.generatorClockSpeeds ? settings.generatorClockSpeeds.map(entry => ({...entry})) : undefined,
 			maxSloops: settings.maxSloops,
+			maxShards: settings.maxShards,
 			sloopAccuracy: settings.sloopAccuracy,
 			conveyorLimit: settings.conveyorLimit ? {...settings.conveyorLimit} : undefined,
 		};

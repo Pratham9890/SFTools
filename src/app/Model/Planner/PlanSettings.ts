@@ -48,6 +48,8 @@ export interface PlanSettings
 	/** Generators burn fuel in step with their clock, so this only trades buildings for power shards. */
 	readonly generatorClockSpeeds?: GeneratorClockSpeed[];
 	readonly maxSloops?: number;
+	/** Power shards on hand. Undefined means no budget. In no settings group: it changes no result. */
+	readonly maxShards?: number;
 	readonly sloopAccuracy?: SloopAccuracy;
 	/** Display only: how many belts or pipes each connection needs. Undefined hides the annotations. In no settings group: it changes no result. */
 	readonly conveyorLimit?: ConveyorLimit;

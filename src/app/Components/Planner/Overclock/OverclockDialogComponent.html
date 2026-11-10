@@ -1,0 +1,51 @@
+<div class="overclock-backdrop" hotkeyBlock>
+	<form class="overclock-dialog card" (ngSubmit)="apply()">
+		<div class="card-header d-flex align-items-start gap-2">
+			<span class="fw-semibold flex-grow-1">
+				<span class="d-block">Overclock {{ node.machine.name }}</span>
+				<span class="small text-secondary d-block">{{ node.recipe.name }}</span>
+			</span>
+			<button type="button" class="btn-close" aria-label="Close" (click)="close.emit()"></button>
+		</div>
+
+		<div class="p-3 d-flex flex-column gap-3" style="overflow-y: auto;">
+			<div>
+				<label class="form-label small mb-1" for="overclock-clock">Clock speed (%)</label>
+				<clock-speed-input
+					inputId="overclock-clock"
+					[value]="clockSpeed"
+					(valueChange)="onClockChange($event)"
+				></clock-speed-input>
+			</div>
+
+			<div>
+				<label class="form-label small mb-1" for="overclock-machines">Machines at this clock</label>
+				<div class="input-group input-group-sm">
+					<input
+						id="overclock-machines"
+						name="overclock-machines"
+						type="number"
+						class="form-control form-control-sm bg-dark text-light border-secondary"
+						min="1"
+						step="1"
+						[(ngModel)]="machines"
+						(ngModelChange)="onMachinesChange()"
+						(blur)="onMachinesBlur()"
+					/>
+					<button type="button" class="btn btn-outline-secondary px-2" (click)="allMachines()">All</button>
+				</div>
+			</div>
+
+			<div class="p-2 rounded" style="background: rgba(255, 255, 255, 0.04);">
+				<div class="small">{{ previewText }}</div>
+				<div class="small text-secondary">Power shards: {{ shards }}</div>
+				<div class="small text-secondary">Power: {{ rateFormatter.power(powerBefore) }} → {{ rateFormatter.power(powerAfter) }}</div>
+			</div>
+		</div>
+
+		<div class="card-footer d-flex justify-content-end gap-2">
+			<button type="button" class="btn btn-sm btn-outline-secondary" (click)="close.emit()">Cancel</button>
+			<button type="submit" class="btn btn-sm btn-primary" [disabled]="!canApply">Apply</button>
+		</div>
+	</form>
+</div>

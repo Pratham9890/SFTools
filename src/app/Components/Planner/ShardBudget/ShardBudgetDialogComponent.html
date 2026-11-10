@@ -1,0 +1,47 @@
+<div class="shard-fit-backdrop" hotkeyBlock>
+	<div class="shard-fit-dialog card" (click)="$event.stopPropagation()">
+		<div class="card-header d-flex align-items-center gap-2">
+			<span class="fw-semibold flex-grow-1">Fit the plan to its power shard budget</span>
+			<button type="button" class="btn-close" aria-label="Close" (click)="close.emit()"></button>
+		</div>
+
+		<div class="card-body d-flex flex-column gap-2">
+			<info-note>
+				Each machine moves down one shard tier and gets extra machines so its output stays the same.
+				Built, somerslooped and generator machines are left alone.
+			</info-note>
+
+			@if (rows.length > 0) {
+				<div class="shard-fit-changes d-flex flex-column gap-2">
+					@for (row of rows; track row.node.id) {
+						<div class="p-2 rounded" style="background: rgba(255, 255, 255, 0.04);">
+							<div class="fw-semibold">{{ row.node.machine.name }}</div>
+							<div class="small text-secondary">{{ row.node.recipe.name }}</div>
+							<div class="small">{{ row.before }} → {{ row.after }}</div>
+							<div class="small text-secondary">
+								Saves {{ row.shardsSaved }} {{ row.shardsSaved === 1 ? 'shard' : 'shards' }},
+								adds {{ row.machinesAdded }} {{ row.machinesAdded === 1 ? 'machine' : 'machines' }}
+							</div>
+						</div>
+					}
+				</div>
+			}
+
+			<div class="fw-semibold">
+				Shards: {{ preview.used }} → {{ preview.result.shardsAfter }} (budget {{ preview.budget }})
+			</div>
+
+			@if (!preview.result.fits) {
+				<info-note kind="warning">
+					Can't reach the budget: built, slooped or generator machines still use
+					{{ preview.result.shardsAfter }} shards.
+				</info-note>
+			}
+		</div>
+
+		<div class="card-footer d-flex justify-content-end gap-2">
+			<button type="button" class="btn btn-sm btn-outline-secondary" (click)="close.emit()">Cancel</button>
+			<button type="button" class="btn btn-sm btn-primary" [disabled]="!canApply" (click)="apply()">Apply</button>
+		</div>
+	</div>
+</div>
