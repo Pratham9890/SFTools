@@ -434,6 +434,8 @@ export class PlannerGraphService implements OnDestroy
 	private readonly selectedVertexMap = new Map<string, number[]>();
 	private vertexHighlights: SVGCircleElement[] = [];
 	private vertexDragAnchorId: string | null = null;
+	/** Ids of the nodes x6 moved since the drag began, so the drag end can see the whole multi-selection. */
+	private readonly movedNodeIds = new Set<string>();
 	private readonly nodeById = new Map<string, Node>();
 	private doneNodeIds = new Set<string>();
 	private readonly edgeById = new Map<string, GraphEdge>();
@@ -606,6 +608,7 @@ export class PlannerGraphService implements OnDestroy
 			const laidEdge = laidEdgeById.get(`e${i}`);
 			if (laidEdge) {
 				edge.vertices = settings.edgeShape === 'straight' ? [] : this.elkEdgeVertices(laidEdge);
+				edge.autoRouted = settings.edgeShape !== 'straight';
 				edge.labelDistance = this.elkLabelDistance(laidEdge);
 			}
 		});
@@ -654,6 +657,7 @@ export class PlannerGraphService implements OnDestroy
 		this.hideCornerPreview();
 		this.clearVertexSelection();
 		this.vertexDragAnchorId = null;
+		this.movedNodeIds.clear();
 		this.hoveredEdgeView = null;
 		this.touchedEdgeId = null;
 		this.connectGesture = null;
@@ -859,6 +863,7 @@ export class PlannerGraphService implements OnDestroy
 		// One snapshot for the whole change; the per-line handler below must not take one for each belt edge.
 		this.vertexGestureActive = true;
 		edge.vertices = [];
+		edge.autoRouted = false;
 		const x6Graph = this.x6Graph;
 		x6Graph?.getEdges().forEach(cell => {
 			if (this.edgeById.get(cell.id) === edge) {
@@ -1001,6 +1006,7 @@ export class PlannerGraphService implements OnDestroy
 		this.hideCornerPreview();
 		this.clearVertexSelection();
 		this.vertexDragAnchorId = null;
+		this.movedNodeIds.clear();
 		this.hoveredEdgeView = null;
 		this.touchedEdgeId = null;
 		this.touchGestures?.detach();
@@ -1149,7 +1155,7 @@ export class PlannerGraphService implements OnDestroy
 				this.selectVerticesWithin(start, {x, y});
 			}
 		});
-		x6Graph.on('edge:change:vertices', ({edge}) => {
+		x6Graph.on('edge:change:vertices', ({edge, options}) => {
 			const modelEdge = this.edgeById.get(edge.id);
 			if (modelEdge) {
 				// Snapshot first: the model edge still holds the pre-change vertices.
@@ -1158,6 +1164,10 @@ export class PlannerGraphService implements OnDestroy
 					this.graphEditStartSubject.next();
 				}
 				modelEdge.vertices = edge.getVertices();
+				// A corner the user dragged is theirs, even if the layout placed the others. x6 translates vertices with a dragged node instead.
+				if (options['translateBy'] === undefined) {
+					modelEdge.autoRouted = false;
+				}
 				this.graphChangedSubject.next();
 			}
 			if (this.selectedVertexMap.has(edge.id)) {
@@ -1173,6 +1183,7 @@ export class PlannerGraphService implements OnDestroy
 		this.baseZIndexById.clear();
 		this.pendingZChanges.clear();
 		this.vertexGestureActive = false;
+		this.movedNodeIds.clear();
 
 		return x6Graph;
 	}
@@ -2476,6 +2487,7 @@ export class PlannerGraphService implements OnDestroy
 
 		// Not node:moved: that misses nodes dragged as part of a multi-selection.
 		x6Graph.on('node:change:position', ({node, current, previous}) => {
+			this.movedNodeIds.add(node.id);
 			const modelNode = this.nodeById.get(node.id);
 			if (modelNode) {
 				const position = node.getPosition();
@@ -2488,6 +2500,48 @@ export class PlannerGraphService implements OnDestroy
 				this.applySelectionDragToVertices(current.x - previous.x, current.y - previous.y);
 			}
 		});
+		// x6 notifies every selected node once the drag ends, so the first call sees them all.
+		x6Graph.on('node:moved', () => this.endNodeDrag());
+	}
+
+	/** The layout's corners describe where the nodes used to be, so a moved end drops them; both ends moving keeps the shape. */
+	private endNodeDrag(): void
+	{
+		const movedIds = new Set(this.movedNodeIds);
+		this.movedNodeIds.clear();
+		const x6Graph = this.x6Graph;
+		if (this.readOnly || movedIds.size === 0 || x6Graph === null) {
+			return;
+		}
+
+		const dropped = [...new Set(this.edgeById.values())].filter(edge => {
+			if (edge.autoRouted !== true) {
+				return false;
+			}
+			const sourceMoved = movedIds.has(edge.sourceId);
+			const targetMoved = movedIds.has(edge.targetId);
+			return sourceMoved !== targetMoved;
+		});
+		if (dropped.length === 0) {
+			return;
+		}
+
+		// The drag's own vertex translation usually took the snapshot; otherwise take one here, like straightenEdge.
+		// Either way it is one step for the whole change: the per-line handler must not take one for each belt edge.
+		if (!this.vertexGestureActive) {
+			this.vertexGestureActive = true;
+			this.graphEditStartSubject.next();
+		}
+		dropped.forEach(edge => {
+			edge.vertices = [];
+			edge.autoRouted = false;
+			x6Graph.getEdges().forEach(cell => {
+				if (this.edgeById.get(cell.id) === edge) {
+					cell.setVertices([]);
+				}
+			});
+		});
+		this.graphChangedSubject.next();
 	}
 
 	private elkEdgeVertices(edge: ElkExtendedEdge): GraphPoint[]
