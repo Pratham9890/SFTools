@@ -61,8 +61,19 @@
 			</div>
 
 			@if (beltView) {
-				<div class="small text-secondary">
-					Machines in each line follow Settings → Machine groups (default grouping for new nodes): {{ groupingModeLabel }}
+				<div>
+					<label class="form-label text-secondary mb-1" for="belt-grouping">Machines in each line</label>
+					<select
+						id="belt-grouping"
+						class="form-select form-select-sm bg-dark text-light border-secondary"
+						[disabled]="custom"
+						(change)="setGroupingMode($any($event.target).value)"
+					>
+						@for (option of groupingModeOptions; track option) {
+							<option [value]="option" [selected]="option === groupingMode">{{ groupingModeLabels[option] }}</option>
+						}
+					</select>
+					<div class="small text-secondary mt-1">Same setting as Settings → Machine groups → Default machine grouping for new nodes.</div>
 				</div>
 				<div class="form-check">
 					<input

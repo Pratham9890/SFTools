@@ -107,9 +107,19 @@ export class CalculatorLogisticsTabComponent
 		return this.lineStyle === 'custom';
 	}
 
-	public get groupingModeLabel(): string
+	public readonly groupingModeOptions: readonly GroupingMode[] = ['underclock-last', 'clock-equally', 'no-clocking'];
+
+	public get groupingMode(): GroupingMode
 	{
-		return this.groupingModeLabels[this.groupingModes.resolve(this.planManager.activeSettings())];
+		return this.groupingModes.resolve(this.planManager.activeSettings());
+	}
+
+	/** Writes the plan's defaultGroupingMode, the same value Settings → Machine groups edits. */
+	public setGroupingMode(mode: GroupingMode): void
+	{
+		const settings = this.planManager.activeSettings();
+		if (!settings || !this.groupingModeOptions.includes(mode)) return;
+		this.planManager.updateActiveSettings({...settings, defaultGroupingMode: mode});
 	}
 
 	public get overLimitCount(): number
