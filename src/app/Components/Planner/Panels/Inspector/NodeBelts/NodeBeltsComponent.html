@@ -11,7 +11,7 @@
 						@for (belt of connection.belts; track belt.index) {
 							<div class="d-flex flex-column gap-1">
 								<div class="belt-line small">
-									<span class="text-nowrap">Belt {{ belt.index }}</span>
+									<span class="text-nowrap">{{ connection.lineName }} {{ belt.index }}</span>
 									<span class="text-secondary text-nowrap">{{ belt.load }}</span>
 									<span class="text-nowrap">{{ belt.percent }}%</span>
 									<div
@@ -27,8 +27,18 @@
 								<div class="small text-secondary">from {{ belt.from }} · to {{ belt.to }}</div>
 							</div>
 						}
-						@if (connection.suggestion; as suggestion) {
-							<div class="small text-secondary fst-italic">Suggestion: {{ suggestion }}</div>
+						@if (connection.proposal; as proposal) {
+							<div class="d-flex align-items-center gap-2">
+								<div class="small text-secondary fst-italic flex-grow-1">Suggestion: {{ connection.suggestion }}</div>
+								<span [tooltip]="proposal.disabledReason ?? 'Apply this suggestion'" container="body" placement="left">
+									<button
+										class="btn btn-sm btn-outline-success text-nowrap"
+										type="button"
+										[disabled]="proposal.disabledReason !== null"
+										(click)="applyProposal(proposal)"
+									>Apply</button>
+								</span>
+							</div>
 						}
 					</div>
 				}

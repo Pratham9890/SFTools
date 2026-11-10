@@ -115,13 +115,15 @@ export class BeltPlanner
 			}
 			const outgoingTotal = outgoingTotals.get(BeltPlanner.flowKey(edge.sourceId, edge.itemClassName)) ?? edge.amount;
 			const sourceUnits = BeltPlanner.sourceUnits(source, edge.itemClassName, edge.amount, outgoingTotal, capacity, data);
+			// A proposal regroups the whole source node, so it only fits when this connection takes all of the node's item.
+			const soleOutput = Math.abs(outgoingTotal - edge.amount) <= Math.max(1e-6, edge.amount * 1e-6);
 			const layout = BeltLayout.plan(
 				edge.amount,
 				capacity,
 				sourceUnits.units,
 				settings,
-				sourceUnits.ratePerMachineAt100 ?? undefined,
-				sourceUnits.maxClock,
+				soleOutput ? sourceUnits.ratePerMachineAt100 ?? undefined : undefined,
+				soleOutput ? sourceUnits.maxClock : undefined,
 			);
 			const consumerUnits = BeltPlanner.consumerUnits(target, edge.amount);
 			plan.set(index, {
@@ -151,6 +153,54 @@ export class BeltPlanner
 		if (parts.length === 0) {
 			return node.getDisplayName();
 		}
+		const groups = BeltPlanner.groupParts(parts, node, totals, data);
+		const texts: string[] = [];
+		for (const group of groups) {
+			for (const segment of BeltPlanner.segments(group.entries)) {
+				const count = segment.numbers.length;
+				const base = count === 1 ? group.label : BeltPlanner.plural(group.label);
+				const range = count === 1
+					? `${segment.numbers[0]}`
+					: `${segment.numbers[0]}–${segment.numbers[count - 1]}`;
+				texts.push(`${base} ${range}${segment.partial ? ' (part)' : ''}`);
+			}
+		}
+		return texts.length > 0 ? texts.join(' + ') : node.getDisplayName();
+	}
+
+	/** Compact machine numbers for a node's stat line: "1–6", "7", "8½" (the last machine straddles belts). */
+	public static machineRanges(
+		parts: readonly {unitId: string; rate?: number}[],
+		node: Node,
+		totals?: ReadonlyMap<string, number>,
+		data?: Data | null,
+	): string
+	{
+		if (parts.length === 0) {
+			return '';
+		}
+		const groups = BeltPlanner.groupParts(parts, node, totals, data);
+		const texts: string[] = [];
+		for (const group of groups) {
+			const ranges = BeltPlanner.segments(group.entries).map(segment => {
+				const count = segment.numbers.length;
+				const range = count === 1
+					? `${segment.numbers[0]}`
+					: `${segment.numbers[0]}–${segment.numbers[count - 1]}`;
+				return segment.partial ? `${range}½` : range;
+			});
+			texts.push(ranges.join(', '));
+		}
+		return texts.join(' + ');
+	}
+
+	private static groupParts(
+		parts: readonly {unitId: string; rate?: number}[],
+		node: Node,
+		totals?: ReadonlyMap<string, number>,
+		data?: Data | null,
+	): DescribeGroup[]
+	{
 		const descriptors = BeltPlanner.descriptorsFor(node, data ?? null);
 		const groups: DescribeGroup[] = [];
 		const groupByLabel = new Map<string, DescribeGroup>();
@@ -172,19 +222,8 @@ export class BeltPlanner
 				&& part.rate < total - Math.max(BeltPlanner.EPSILON, Math.abs(total) * BeltPlanner.EPSILON);
 			group.entries.push({number: descriptor?.number ?? unit, label, partial});
 		}
-		const texts: string[] = [];
-		for (const group of groups) {
-			group.entries.sort((left, right) => left.number - right.number);
-			for (const segment of BeltPlanner.segments(group.entries)) {
-				const count = segment.numbers.length;
-				const base = count === 1 ? group.label : BeltPlanner.plural(group.label);
-				const range = count === 1
-					? `${segment.numbers[0]}`
-					: `${segment.numbers[0]}–${segment.numbers[count - 1]}`;
-				texts.push(`${base} ${range}${segment.partial ? ' (part)' : ''}`);
-			}
-		}
-		return texts.length > 0 ? texts.join(' + ') : node.getDisplayName();
+		groups.forEach(group => group.entries.sort((left, right) => left.number - right.number));
+		return groups;
 	}
 
 	private static sourceUnits(

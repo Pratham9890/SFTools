@@ -1,5 +1,6 @@
 import {Injectable, Signal, computed, signal} from '@angular/core';
 import {Observable, Subject} from 'rxjs';
+import {BeltProposalRequest} from '@src/Components/Planner/BeltProposalRequest';
 import {GraphConnectToBlankRequest} from '@src/Components/Planner/GraphConnectToBlankRequest';
 import {GraphEdgeAddRequest} from '@src/Components/Planner/GraphEdgeAddRequest';
 import {GraphEdgeAmountRequest} from '@src/Components/Planner/GraphEdgeAmountRequest';
@@ -31,6 +32,10 @@ export class PlannerActionsService
 	private readonly nodeUpdateSubject = new Subject<Node[]>();
 	/** One or more edited nodes, applied as one undo step. */
 	public readonly nodeUpdateRequests: Observable<Node[]> = this.nodeUpdateSubject.asObservable();
+
+	private readonly beltProposalSubject = new Subject<BeltProposalRequest>();
+	/** A belt suggestion the inspector's Belts card was asked to apply. */
+	public readonly beltProposalRequests: Observable<BeltProposalRequest> = this.beltProposalSubject.asObservable();
 
 	private readonly nodeLockSubject = new Subject<NodeLockRequest>();
 	public readonly nodeLockRequests: Observable<NodeLockRequest> = this.nodeLockSubject.asObservable();
@@ -144,6 +149,11 @@ export class PlannerActionsService
 		if (nodes.length > 0) {
 			this.nodeUpdateSubject.next(nodes);
 		}
+	}
+
+	public requestBeltProposal(request: BeltProposalRequest): void
+	{
+		this.beltProposalSubject.next(request);
 	}
 
 	public requestNodeLock(request: NodeLockRequest): void

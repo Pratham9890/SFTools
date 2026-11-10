@@ -45,10 +45,11 @@ export class BeltLayout
 			const proposal = rate !== null && clockLimit !== null
 				? BeltLayout.raiseProposal(count, capacity, totalAfter, surplus, rate, clockLimit)
 				: null;
-			if (surplus > BeltLayout.tolerance(totalAfter)) {
-				return {belts: BeltLayout.fullBelts(count, capacity), changed: proposal !== null, proposal};
-			}
+			// The belts always show today's flow; the raised, all-full belts live only in the proposal until it's applied.
 			const belts = BeltLayout.fewestBelts(amount, capacity, count, normalized);
+			if (surplus > BeltLayout.tolerance(totalAfter)) {
+				return {belts, changed: proposal !== null, proposal};
+			}
 			return {
 				belts,
 				changed: proposal !== null && rate !== null && BeltLayout.changesLayout(belts, proposal, rate),
@@ -270,15 +271,6 @@ export class BeltLayout
 			BeltLayout.addPart(bins[best].parts, unit.id, take);
 			remaining -= take;
 		}
-	}
-
-	private static fullBelts(count: number, capacity: number): Belt[]
-	{
-		const belts: Belt[] = [];
-		for (let index = 0; index < count; index++) {
-			belts.push({index: index + 1, load: capacity, fill: 1, parts: []});
-		}
-		return belts;
 	}
 
 	private static regroupProposal(count: number, amount: number, capacity: number, rate: number, maxClock: number): BeltProposal | null

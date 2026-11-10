@@ -7,6 +7,7 @@ import {CodexNavigation} from '@src/Components/Codex/CodexNavigation';
 import {PanelCodexNavigation} from '@src/Components/Codex/PanelCodexNavigation';
 import {AddNodeDialogComponent} from '@src/Components/Planner/AddNode/AddNodeDialogComponent';
 import {AddNodeFilter} from '@src/Components/Planner/AddNode/AddNodeFilter';
+import {BeltProposalRequest} from '@src/Components/Planner/BeltProposalRequest';
 import {OverclockDialogComponent} from '@src/Components/Planner/Overclock/OverclockDialogComponent';
 import {BlankContextMenu} from '@src/Components/Planner/ContextMenu/BlankContextMenu';
 import {EdgeAmountAction} from '@src/Components/Planner/ContextMenu/EdgeAmountAction';
@@ -63,6 +64,7 @@ import {OldPlanImporter} from '@src/Model/OldTools/OldPlanImporter';
 import {OldToolsAutoImportService} from '@src/Model/OldTools/OldToolsAutoImportService';
 import {OldToolsImportRequestService} from '@src/Model/OldTools/OldToolsImportRequestService';
 import {OldToolsShareService} from '@src/Model/OldTools/OldToolsShareService';
+import {BeltProposal} from '@src/Model/Planner/BeltLayoutResult';
 import {CalculationMode} from '@src/Model/Planner/CalculationMode';
 import {EnabledRecipesResolver} from '@src/Model/Planner/EnabledRecipesResolver';
 import {Graph} from '@src/Model/Planner/Graph/Graph';
@@ -81,9 +83,11 @@ import {NodeTypeConverter} from '@src/Model/Planner/NodeTypeConverter';
 import {NodeSplitter} from '@src/Model/Planner/NodeSplitter';
 import {ByproductNode} from '@src/Model/Planner/Solver/Response/ByproductNode';
 import {InputNode} from '@src/Model/Planner/Solver/Response/InputNode';
+import {MachineGroup} from '@src/Model/Planner/Solver/Response/MachineGroup';
 import {Node} from '@src/Model/Planner/Solver/Response/Node';
 import {ProductNode} from '@src/Model/Planner/Solver/Response/ProductNode';
 import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
+import {SinkNode} from '@src/Model/Planner/Solver/Response/SinkNode';
 import {SolverResponse} from '@src/Model/Planner/Solver/Response/SolverResponse';
 import {SubplanNode} from '@src/Model/Planner/Solver/Response/SubplanNode';
 import {SubplanBuildCountRequest} from '@src/Components/Planner/SubplanBuildCountRequest';
@@ -370,6 +374,10 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 		this.subscription.add(
 			this.actions.nodeUpdateRequests.subscribe(nodes => this.applyNodeUpdate(nodes)),
+		);
+
+		this.subscription.add(
+			this.actions.beltProposalRequests.subscribe(request => this.applyBeltProposal(request)),
 		);
 
 		this.subscription.add(
@@ -1014,6 +1022,142 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.plannerGraph.restore(this.graphContainerRef.nativeElement, reconciled, false);
 		this.plannerGraph.selectNodesById(selectedIds.length > 0 ? selectedIds : [...byId.keys()]);
 		this.planManager.setGraph(plan.id, reconciled, true);
+	}
+
+	/** One belt suggestion, as one undo step. Regroup only regroups the source; raise also adds the sink for the surplus. */
+	private applyBeltProposal(request: BeltProposalRequest): void
+	{
+		if (this.planManager.activePlanReadOnly()) {
+			return;
+		}
+		const plan = this.planManager.activePlan();
+		if (!plan?.graph || plan.id !== this.renderedPlanId) {
+			return;
+		}
+
+		let graph: Graph;
+		try {
+			graph = this.planSerializer.reviveGraph(plan.graph);
+		} catch (err) {
+			this.notifications.show('Could not apply the belt suggestion: ' + String(err));
+			return;
+		}
+
+		const edge = graph.edges[request.edgeIndex];
+		if (!edge || edge.sourceId !== request.nodeId) {
+			return;
+		}
+		const source = graph.nodes.find(node => node.id === request.nodeId);
+		if (!(source instanceof RecipeNode)) {
+			return;
+		}
+		// The proposal's rates are one connection's share, so its groups only fit a node that feeds one connection of the item.
+		const itemEdges = graph.edges.filter(candidate => candidate.sourceId === source.id && candidate.itemClassName === edge.itemClassName);
+		if (itemEdges.length !== 1) {
+			return;
+		}
+		const groups = PlannerComponent.proposalGroups(request.proposal);
+		if (groups.length === 0) {
+			return;
+		}
+
+		if (request.proposal.kind === 'regroup') {
+			this.actions.requestNodeUpdate(PlannerComponent.replacedRecipe(source, source.target, groups));
+			return;
+		}
+
+		const data = this.versionManager.activeVersionData();
+		const item = data?.searchItemByClassName(edge.itemClassName) ?? null;
+		const surplus = request.proposal.surplus ?? 0;
+		const currentOutput = source.outputs
+			.filter(io => io.item.className === edge.itemClassName)
+			.reduce((sum, io) => sum + io.maxAmount, 0);
+		if (data === null || item === null || !(surplus > 0) || !(currentOutput > 0)) {
+			return;
+		}
+
+		// Target scales every output, so this raises the item by exactly the surplus the proposal sends to the sink.
+		const raised = PlannerComponent.replacedRecipe(source, source.target * (currentOutput + surplus) / currentOutput, groups);
+		const nodes = graph.nodes.map(node => node.id === source.id ? raised : node);
+		const sink = graph.nodes.find((node): node is SinkNode => node instanceof SinkNode && node.item.className === edge.itemClassName) ?? null;
+		let sinkId: string;
+		if (sink !== null) {
+			sinkId = sink.id;
+			const resized = new SinkNode(sink.id, sink.amount + surplus, sink.item);
+			resized.x = sink.x;
+			resized.y = sink.y;
+			resized.locked = sink.locked;
+			resized.done = sink.done;
+			nodes[nodes.findIndex(node => node.id === sink.id)] = resized;
+		} else {
+			sinkId = crypto.randomUUID();
+			const created = new SinkNode(sinkId, surplus, item);
+			const size = this.plannerGraph.nodeSize(source);
+			const layout = this.graphLayout.resolve(plan.settings.graph);
+			created.x = source.x + (this.isVertical(layout.direction) ? 0 : size.width + layout.nodeSpacing);
+			created.y = source.y + (this.isVertical(layout.direction) ? size.height + layout.nodeSpacing : 0);
+			created.locked = true;
+			nodes.push(created);
+		}
+
+		const sinkEdgeIndex = graph.edges.findIndex(candidate =>
+			candidate.sourceId === source.id && candidate.targetId === sinkId && candidate.itemClassName === edge.itemClassName);
+		const edges = sinkEdgeIndex >= 0
+			? graph.edges.map((candidate, index) => index === sinkEdgeIndex ? {...candidate, amount: candidate.amount + surplus} : candidate)
+			: [...graph.edges, {sourceId: source.id, targetId: sinkId, itemClassName: edge.itemClassName, amount: surplus}];
+
+		// Snapshot before reconcile, which mutates edge amounts in place.
+		this.history.push(this.snapshotOf(plan));
+
+		const reconciled = this.graphReconciler.reconcile({nodes, edges}, source.id);
+
+		const selectedIds = this.plannerGraph.selectedNodes().map(node => node.id);
+		this.plannerGraph.restore(this.graphContainerRef.nativeElement, reconciled, false);
+		this.plannerGraph.selectNodesById(selectedIds.length > 0 ? selectedIds : [source.id]);
+		this.planManager.setGraph(plan.id, reconciled, true);
+
+		const inputIncrease = PlannerComponent.inputTotal(raised) - PlannerComponent.inputTotal(source);
+		const message = `Raised ${item.name} to ${this.rateFormatter.rate(request.proposal.totalAfter, item)}.`
+			+ (inputIncrease > FLOW_TOLERANCE
+				? ` Inputs upstream need ${this.rateFormatter.rate(inputIncrease)} more: recalculate or adjust them.`
+				: '');
+		this.notifications.show(message);
+	}
+
+	private static proposalGroups(proposal: BeltProposal): MachineGroup[]
+	{
+		const groups: MachineGroup[] = [];
+		for (const belt of proposal.belts) {
+			for (const group of belt) {
+				if (!(group.machines > 0) || !(group.clockSpeed > 0)) {
+					continue;
+				}
+				const last = groups[groups.length - 1];
+				if (last !== undefined && Math.abs(last.clockSpeed - group.clockSpeed) <= 1e-9) {
+					groups[groups.length - 1] = {machines: last.machines + group.machines, clockSpeed: last.clockSpeed, sloops: 0};
+				} else {
+					groups.push({machines: group.machines, clockSpeed: group.clockSpeed, sloops: 0});
+				}
+			}
+		}
+		return groups;
+	}
+
+	private static replacedRecipe(source: RecipeNode, target: number, groups: MachineGroup[]): RecipeNode
+	{
+		const replacement = new RecipeNode(source.id, target, groups, source.machine, source.recipe);
+		replacement.x = source.x;
+		replacement.y = source.y;
+		// Applying a suggestion is a manual edit: the node stays user-owned through further solves.
+		replacement.locked = true;
+		replacement.done = source.done;
+		replacement.groupingMode = source.groupingMode;
+		return replacement;
+	}
+
+	private static inputTotal(node: Node): number
+	{
+		return node.inputs.reduce((sum, io) => sum + io.maxAmount, 0);
 	}
 
 	private applyEdgeAdd(request: GraphEdgeAddRequest): void

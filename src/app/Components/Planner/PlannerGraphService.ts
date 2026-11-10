@@ -20,6 +20,7 @@ import {PanelLayoutService} from '@src/Components/Planner/Panel/PanelLayoutServi
 import {NodeTooltipContent} from '@src/Components/Planner/Tooltip/NodeTooltipContent';
 import {PlannerNodeTooltipService} from '@src/Components/Planner/Tooltip/PlannerNodeTooltipService';
 import {Item} from '@src/Model/Data/Entities/Item';
+import {Data} from '@src/Model/Data/Data';
 import {IconUrlService} from '@src/Model/Data/IconUrlService';
 import {VersionManager} from '@src/Model/Data/VersionManager';
 import {RateFormatter} from '@src/Model/RateFormatter';
@@ -28,7 +29,7 @@ import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphLayoutResolver} from '@src/Model/Planner/GraphLayoutResolver';
 import {GraphLayoutSettings} from '@src/Model/Planner/GraphLayoutSettings';
-import {BeltGraphPlan, BeltPlanner} from '@src/Model/Planner/BeltPlanner';
+import {BeltGraphPlan, BeltPlanner, EdgeBeltPlan} from '@src/Model/Planner/BeltPlanner';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
 import {GraphMetrics} from '@src/Model/Planner/Graph/GraphMetrics';
@@ -136,6 +137,7 @@ const RECIPE_STATS_Y = 50;
 const RECIPE_STATS_LINE_HEIGHT = 17;
 const RECIPE_BOTTOM_PADDING = 10;
 const RECIPE_MAX_WIDTH = 360;
+const RECIPE_BELT_MAX_WIDTH = 560;
 const RECIPE_NAME_CHAR_WIDTH = 9.8;
 const RECIPE_BOLD_CHAR_WIDTH = 8.1;
 const RECIPE_STATS_CHAR_WIDTH = 7.4;
@@ -152,6 +154,11 @@ const EDGE_STROKE_WIDTH = 1.5;
 // Amber like the status bar's warnings: a dark-canvas constant, readable in both themes.
 const EDGE_OVER_LIMIT_STROKE = '#e0b56a';
 const PARALLEL_EDGE_GAP = 40;
+// Belt view: one line per belt, packed tighter than separate connections, labels staggered along the line.
+const BELT_LABEL_SPACING = 4;
+const BELT_LINE_GAP = 14;
+const BELT_LABEL_STEP = 0.04;
+const BELT_DASH = '6 4';
 const SELECTED_STROKE = '#f0ad4e';
 const EXPORT_MARGIN = 40;
 // Fitting a plan with one or a few nodes would otherwise blow them up to fill the canvas.
@@ -435,6 +442,7 @@ export class PlannerGraphService implements OnDestroy
 	private zChangeScheduled = false;
 	private parallelOffsets = new Map<GraphEdge, GraphPoint>();
 	private renderedGraph: Graph | null = null;
+	private renderedBeltView = false;
 
 	private readonly selectedNodesSignal = signal<Node[]>([]);
 	public readonly selectedNodes: Signal<Node[]> = this.selectedNodesSignal.asReadonly();
@@ -533,6 +541,10 @@ export class PlannerGraphService implements OnDestroy
 		if (nodes.length === 0) {
 			return;
 		}
+		// Belt view grows nodes to hold their per-belt lines, so their size must be known before ELK lays out.
+		if (this.beltViewEnabled()) {
+			this.refreshBeltPlan({nodes, edges});
+		}
 		const settings = this.graphLayout.resolve(layoutSettings);
 
 		const nodeIds = new Set(nodes.map(node => node.id));
@@ -610,6 +622,7 @@ export class PlannerGraphService implements OnDestroy
 		const x6Graph = this.createGraph(container);
 		this.renderedGraph = graph;
 		this.refreshBeltPlan(graph);
+		this.renderedBeltView = this.beltViewEnabled();
 
 		// Before addEdge, so edges between done nodes fade too.
 		this.doneNodeIds = new Set(graph.nodes.filter(node => node.done).map(node => node.id));
@@ -624,7 +637,7 @@ export class PlannerGraphService implements OnDestroy
 			}
 		});
 		this.warningEntriesSignal.set(this.buildWarningEntries(graph));
-		this.edgesSignal.set([...this.edgeById.values()]);
+		this.edgesSignal.set([...new Set(this.edgeById.values())]);
 
 		if (previous) {
 			x6Graph.zoom(previous.zoom, {absolute: true});
@@ -913,7 +926,7 @@ export class PlannerGraphService implements OnDestroy
 		const clonedMarkers = new Set<string>();
 		svg.querySelectorAll(`path.${EDGE_HIGHLIGHT_CLASS}`).forEach(line => {
 			const cellId = line.closest('[data-cell-id]')?.getAttribute('data-cell-id') ?? '';
-			const stroke = this.edgeStrokeFor(this.edgeById.get(cellId));
+			const stroke = this.edgeStrokeForCell(cellId, this.edgeById.get(cellId));
 			line.setAttribute('stroke', stroke);
 			line.setAttribute('stroke-width', String(EDGE_STROKE_WIDTH));
 			line.setAttribute('class', EDGE_LINE_CLASS);
@@ -1662,9 +1675,75 @@ export class PlannerGraphService implements OnDestroy
 
 	private addEdge(x6Graph: X6Graph, edge: GraphEdge, index: number): void
 	{
-		const label = this.labelTextFor(edge, index);
+		const plan = this.beltPlanSignal().get(index);
+		if (this.beltViewEnabled() && plan !== undefined && plan.layout.belts.length >= 2) {
+			this.addBeltEdges(x6Graph, edge, index, plan);
+			return;
+		}
+		this.addEdgeCell(
+			x6Graph,
+			edge,
+			`edge-${index}`,
+			this.labelTextFor(edge, index),
+			edge.labelDistance ?? 0.5,
+			this.parallelOffsets.get(edge) ?? null,
+		);
+	}
+
+	/** Belt view: one line per belt, packed side by side on the connection's normal, each with its own label. */
+	private addBeltEdges(x6Graph: X6Graph, edge: GraphEdge, index: number, plan: EdgeBeltPlan): void
+	{
+		const item = this.itemFor(edge);
+		const belts = plan.layout.belts;
+		const count = belts.length;
+		const scale = this.edgeScale();
+		const baseOffset = this.parallelOffsets.get(edge) ?? {x: 0, y: 0};
+		// A user-routed connection keeps its saved vertices on every line; offsets only work on auto-routed edges.
+		const normal = edge.vertices && edge.vertices.length > 0 ? {x: 0, y: 0} : this.edgeNormal(edge);
+		const baseDistance = edge.labelDistance ?? 0.5;
+		belts.forEach((belt, beltIndex) => {
+			const number = beltIndex + 1;
+			const step = number - (count + 1) / 2;
+			const delta = step * BELT_LINE_GAP * scale;
+			const offset = normal.x !== 0 || normal.y !== 0 || baseOffset.x !== 0 || baseOffset.y !== 0
+				? {x: baseOffset.x + normal.x * delta, y: baseOffset.y + normal.y * delta}
+				: null;
+			const distance = Math.min(0.85, Math.max(0.15, baseDistance + step * BELT_LABEL_STEP));
+			const percent = Math.round(belt.fill * 100);
+			this.addEdgeCell(
+				x6Graph,
+				edge,
+				`edge-${index}-belt-${number}`,
+				{
+					name: `${plan.isFluid ? 'Pipe' : 'Belt'} ${number} · ${this.rateFormatter.rate(belt.load, item)} · ${percent}%`,
+					rate: '',
+					iconUrl: number === 1 ? this.iconUrls.url(item?.icon ?? null, 64) : null,
+				},
+				distance,
+				offset,
+				belt.fill < 1 ? {strokeDasharray: BELT_DASH} : {},
+				true,
+				step,
+			);
+		});
+	}
+
+	private addEdgeCell(
+		x6Graph: X6Graph,
+		edge: GraphEdge,
+		id: string,
+		label: {name: string; rate: string; iconUrl: string | null},
+		distance: number,
+		offset: GraphPoint | null,
+		lineAttrs: Record<string, string | number> = {},
+		centeredName = false,
+		labelStack = 0,
+	): void
+	{
 		const size = this.labelSizeFor(label);
-		const id = `edge-${index}`;
+		// Belt lines sit only BELT_LINE_GAP apart, closer than a label is tall: stack each belt's label clear of the
+		// others. The extra gap covers either sign of x6's perpendicular offset relative to the line offsets.
+		const labelOffset = labelStack * (size.height + (BELT_LABEL_SPACING + BELT_LINE_GAP) * this.edgeScale());
 		this.edgeById.set(id, edge);
 		const hasIcon = label.iconUrl !== null && this.settings.graph().showEdgeItemIcons;
 		const scale = this.edgeScale();
@@ -1678,7 +1757,6 @@ export class PlannerGraphService implements OnDestroy
 		const fade = this.doneNodeIds.has(edge.sourceId) && this.doneNodeIds.has(edge.targetId)
 			? {opacity: DONE_OPACITY}
 			: {};
-		const offset = this.parallelOffsets.get(edge);
 		const anchor = offset ? {name: 'center', args: {dx: offset.x, dy: offset.y}} : undefined;
 
 		x6Graph.addEdge({
@@ -1689,8 +1767,9 @@ export class PlannerGraphService implements OnDestroy
 			attrs: {
 				line: {
 					class: EDGE_LINE_CLASS,
-					stroke: this.edgeStrokeFor(edge),
+					stroke: this.edgeStrokeForCell(id, edge),
 					strokeWidth: EDGE_STROKE_WIDTH,
+					...lineAttrs,
 					...fade,
 				},
 			},
@@ -1703,7 +1782,7 @@ export class PlannerGraphService implements OnDestroy
 					{tagName: 'text', selector: 'rate'},
 					{tagName: 'image', selector: 'zoomedOutIcon'},
 				],
-				position: {distance: edge.labelDistance ?? 0.5},
+				position: labelOffset !== 0 ? {distance, offset: labelOffset} : {distance},
 				attrs: {
 					name: {
 						text: label.name,
@@ -1714,7 +1793,7 @@ export class PlannerGraphService implements OnDestroy
 						textAnchor: 'middle',
 						textVerticalAnchor: 'middle',
 						x: textShift,
-						y: LABEL_NAME_Y * scale,
+						y: (centeredName ? 0 : LABEL_NAME_Y * scale),
 						lineHeight: LABEL_NAME_LINE_HEIGHT * scale,
 						...fade,
 					},
@@ -1781,6 +1860,32 @@ export class PlannerGraphService implements OnDestroy
 		});
 	}
 
+	/** Same orientation as computeParallelOffsets, so belt lines stay on a stable side across renders. */
+	private edgeNormal(edge: GraphEdge): GraphPoint
+	{
+		const graph = this.renderedGraph;
+		if (graph === null) {
+			return {x: 0, y: 0};
+		}
+		const [lowId, highId] = [edge.sourceId, edge.targetId].sort();
+		const low = graph.nodes.find(node => node.id === lowId);
+		const high = graph.nodes.find(node => node.id === highId);
+		if (!low || !high) {
+			return {x: 0, y: 0};
+		}
+		const lowSize = this.sizeFor(low);
+		const highSize = this.sizeFor(high);
+		const ax = low.x + lowSize.width / 2;
+		const ay = low.y + lowSize.height / 2;
+		const bx = high.x + highSize.width / 2;
+		const by = high.y + highSize.height / 2;
+		const length = Math.hypot(bx - ax, by - ay);
+		if (length < 1) {
+			return {x: 0, y: 0};
+		}
+		return {x: -(by - ay) / length, y: (bx - ax) / length};
+	}
+
 	private itemFor(edge: GraphEdge): Item | null
 	{
 		return this.versionManager.activeVersionData()?.searchItemByClassName(edge.itemClassName) ?? null;
@@ -1832,10 +1937,40 @@ export class PlannerGraphService implements OnDestroy
 			: EDGE_STROKE;
 	}
 
+	/** Belt lines are each within capacity, so the connection's over-limit amber does not apply to them. */
+	private edgeStrokeForCell(cellId: string, edge: GraphEdge | undefined): string
+	{
+		return this.isBeltLineId(cellId) ? EDGE_STROKE : this.edgeStrokeFor(edge);
+	}
+
+	private isBeltLineId(cellId: string): boolean
+	{
+		return /^edge-\d+-belt-\d+$/.test(cellId);
+	}
+
+	private beltViewEnabled(): boolean
+	{
+		const settings = this.planManager.activeSettings();
+		return settings?.conveyorLimit !== undefined && settings.beltLayout?.beltView === true;
+	}
+
 	/** Re-labels the rendered edges in place: a limit or belt-mode change must not re-solve or re-lay out the graph. */
 	public refreshConveyorLimits(): void
 	{
 		if (!this.x6Graph) {
+			return;
+		}
+		// Belt view changes how many x6 edges exist, so labels cannot be edited in place in either direction.
+		if (this.beltViewEnabled() || this.renderedBeltView) {
+			const graph = this.renderedGraph;
+			if (graph === null) {
+				return;
+			}
+			const selectedIds = this.selectedNodes().map(node => node.id);
+			this.restore(this.x6Graph.container, graph, false);
+			if (selectedIds.length > 0) {
+				this.selectNodesById(selectedIds);
+			}
 			return;
 		}
 		this.refreshBeltPlan(this.renderedGraph);
@@ -2114,7 +2249,7 @@ export class PlannerGraphService implements OnDestroy
 	{
 		const highlighted = this.isEdgeHighlighted(edge);
 
-		edge.attr('line/stroke', highlighted ? SELECTED_STROKE : this.edgeStrokeFor(this.edgeById.get(edge.id)));
+		edge.attr('line/stroke', highlighted ? SELECTED_STROKE : this.edgeStrokeForCell(edge.id, this.edgeById.get(edge.id)));
 		edge.attr('line/strokeWidth', highlighted ? SELECTED_EDGE_STROKE_WIDTH : EDGE_STROKE_WIDTH);
 		edge.attr('line/class', highlighted ? `${EDGE_LINE_CLASS} ${EDGE_HIGHLIGHT_CLASS}` : EDGE_LINE_CLASS);
 
@@ -2125,12 +2260,22 @@ export class PlannerGraphService implements OnDestroy
 	/** Class on the view, not an attr: attr writes re-apply all attrs and re-fetch the label icon. `:hover` fails since the vertex tool covers the edge. */
 	private applyEdgeHover(view: EdgeView, edge: X6Edge, hovered: boolean): void
 	{
-		if (hovered) {
-			view.addClass(EDGE_HOVER_CLASS);
-		} else {
-			view.removeClass(EDGE_HOVER_CLASS);
-		}
-		this.scheduleZChange(edge, hovered || this.isEdgeHighlighted(edge) ? EDGE_HIGHLIGHT_Z : null);
+		const modelEdge = this.edgeById.get(edge.id);
+		const x6Graph = this.x6Graph;
+		const cells: X6Edge[] = modelEdge && x6Graph
+			? x6Graph.getEdges().filter(cell => this.edgeById.get(cell.id) === modelEdge)
+			: [edge];
+		cells.forEach(cell => {
+			const cellView = cell.id === edge.id ? view : x6Graph?.findViewByCell(cell);
+			if (cellView instanceof EdgeView) {
+				if (hovered) {
+					cellView.addClass(EDGE_HOVER_CLASS);
+				} else {
+					cellView.removeClass(EDGE_HOVER_CLASS);
+				}
+			}
+			this.scheduleZChange(cell, hovered || this.isEdgeHighlighted(cell) ? EDGE_HIGHLIGHT_Z : null);
+		});
 	}
 
 	private applyLabelBoxStyle(edge: X6Edge, highlighted: boolean): void
@@ -2529,13 +2674,18 @@ export class PlannerGraphService implements OnDestroy
 		if (node instanceof RecipeNode) {
 			const stats = this.recipeStats(node);
 			const sloopExtra = stats !== '' && node.groups.some(group => group.sloops > 0) ? STAT_SLOOP_SIZE + STAT_SLOOP_GAP : 0;
-			return this.statLinesSize(node.getDisplayName(), this.machinesLine(node), stats, sloopExtra, this.horizontalPadding(node));
+			const maxWidth = this.beltStatLines(node).length > 0 ? RECIPE_BELT_MAX_WIDTH : RECIPE_MAX_WIDTH;
+			return this.statLinesSize(node.getDisplayName(), this.machinesLine(node), stats, sloopExtra, this.horizontalPadding(node), maxWidth);
 		}
 		if (node instanceof SinkNode) {
 			return this.statLinesSize(node.getDisplayName(), this.sinkPointsLine(node), this.sinkStats(node));
 		}
-		if (node instanceof MineNode && this.extractorStats(node) !== null) {
-			return this.statLinesSize(node.getDisplayName(), '', this.mineStats(node), 0, this.horizontalPadding(node));
+		if (node instanceof MineNode) {
+			const stats = this.mineStats(node);
+			if (this.extractorStats(node) !== null || stats.includes('\n')) {
+				const maxWidth = this.beltStatLines(node).length > 0 ? RECIPE_BELT_MAX_WIDTH : RECIPE_MAX_WIDTH;
+				return this.statLinesSize(node.getDisplayName(), '', stats, 0, this.horizontalPadding(node), maxWidth);
+			}
 		}
 		if (this.hasLeftIcon(node)) {
 			const style = this.baseStyleFor(node);
@@ -2568,7 +2718,7 @@ export class PlannerGraphService implements OnDestroy
 		return this.hasLeftIcon(node) ? TEXT_LEFT_INSET + TEXT_RIGHT_PAD : RECIPE_TEXT_PADDING_X;
 	}
 
-	private statLinesSize(name: string, boldLine: string, stats: string, statsExtra = 0, horizontalPadding = RECIPE_TEXT_PADDING_X): {width: number; height: number}
+	private statLinesSize(name: string, boldLine: string, stats: string, statsExtra = 0, horizontalPadding = RECIPE_TEXT_PADDING_X, maxWidth = RECIPE_MAX_WIDTH): {width: number; height: number}
 	{
 		const lines = stats === '' ? [] : stats.split('\n');
 		const height = Math.max(NODE_HEIGHT, RECIPE_STATS_Y + RECIPE_STATS_LINE_HEIGHT * lines.length + RECIPE_BOTTOM_PADDING);
@@ -2577,7 +2727,7 @@ export class PlannerGraphService implements OnDestroy
 			boldLine.length * RECIPE_BOLD_CHAR_WIDTH,
 			...lines.map(line => line.length * RECIPE_STATS_CHAR_WIDTH + statsExtra),
 		);
-		const width = Math.min(RECIPE_MAX_WIDTH, Math.max(NODE_WIDTH, Math.ceil(textWidth + horizontalPadding)));
+		const width = Math.min(maxWidth, Math.max(NODE_WIDTH, Math.ceil(textWidth + horizontalPadding)));
 		return {width, height};
 	}
 
@@ -2726,7 +2876,7 @@ export class PlannerGraphService implements OnDestroy
 			return;
 		}
 		const item = this.versionManager.activeVersionData()?.searchItemByClassName(info.itemClassName) ?? null;
-		const graph: Graph = {nodes: [...this.nodeById.values()], edges: [...this.edgeById.values()]};
+		const graph: Graph = {nodes: [...this.nodeById.values()], edges: [...new Set(this.edgeById.values())]};
 		const rate = (amount: number): string => this.rateFormatter.rate(amount, item);
 		const ios = info.side === 'out' ? node.outputs : node.inputs;
 		const total = ios.filter(io => io.item.className === info.itemClassName).reduce((sum, io) => sum + io.maxAmount, 0);
@@ -2868,9 +3018,13 @@ export class PlannerGraphService implements OnDestroy
 
 	private mineStats(node: MineNode): string
 	{
-		const stats = this.ioStats('Resource', node.amount, node.item);
+		const lines = [this.ioStats('Resource', node.amount, node.item)];
 		const extractors = this.extractorStats(node);
-		return extractors === null ? stats : `${stats}\n${extractors}`;
+		if (extractors !== null) {
+			lines.push(extractors);
+		}
+		lines.push(...this.beltStatLines(node));
+		return lines.join('\n');
 	}
 
 	private extractorStats(node: MineNode): string | null
@@ -2927,10 +3081,52 @@ export class PlannerGraphService implements OnDestroy
 
 	private recipeStats(node: RecipeNode): string
 	{
-		if (this.singleLineMachines()) {
-			return '';
+		const lines = this.singleLineMachines() ? [] : node.groups.map(group => this.groupStatLine(group));
+		lines.push(...this.beltStatLines(node));
+		return lines.join('\n');
+	}
+
+	/** Per-belt machine numbers for nodes on a multi-belt connection, e.g. "In 1: 1–16 · 2: 17–32". */
+	private beltStatLines(node: Node): string[]
+	{
+		if (!this.beltViewEnabled() || !(node instanceof RecipeNode || node instanceof MineNode)) {
+			return [];
 		}
-		return node.groups.map(group => this.groupStatLine(group)).join('\n');
+		const data = this.versionManager.activeVersionData();
+		const incoming: EdgeBeltPlan[] = [];
+		const outgoing: EdgeBeltPlan[] = [];
+		this.beltPlanSignal().forEach(plan => {
+			if (plan.layout.belts.length < 2) {
+				return;
+			}
+			if (plan.edge.targetId === node.id) {
+				incoming.push(plan);
+			} else if (plan.edge.sourceId === node.id) {
+				outgoing.push(plan);
+			}
+		});
+		return [
+			...this.beltSideLines('In', incoming, node, true, data),
+			...this.beltSideLines('Out', outgoing, node, false, data),
+		];
+	}
+
+	private beltSideLines(label: 'In' | 'Out', plans: readonly EdgeBeltPlan[], node: Node, inputs: boolean, data: Data | null): string[]
+	{
+		// With several multi-belt connections on one side, name the item so the lines can be told apart.
+		const withItem = plans.length > 1;
+		return plans.map(plan => {
+			const totals = new Map<string, number>();
+			const allParts = inputs ? plan.consumers.flat() : plan.layout.belts.flatMap(belt => belt.parts);
+			allParts.forEach(part => totals.set(part.unitId, (totals.get(part.unitId) ?? 0) + part.rate));
+			const belts = plan.layout.belts.map((belt, beltIndex) => {
+				const parts = inputs ? plan.consumers[beltIndex] ?? [] : belt.parts;
+				const ranges = BeltPlanner.machineRanges(parts, node, totals, data);
+				return `${belt.index}: ${ranges === '' ? '—' : ranges}`;
+			});
+			const itemName = withItem ? `${this.itemFor(plan.edge)?.name ?? plan.edge.itemClassName} ` : '';
+			return `${label} ${itemName}${belts.join(' · ')}`;
+		});
 	}
 
 	private labelBlockOffset(stats: string, height: number): number
