@@ -693,6 +693,7 @@ export class PlanManager extends SyncableService<PlanStore>
 			resourceArea: parent?.settings.resourceArea ? structuredClone(parent.settings.resourceArea) : undefined,
 			mapConveyors: parent?.settings.mapConveyors ? {...parent.settings.mapConveyors} : undefined,
 			conveyorLimit: parent?.settings.conveyorLimit ? {...parent.settings.conveyorLimit} : undefined,
+			beltLayout: parent?.settings.beltLayout ? {...parent.settings.beltLayout} : undefined,
 			factorySite: parent?.settings.factorySite ? {...parent.settings.factorySite} : undefined,
 			enabledFuels: parent?.settings.enabledFuels
 				? Object.fromEntries(Object.entries(parent.settings.enabledFuels).map(([gen, fuels]) => [gen, [...fuels]]))
@@ -836,6 +837,7 @@ export class PlanManager extends SyncableService<PlanStore>
 			maxShards: settings.maxShards,
 			sloopAccuracy: settings.sloopAccuracy,
 			conveyorLimit: settings.conveyorLimit ? {...settings.conveyorLimit} : undefined,
+			beltLayout: settings.beltLayout ? {...settings.beltLayout} : undefined,
 		};
 	}
 

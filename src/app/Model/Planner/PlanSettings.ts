@@ -1,4 +1,5 @@
 import {AlienPowerAugmenters} from '@src/Model/Planner/AlienPowerAugmenters';
+import {BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
 import {CalculationMode} from '@src/Model/Planner/CalculationMode';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
 import {GraphLayoutSettings} from '@src/Model/Planner/GraphLayoutSettings';
@@ -53,4 +54,6 @@ export interface PlanSettings
 	readonly sloopAccuracy?: SloopAccuracy;
 	/** Display only: how many belts or pipes each connection needs. Undefined hides the annotations. In no settings group: it changes no result. */
 	readonly conveyorLimit?: ConveyorLimit;
+	/** How one connection's flow is split across belts. Undefined means belt management is off. In no settings group: it changes no result. */
+	readonly beltLayout?: BeltLayoutSettings;
 }

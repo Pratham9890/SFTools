@@ -47,6 +47,94 @@
 		</div>
 
 		<div class="text-secondary">{{ overLimitText }}</div>
+
+		<div class="border-top border-secondary pt-2 d-flex flex-column gap-2">
+			<div class="fw-semibold">Belt management</div>
+
+			<div class="form-check">
+				<input
+					class="form-check-input"
+					type="checkbox"
+					id="belt-management"
+					[checked]="beltManagementEnabled"
+					(change)="setBeltManagement($any($event.target).checked)"
+				/>
+				<label class="form-check-label" for="belt-management">Plan how flow is split across belts</label>
+			</div>
+
+			@if (beltManagementEnabled) {
+				@for (option of beltLayoutModes; track option.value) {
+					<div class="form-check">
+						<input
+							class="form-check-input"
+							type="radio"
+							name="belt-layout-mode"
+							[id]="'belt-layout-' + option.value"
+							[checked]="beltLayoutMode === option.value"
+							(change)="setBeltLayoutMode(option.value)"
+						/>
+						<label class="form-check-label" [for]="'belt-layout-' + option.value">
+							{{ option.label }}
+							<span class="text-secondary">- {{ option.description }}</span>
+						</label>
+					</div>
+				}
+
+				@if (beltLayoutMode === 'even') {
+					<div>
+						<label class="form-label text-secondary mb-1 d-flex justify-content-between" for="belt-evenness">
+							<span>Use full capacity ↔ As even as possible</span>
+							<span class="text-light">{{ beltEvenness }}</span>
+						</label>
+						<input
+							type="range"
+							class="form-range"
+							id="belt-evenness"
+							min="0"
+							max="1"
+							step="0.05"
+							[value]="beltEvenness"
+							(input)="setEvenness(+$any($event.target).value)"
+						/>
+					</div>
+					<div class="form-check">
+						<input
+							class="form-check-input"
+							type="checkbox"
+							id="belt-split-outputs"
+							[checked]="beltSplitOutputs"
+							(change)="setSplitOutputs($any($event.target).checked)"
+						/>
+						<label class="form-check-label" for="belt-split-outputs">Split a machine's output across belts</label>
+					</div>
+				}
+
+				<div class="form-check">
+					<input
+						class="form-check-input"
+						type="checkbox"
+						id="belt-allow-plan-changes"
+						[checked]="beltAllowPlanChanges"
+						(change)="setAllowPlanChanges($any($event.target).checked)"
+					/>
+					<label class="form-check-label" for="belt-allow-plan-changes">Allow changes to machines and clock speeds</label>
+				</div>
+				<div class="small text-secondary">
+					Off: belts are arranged for the plan as solved. Round up to full belts then only suggests regrouping machines; it never raises production.
+				</div>
+
+				<div class="form-check">
+					<input
+						class="form-check-input"
+						type="checkbox"
+						id="belt-view"
+						[checked]="beltView"
+						(change)="setBeltView($any($event.target).checked)"
+					/>
+					<label class="form-check-label" for="belt-view">Belt view: draw each belt as its own line</label>
+				</div>
+			}
+		</div>
 	}
 
 </div>

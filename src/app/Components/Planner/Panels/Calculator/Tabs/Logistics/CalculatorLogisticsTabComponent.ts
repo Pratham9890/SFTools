@@ -4,6 +4,7 @@ import {PlannerGraphService} from '@src/Components/Planner/PlannerGraphService';
 import {Item} from '@src/Model/Data/Entities/Item';
 import {VersionManager} from '@src/Model/Data/VersionManager';
 import {ConveyorTiers} from '@src/Model/Map/ConveyorTiers';
+import {BeltLayoutMode, BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
@@ -20,6 +21,11 @@ export class CalculatorLogisticsTabComponent
 
 	public readonly beltMarks: readonly number[] = ConveyorTiers.BELTS.map((_rate, index) => index + 1);
 	public readonly pipeMarks: readonly number[] = ConveyorTiers.PIPES.map((_rate, index) => index + 1);
+	public readonly beltLayoutModes: readonly {value: BeltLayoutMode; label: string; description: string}[] = [
+		{value: 'fewest', label: 'Fewest belts', description: 'fill each belt as full as possible before starting the next'},
+		{value: 'even', label: 'Even spread', description: 'spread the flow over the belts, with an adjustable target'},
+		{value: 'full', label: 'Round up to full belts', description: 'regroup machines so every belt but the last runs full'},
+	];
 
 	public constructor(
 		private readonly planManager: PlanManager,
@@ -48,6 +54,41 @@ export class CalculatorLogisticsTabComponent
 	public get pipeMark(): number
 	{
 		return this.limit?.pipeMark ?? ConveyorTiers.PIPES.length;
+	}
+
+	public get beltLayout(): BeltLayoutSettings | undefined
+	{
+		return this.planManager.activeSettings()?.beltLayout;
+	}
+
+	public get beltManagementEnabled(): boolean
+	{
+		return this.beltLayout !== undefined;
+	}
+
+	public get beltLayoutMode(): BeltLayoutMode
+	{
+		return this.beltLayout?.mode ?? 'fewest';
+	}
+
+	public get beltEvenness(): number
+	{
+		return this.beltLayout?.evenness ?? 0.5;
+	}
+
+	public get beltSplitOutputs(): boolean
+	{
+		return this.beltLayout?.splitOutputs ?? true;
+	}
+
+	public get beltAllowPlanChanges(): boolean
+	{
+		return this.beltLayout?.allowPlanChanges ?? false;
+	}
+
+	public get beltView(): boolean
+	{
+		return this.beltLayout?.beltView ?? false;
 	}
 
 	public get overLimitCount(): number
@@ -85,6 +126,7 @@ export class CalculatorLogisticsTabComponent
 		this.planManager.updateActiveSettings({
 			...settings,
 			conveyorLimit: enabled ? {beltMark: ConveyorTiers.BELTS.length, pipeMark: ConveyorTiers.PIPES.length} : undefined,
+			beltLayout: enabled ? settings.beltLayout : undefined,
 		});
 	}
 
@@ -102,6 +144,51 @@ export class CalculatorLogisticsTabComponent
 		const limit = this.limit;
 		if (!settings || limit === undefined) return;
 		this.planManager.updateActiveSettings({...settings, conveyorLimit: {...limit, pipeMark: mark}});
+	}
+
+	public setBeltManagement(enabled: boolean): void
+	{
+		const settings = this.planManager.activeSettings();
+		if (!settings) return;
+		this.planManager.updateActiveSettings({
+			...settings,
+			beltLayout: enabled
+				? {mode: 'fewest', evenness: 0.5, splitOutputs: true, allowPlanChanges: false, beltView: false}
+				: undefined,
+		});
+	}
+
+	public setBeltLayoutMode(mode: BeltLayoutMode): void
+	{
+		this.updateBeltLayout({mode});
+	}
+
+	public setEvenness(evenness: number): void
+	{
+		this.updateBeltLayout({evenness: Math.min(1, Math.max(0, evenness))});
+	}
+
+	public setSplitOutputs(splitOutputs: boolean): void
+	{
+		this.updateBeltLayout({splitOutputs});
+	}
+
+	public setAllowPlanChanges(allowPlanChanges: boolean): void
+	{
+		this.updateBeltLayout({allowPlanChanges});
+	}
+
+	public setBeltView(beltView: boolean): void
+	{
+		this.updateBeltLayout({beltView});
+	}
+
+	private updateBeltLayout(changes: Partial<BeltLayoutSettings>): void
+	{
+		const settings = this.planManager.activeSettings();
+		const layout = settings?.beltLayout;
+		if (!settings || !layout) return;
+		this.planManager.updateActiveSettings({...settings, beltLayout: {...layout, ...changes}});
 	}
 
 	private itemFor(className: string): Item | null
