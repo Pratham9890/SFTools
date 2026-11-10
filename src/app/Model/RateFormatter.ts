@@ -1,5 +1,6 @@
 import {Injectable} from '@angular/core';
 import {ItemForm} from '@src/Model/API/Schema/Data/Parts/ItemForm';
+import {ClockFraction} from '@src/Model/ClockFraction';
 import {Item} from '@src/Model/Data/Entities/Item';
 import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 
@@ -40,7 +41,19 @@ export class RateFormatter
 		return this.format(machines, this.settings.numbers().machineCountPrecision);
 	}
 
+	/** Text only: nothing parses the result back. Code that needs a number for the clock uses clockDecimal(). */
 	public clock(clockSpeed: number): string
+	{
+		return this.clockFraction(clockSpeed) ?? this.clockDecimal(clockSpeed);
+	}
+
+	/** The fraction a player would type into the game's clock field, or null when the setting is off or none fits. */
+	public clockFraction(clockSpeed: number): string | null
+	{
+		return this.settings.graph().showClockFractions ? ClockFraction.of(clockSpeed) : null;
+	}
+
+	public clockDecimal(clockSpeed: number): string
 	{
 		return this.format(clockSpeed, this.settings.numbers().clockSpeedPrecision);
 	}

@@ -6,6 +6,7 @@ import {PlannerGraphService} from '@src/Components/Planner/PlannerGraphService';
 import {Item} from '@src/Model/Data/Entities/Item';
 import {VersionManager} from '@src/Model/Data/VersionManager';
 import {BeltPlanner} from '@src/Model/Planner/BeltPlanner';
+import {BeltLayoutSettingsNormalizer} from '@src/Model/Planner/BeltLayoutSettingsNormalizer';
 import {BeltConsumerPart, BeltLayoutResult, BeltPart, BeltProposal} from '@src/Model/Planner/BeltLayoutResult';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
@@ -111,9 +112,16 @@ export class NodeBeltsComponent
 		const settings = this.planManager.activeSettings();
 		const graph = this.planManager.activePlan()?.graph ?? null;
 		const data = this.versionManager.activeVersionData();
-		if (settings?.conveyorLimit === undefined || settings.beltLayout === undefined || graph === null || data === null) {
+		const layout = settings?.beltLayout;
+		if (settings?.conveyorLimit === undefined || layout === undefined || graph === null || data === null) {
 			return {connections: [], manifold: null};
 		}
+		const normalized = BeltLayoutSettingsNormalizer.normalize(layout);
+		if (!normalized.beltView) {
+			return {connections: [], manifold: null};
+		}
+		// Suggestions and Apply belong to Custom: Even and Full already split every connection into one belt per line.
+		const custom = normalized.lineStyle === 'custom';
 
 		const nodeById = new Map(graph.nodes.map(node => [node.id, node]));
 		const connections: BeltConnectionView[] = [];
@@ -131,7 +139,7 @@ export class NodeBeltsComponent
 			}
 			const item = data.searchItemByClassName(edge.itemClassName) ?? null;
 			const itemName = item?.name ?? edge.itemClassName;
-			const proposal = plan.layout.changed ? plan.layout.proposal : null;
+			const proposal = custom && plan.layout.changed ? plan.layout.proposal : null;
 			const capacityLabel = ConveyorCapacity.label(settings.conveyorLimit, plan.isFluid, plan.layout.belts.length);
 			const sourceTotals = NodeBeltsComponent.totals(plan.layout.belts.flatMap(belt => belt.parts));
 			const consumerTotals = NodeBeltsComponent.totals(plan.consumers.flat());

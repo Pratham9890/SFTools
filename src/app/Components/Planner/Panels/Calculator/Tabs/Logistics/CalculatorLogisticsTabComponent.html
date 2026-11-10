@@ -2,7 +2,7 @@
 
 	<info-note>
 		Shows how many belts or pipes each connection needs, and highlights the connections that need more than one.
-		This is display only, except Belt view, which turns over-limit connections into one line per belt when the plan is calculated.
+		This is display only, except Belt view, which can turn over-limit connections into one line per belt when the plan is calculated.
 	</info-note>
 
 	<div class="form-check">
@@ -49,20 +49,39 @@
 		<div class="text-secondary">{{ overLimitText }}</div>
 
 		<div class="border-top border-secondary pt-2 d-flex flex-column gap-2">
-			<div class="fw-semibold">Belt management</div>
-
 			<div class="form-check">
 				<input
 					class="form-check-input"
 					type="checkbox"
-					id="belt-management"
-					[checked]="beltManagementEnabled"
-					(change)="setBeltManagement($any($event.target).checked)"
+					id="belt-view"
+					[checked]="beltView"
+					(change)="setBeltView($any($event.target).checked)"
 				/>
-				<label class="form-check-label" for="belt-management">Plan how flow is split across belts</label>
+				<label class="form-check-label" for="belt-view">Belt view: split over-limit connections into lines, one belt each</label>
 			</div>
 
-			@if (beltManagementEnabled) {
+			@if (beltView) {
+				<div class="form-label mb-0">Machines per line</div>
+				@for (option of lineStyles; track option.value) {
+					<div class="form-check">
+						<input
+							class="form-check-input"
+							type="radio"
+							name="line-style"
+							[id]="'line-style-' + option.value"
+							[checked]="lineStyle === option.value"
+							(change)="setLineStyle(option.value)"
+						/>
+						<label class="form-check-label" [for]="'line-style-' + option.value">{{ option.label }}</label>
+					</div>
+				}
+			}
+		</div>
+
+		@if (beltView && lineStyle === 'custom') {
+			<div class="border-top border-secondary pt-2 d-flex flex-column gap-2">
+				<div class="fw-semibold">Belt management</div>
+
 				@for (option of beltLayoutModes; track option.value) {
 					<div class="form-check">
 						<input
@@ -122,45 +141,8 @@
 				<div class="small text-secondary">
 					Off: belts are arranged for the plan as solved. Round up to full belts then only suggests regrouping machines; it never raises production.
 				</div>
-
-				<div class="form-check">
-					<input
-						class="form-check-input"
-						type="checkbox"
-						id="belt-view"
-						[checked]="beltView"
-						(change)="setBeltView($any($event.target).checked)"
-					/>
-					<label class="form-check-label" for="belt-view">Belt view: split over-limit connections into lines, one belt each</label>
-				</div>
-
-				@if (beltView) {
-					<div class="form-label mb-0">Machines per line</div>
-					<div class="form-check">
-						<input
-							class="form-check-input"
-							type="radio"
-							name="line-style"
-							id="line-style-full"
-							[checked]="lineStyle === 'full'"
-							(change)="setLineStyle('full')"
-						/>
-						<label class="form-check-label" for="line-style-full">Full machines, underclock the last</label>
-					</div>
-					<div class="form-check">
-						<input
-							class="form-check-input"
-							type="radio"
-							name="line-style"
-							id="line-style-even"
-							[checked]="lineStyle === 'even'"
-							(change)="setLineStyle('even')"
-						/>
-						<label class="form-check-label" for="line-style-even">Underclock all evenly</label>
-					</div>
-				}
-			}
-		</div>
+			</div>
+		}
 	}
 
 </div>

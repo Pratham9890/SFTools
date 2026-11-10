@@ -14,6 +14,9 @@ export interface GraphSettings
 
 	readonly addBendPointsByClick: boolean;
 
+	/** "100/3" instead of "33.3334" for clock speeds that are really thirds, sixths and so on. */
+	readonly showClockFractions: boolean;
+
 	readonly showNodeItemIcons: boolean;
 
 	readonly showNodeBuildingIcons: boolean;

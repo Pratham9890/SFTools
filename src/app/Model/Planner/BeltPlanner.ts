@@ -2,6 +2,7 @@ import {Data} from '@src/Model/Data/Data';
 import {BeltLayout} from '@src/Model/Planner/BeltLayout';
 import {BeltConsumerPart, BeltLayoutResult, BeltUnit} from '@src/Model/Planner/BeltLayoutResult';
 import {BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
+import {BeltLayoutSettingsNormalizer} from '@src/Model/Planner/BeltLayoutSettingsNormalizer';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
 import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
@@ -90,6 +91,11 @@ export class BeltPlanner
 
 	public static planGraph(graph: Graph, limit: ConveyorLimit, settings: BeltLayoutSettings, data: Data): BeltGraphPlan
 	{
+		const normalized = BeltLayoutSettingsNormalizer.normalize(settings);
+		// Even and Full are already split into one belt per line, so nothing is left to arrange: pack every belt full and propose nothing.
+		const layoutSettings: BeltLayoutSettings = normalized.lineStyle === 'custom'
+			? normalized
+			: {...normalized, mode: 'fewest', allowPlanChanges: false};
 		const plan: BeltGraphPlan = new Map();
 		const nodeById = new Map(graph.nodes.map(node => [node.id, node]));
 		const outgoingTotals = new Map<string, number>();
@@ -121,7 +127,7 @@ export class BeltPlanner
 				edge.amount,
 				capacity,
 				sourceUnits.units,
-				settings,
+				layoutSettings,
 				soleOutput ? sourceUnits.ratePerMachineAt100 ?? undefined : undefined,
 				soleOutput ? sourceUnits.maxClock : undefined,
 			);

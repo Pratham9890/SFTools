@@ -4,10 +4,10 @@ import {PlannerGraphService} from '@src/Components/Planner/PlannerGraphService';
 import {Item} from '@src/Model/Data/Entities/Item';
 import {VersionManager} from '@src/Model/Data/VersionManager';
 import {ConveyorTiers} from '@src/Model/Map/ConveyorTiers';
-import {BeltLayoutMode, BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
+import {BeltLayoutMode, BeltLayoutSettings, BeltLineStyle} from '@src/Model/Planner/BeltLayoutSettings';
+import {BeltLayoutSettingsNormalizer} from '@src/Model/Planner/BeltLayoutSettingsNormalizer';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
-import {LineSplitStyle} from '@src/Model/Planner/LineSplit';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {RateFormatter} from '@src/Model/RateFormatter';
 
@@ -26,6 +26,11 @@ export class CalculatorLogisticsTabComponent
 		{value: 'fewest', label: 'Fewest belts', description: 'fill each belt as full as possible before starting the next'},
 		{value: 'even', label: 'Even spread', description: 'spread the flow over the belts, with an adjustable target'},
 		{value: 'full', label: 'Round up to full belts', description: 'regroup machines so every belt but the last runs full'},
+	];
+	public readonly lineStyles: readonly {value: BeltLineStyle; label: string}[] = [
+		{value: 'even', label: 'Underclock all evenly'},
+		{value: 'full', label: 'Full machines, underclock the last'},
+		{value: 'custom', label: 'Custom: arrange belts with the settings below'},
 	];
 
 	public constructor(
@@ -59,12 +64,8 @@ export class CalculatorLogisticsTabComponent
 
 	public get beltLayout(): BeltLayoutSettings | undefined
 	{
-		return this.planManager.activeSettings()?.beltLayout;
-	}
-
-	public get beltManagementEnabled(): boolean
-	{
-		return this.beltLayout !== undefined;
+		const layout = this.planManager.activeSettings()?.beltLayout;
+		return layout === undefined ? undefined : BeltLayoutSettingsNormalizer.normalize(layout);
 	}
 
 	public get beltLayoutMode(): BeltLayoutMode
@@ -92,9 +93,9 @@ export class CalculatorLogisticsTabComponent
 		return this.beltLayout?.beltView ?? false;
 	}
 
-	public get lineStyle(): LineSplitStyle
+	public get lineStyle(): BeltLineStyle
 	{
-		return this.beltLayout?.lineStyle ?? 'full';
+		return this.beltLayout?.lineStyle ?? 'even';
 	}
 
 	public get overLimitCount(): number
@@ -152,18 +153,6 @@ export class CalculatorLogisticsTabComponent
 		this.planManager.updateActiveSettings({...settings, conveyorLimit: {...limit, pipeMark: mark}});
 	}
 
-	public setBeltManagement(enabled: boolean): void
-	{
-		const settings = this.planManager.activeSettings();
-		if (!settings) return;
-		this.planManager.updateActiveSettings({
-			...settings,
-			beltLayout: enabled
-				? {mode: 'fewest', evenness: 0.5, splitOutputs: true, allowPlanChanges: false, beltView: false, lineStyle: 'full'}
-				: undefined,
-		});
-	}
-
 	public setBeltLayoutMode(mode: BeltLayoutMode): void
 	{
 		this.updateBeltLayout({mode});
@@ -186,10 +175,22 @@ export class CalculatorLogisticsTabComponent
 
 	public setBeltView(beltView: boolean): void
 	{
-		this.updateBeltLayout({beltView});
+		const settings = this.planManager.activeSettings();
+		if (!settings) return;
+		if (!beltView) {
+			this.planManager.updateActiveSettings({...settings, beltLayout: undefined});
+			return;
+		}
+		const layout = settings.beltLayout;
+		this.planManager.updateActiveSettings({
+			...settings,
+			beltLayout: layout === undefined
+				? {mode: 'fewest', evenness: 0.5, splitOutputs: true, allowPlanChanges: false, beltView: true, lineStyle: 'even'}
+				: {...BeltLayoutSettingsNormalizer.normalize(layout), beltView: true},
+		});
 	}
 
-	public setLineStyle(lineStyle: LineSplitStyle): void
+	public setLineStyle(lineStyle: BeltLineStyle): void
 	{
 		this.updateBeltLayout({lineStyle});
 	}
@@ -199,7 +200,8 @@ export class CalculatorLogisticsTabComponent
 		const settings = this.planManager.activeSettings();
 		const layout = settings?.beltLayout;
 		if (!settings || !layout) return;
-		this.planManager.updateActiveSettings({...settings, beltLayout: {...layout, ...changes}});
+		const normalized = BeltLayoutSettingsNormalizer.normalize(layout);
+		this.planManager.updateActiveSettings({...settings, beltLayout: {...normalized, beltView: true, ...changes}});
 	}
 
 	private itemFor(className: string): Item | null

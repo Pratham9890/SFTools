@@ -40,6 +40,19 @@
 			<div class="form-text">Off: lines can't be bent by accident; existing bend points still show and can be moved.</div>
 		</div>
 
+		<div class="subsection-title">Clock speeds</div>
+		<div class="form-check">
+			<input
+				id="showClockFractions"
+				type="checkbox"
+				class="form-check-input"
+				[ngModel]="graph.showClockFractions"
+				(ngModelChange)="setToggle('showClockFractions', $event)"
+			/>
+			<label class="form-check-label" for="showClockFractions">Show clock speeds as fractions</label><setting-reset-button category="graph" field="showClockFractions"/>
+			<div class="form-text">Shows 100/3 instead of 33.3334 where it fits: type it into the game's clock field (PC) exactly as shown.</div>
+		</div>
+
 		<div class="subsection-title">Effects</div>
 		<div class="form-check">
 			<input

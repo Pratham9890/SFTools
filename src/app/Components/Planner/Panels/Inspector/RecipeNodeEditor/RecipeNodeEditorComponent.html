@@ -185,6 +185,9 @@
 								max="250"
 								step="any"
 							>
+							@if (rateFormatter.clockFraction(group.clockSpeed); as fraction) {
+								<div class="small text-secondary text-nowrap">= {{ fraction }}</div>
+							}
 						</td>
 						@if ((selectedMachine?.sloopSlots ?? 0) > 0) {
 							<td class="stack-grow" data-label="Sloops">

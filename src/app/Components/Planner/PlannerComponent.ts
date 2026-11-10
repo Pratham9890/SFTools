@@ -66,6 +66,8 @@ import {OldToolsAutoImportService} from '@src/Model/OldTools/OldToolsAutoImportS
 import {OldToolsImportRequestService} from '@src/Model/OldTools/OldToolsImportRequestService';
 import {OldToolsShareService} from '@src/Model/OldTools/OldToolsShareService';
 import {BeltProposal} from '@src/Model/Planner/BeltLayoutResult';
+import {BeltLineStyle, BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
+import {BeltLayoutSettingsNormalizer} from '@src/Model/Planner/BeltLayoutSettingsNormalizer';
 import {CalculationMode} from '@src/Model/Planner/CalculationMode';
 import {EnabledRecipesResolver} from '@src/Model/Planner/EnabledRecipesResolver';
 import {Graph} from '@src/Model/Planner/Graph/Graph';
@@ -539,9 +541,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 						clocks: [plan.settings.defaultClockSpeed, plan.settings.recipeClockSpeeds, plan.settings.machineClockSpeeds, plan.settings.generatorClockSpeeds],
 						grouping: this.groupingModes.resolve(plan.settings),
 						// Belt view draws lines from the result, so these change it too.
-						lines: plan.settings.beltLayout?.beltView
-							? [plan.settings.conveyorLimit ?? null, plan.settings.beltLayout.lineStyle ?? 'full']
-							: null,
+						lines: this.beltLinesKey(plan),
 					}),
 				};
 			})).pipe(
@@ -1879,6 +1879,17 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		}
 	}
 
+	/** Belt view with its style, or null when it is off: a style switch re-solves, the mode fields do not. */
+	private beltLinesKey(plan: Plan): [unknown, BeltLineStyle] | null
+	{
+		const layout = plan.settings.beltLayout;
+		if (layout === undefined) {
+			return null;
+		}
+		const normalized = BeltLayoutSettingsNormalizer.normalize(layout);
+		return normalized.beltView ? [plan.settings.conveyorLimit ?? null, normalized.lineStyle] : null;
+	}
+
 	/**
 	 * Matches the automatic solve's line settings: when it will draw the graph, refreshing the labels first would render twice.
 	 */
@@ -1894,16 +1905,15 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		if (!solvable) {
 			return false;
 		}
-		const before = JSON.parse(previous) as [unknown, {lineStyle?: string; beltView?: boolean} | null];
-		const after = JSON.parse(current) as [unknown, {lineStyle?: string; beltView?: boolean} | null];
-		const beforeView = before[1]?.beltView ?? false;
-		const afterView = after[1]?.beltView ?? false;
-		if (beforeView !== afterView) {
+		const before = JSON.parse(previous) as [unknown, BeltLayoutSettings | null];
+		const after = JSON.parse(current) as [unknown, BeltLayoutSettings | null];
+		const beforeStyle = before[1] === null ? null : BeltLayoutSettingsNormalizer.normalize(before[1]).lineStyle;
+		const afterStyle = after[1] === null ? null : BeltLayoutSettingsNormalizer.normalize(after[1]).lineStyle;
+		if ((beforeStyle === null) !== (afterStyle === null)) {
 			return true;
 		}
-		return afterView
-			&& (JSON.stringify(before[0]) !== JSON.stringify(after[0])
-				|| (before[1]?.lineStyle ?? 'full') !== (after[1]?.lineStyle ?? 'full'));
+		return afterStyle !== null
+			&& (JSON.stringify(before[0]) !== JSON.stringify(after[0]) || beforeStyle !== afterStyle);
 	}
 
 	private restyleGraph(): void
@@ -2573,19 +2583,23 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		return graph;
 	}
 
-	/** Belt view turns over-limit connections into solver output: one block per belt, laid out like any result. */
+	/** Belt view turns over-limit connections into solver output: one block per belt, laid out like any result. Custom splits nothing. */
 	private splitLines(plan: Plan, graph: Graph): Graph
 	{
 		const limit = plan.settings.conveyorLimit;
 		const layout = plan.settings.beltLayout;
-		if (limit === undefined || layout === undefined || !layout.beltView) {
+		if (limit === undefined || layout === undefined) {
+			return graph;
+		}
+		const normalized = BeltLayoutSettingsNormalizer.normalize(layout);
+		if (!normalized.beltView || normalized.lineStyle === 'custom') {
 			return graph;
 		}
 		const data = this.versionManager.activeVersionData();
 		if (data === null) {
 			return graph;
 		}
-		return this.lineSplitter.splitAll(graph, limit, layout.lineStyle ?? 'full', data);
+		return this.lineSplitter.splitAll(graph, limit, normalized.lineStyle, data);
 	}
 
 	private existingGraph(plan: Plan): Graph | null
