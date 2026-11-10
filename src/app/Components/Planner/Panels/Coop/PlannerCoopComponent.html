@@ -1,0 +1,170 @@
+<div class="p-2 d-flex flex-column gap-3 coop">
+
+	@if (!configured) {
+		<p class="text-secondary mb-0">Co-op is not set up in this build.</p>
+	} @else if (player() === null || editingPlayer()) {
+		<section class="d-flex flex-column gap-2">
+			<h6 class="mb-0">{{ player() === null ? 'Who are you?' : 'Your name and colour' }}</h6>
+			<p class="text-secondary small mb-0">Shown to the other players next to what you claim. No account needed.</p>
+			<input class="form-control form-control-sm bg-dark text-light border-secondary" maxlength="40" placeholder="Your name" [(ngModel)]="playerName" (keydown.enter)="savePlayer()"/>
+			<div class="d-flex gap-1 flex-wrap" role="radiogroup" aria-label="Colour">
+				@for (color of colors; track color) {
+					<button type="button" class="swatch" [class.selected]="color === playerColor" [style.background]="color" [attr.aria-label]="'Colour ' + color" (click)="playerColor = color"></button>
+				}
+			</div>
+			<div class="d-flex gap-2">
+				<button type="button" class="btn btn-success btn-sm" [disabled]="playerName.trim() === ''" (click)="savePlayer()">Save</button>
+				@if (player() !== null) {
+					<button type="button" class="btn btn-outline-secondary btn-sm" (click)="editingPlayer.set(false)">Cancel</button>
+				}
+			</div>
+		</section>
+	} @else if (!active()) {
+		<section class="d-flex flex-column gap-2">
+			<h6 class="mb-0">Start a co-op space</h6>
+			<p class="text-secondary small mb-0">Plans in a space are shared live with everyone who has its invite link. Your own plans stay on this device, and you can drag them in.</p>
+			<input class="form-control form-control-sm bg-dark text-light border-secondary" maxlength="100" placeholder="Space name, e.g. our save's name" [(ngModel)]="spaceName" (keydown.enter)="create()"/>
+			<button type="button" class="btn btn-success btn-sm align-self-start" [disabled]="busy()" (click)="create()">Create space</button>
+		</section>
+		<section class="d-flex flex-column gap-2">
+			<h6 class="mb-0">Join one</h6>
+			<input class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Paste the invite link" [(ngModel)]="inviteText" (keydown.enter)="join()"/>
+			<button type="button" class="btn btn-outline-success btn-sm align-self-start" [disabled]="busy() || inviteText.trim() === ''" (click)="join()">Join</button>
+		</section>
+		@if (error(); as message) {
+			<p class="text-danger small mb-0">{{ message }}</p>
+		}
+		<p class="text-secondary small mb-0">
+			Playing as <span class="player-dot" [style.background]="player()!.color"></span> {{ player()!.name }}
+			<button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="editPlayer()">change</button>
+		</p>
+	} @else {
+		<section class="d-flex flex-column gap-2">
+			<div class="d-flex align-items-center gap-2">
+				@if (renaming()) {
+					<input class="form-control form-control-sm bg-dark text-light border-secondary" maxlength="100" [(ngModel)]="renameText" (keydown.enter)="rename()" (keydown.escape)="renaming.set(false)" (blur)="rename()"/>
+				} @else {
+					<h6 class="mb-0 text-truncate" [title]="spaceTitle()">{{ spaceTitle() }}</h6>
+					<button type="button" class="btn btn-link btn-sm p-0 text-secondary" aria-label="Rename space" (click)="startRename()"><fa-icon [icon]="faPen"></fa-icon></button>
+				}
+				<span class="ms-auto small connection" [class]="'connection-' + connection()">
+					{{ connection() === 'live' ? 'Live' : connection() === 'connecting' ? 'Connecting…' : 'Offline' }}
+				</span>
+			</div>
+			@if (connection() === 'offline') {
+				<p class="text-warning small mb-0">Can't reach the space right now. It reconnects on its own; changes you make are sent when it does.</p>
+			}
+			<ul class="list-unstyled mb-0 d-flex flex-wrap gap-2">
+				@for (p of players(); track p.id) {
+					<li class="player" [class.offline]="!p.online" [title]="p.online ? 'Online' : 'Not online'">
+						<span class="player-dot" [style.background]="p.color"></span>{{ p.name }}@if (p.me) {&ngsp;<span class="text-secondary">(you)</span>}
+					</li>
+				}
+			</ul>
+			<div class="d-flex gap-2 flex-wrap">
+				<button type="button" class="btn btn-outline-success btn-sm" (click)="copyInvite()"><fa-icon [icon]="faUserPlus"></fa-icon> Copy invite link</button>
+				<button type="button" class="btn btn-outline-secondary btn-sm" (click)="editPlayer()"><fa-icon [icon]="faPen"></fa-icon> You</button>
+				<button type="button" class="btn btn-outline-danger btn-sm ms-auto" (click)="leave()"><fa-icon [icon]="faRightFromBracket"></fa-icon> Leave</button>
+			</div>
+		</section>
+
+		@if (error(); as message) {
+			<p class="text-danger small mb-0">{{ message }}</p>
+		}
+
+		@if (plan() === null) {
+			<p class="text-secondary small mb-0">Open a plan to see and claim its parts.</p>
+		} @else if (!planInSpace()) {
+			<p class="text-secondary small mb-0">This plan is only on this device. Drag it onto the space in the plan list to share it.</p>
+		} @else {
+			<section class="d-flex flex-column gap-2">
+				<div class="btn-group btn-group-sm" role="group" aria-label="Show">
+					<button type="button" class="btn btn-outline-secondary" [class.active]="view() === 'mine'" (click)="setView('mine')">My part <span class="count">{{ counts().mine }}</span></button>
+					<button type="button" class="btn btn-outline-secondary" [class.active]="view() === 'unclaimed'" (click)="setView('unclaimed')">Unclaimed <span class="count">{{ counts().unclaimed }}</span></button>
+					<button type="button" class="btn btn-outline-secondary" [class.active]="view() === 'everyone'" (click)="setView('everyone')">Claimed <span class="count">{{ counts().everyone }}</span></button>
+					<button type="button" class="btn btn-outline-secondary" [class.active]="view() === 'plan'" (click)="setView('plan')">All <span class="count">{{ counts().plan }}</span></button>
+				</div>
+
+				<ul class="list-unstyled mb-0 parts">
+					@for (row of visibleRows(); track row.nodeId) {
+						<li class="part" [class.done]="row.done" [style.border-left-color]="row.holder?.color ?? 'transparent'">
+							<game-icon [hash]="row.icon" [size]="22" [alt]="row.detail"></game-icon>
+							<div class="flex-grow-1 min-w-0">
+								<div class="text-truncate" [title]="row.name">{{ rateFormatter.amount(row.buildings) }}× {{ row.name }}</div>
+								<div class="small text-secondary text-truncate">
+									{{ row.detail }}
+									@if (row.holder; as holder) {
+										· <span [style.color]="holder.color">{{ row.mine ? 'you' : holder.name }}</span>
+									}
+									@if (row.done) {
+										· <span class="text-success">built</span>
+									}
+								</div>
+							</div>
+							<go-to-node [nodeIds]="[row.nodeId]"></go-to-node>
+							@if (row.holder === null) {
+								<button type="button" class="btn btn-outline-success btn-sm" (click)="claim(row)"><fa-icon [icon]="faFlag"></fa-icon> Claim</button>
+							} @else if (row.mine) {
+								<button type="button" class="btn btn-sm" [class.btn-success]="!row.done" [class.btn-outline-secondary]="row.done" (click)="toggleDone(row)" [title]="row.done ? 'Mark as not built' : 'Mark as built'">
+									<fa-icon [icon]="row.done ? faRotateLeft : faCheck"></fa-icon>
+								</button>
+								<button type="button" class="btn btn-outline-secondary btn-sm" (click)="unclaim(row.nodeId)" title="Unclaim"><fa-icon [icon]="faXmark"></fa-icon></button>
+							}
+						</li>
+					} @empty {
+						<li class="text-secondary small fst-italic">
+							@switch (view()) {
+								@case ('mine') { Nothing claimed yet. Claim parts from Unclaimed, or right-click a building on the graph. }
+								@case ('unclaimed') { Everything in this plan is claimed. }
+								@case ('everyone') { Nobody has claimed anything yet. }
+								@default { This plan has no buildings yet. }
+							}
+						</li>
+					}
+				</ul>
+
+				@if (visibleRows().length > 0) {
+					<table class="table table-dark table-sm align-middle mb-0">
+						<thead>
+							<tr>
+								<th>Still to build: {{ rateFormatter.amount(cost().machines - cost().builtMachines) }} buildings</th>
+								<th class="text-end" style="width: 90px;">Amount</th>
+							</tr>
+						</thead>
+						<tbody>
+							@for (material of cost().remainingMaterials; track material.item.className) {
+								<tr>
+									<td>
+										<span class="d-inline-flex align-items-center gap-1">
+											<game-icon [hash]="material.item.icon" [size]="18" [alt]="material.item.name"></game-icon>
+											{{ material.item.name }}
+										</span>
+									</td>
+									<td class="text-end">{{ rateFormatter.amount(material.amount) }}</td>
+								</tr>
+							} @empty {
+								<tr><td colspan="2" class="fst-italic text-secondary">All built.</td></tr>
+							}
+						</tbody>
+					</table>
+					<p class="text-secondary small mb-0">Belts, pipes, splitters and mergers are not included.</p>
+				}
+			</section>
+
+			@if (orphans().length > 0) {
+				<section class="d-flex flex-column gap-2 attention">
+					<h6 class="mb-0 text-warning"><fa-icon [icon]="faTriangleExclamation"></fa-icon> Needs attention</h6>
+					<p class="small text-secondary mb-0">These claims were on buildings the plan no longer has, for example after a recalculation. Claim the new ones and drop these.</p>
+					@for (orphan of orphans(); track orphan.nodeId) {
+						<div class="d-flex align-items-center gap-2 small">
+							<span class="player-dot" [style.background]="orphan.holder.color"></span>
+							<span class="flex-grow-1">Claimed by {{ orphan.holder.name }}</span>
+							<button type="button" class="btn btn-outline-secondary btn-sm" (click)="unclaim(orphan.nodeId)">Drop</button>
+						</div>
+					}
+				</section>
+			}
+		}
+	}
+
+</div>

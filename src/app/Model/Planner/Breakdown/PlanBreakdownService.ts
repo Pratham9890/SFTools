@@ -262,10 +262,22 @@ export class PlanBreakdownService
 
 	public buildCost(plan: Plan | null): BuildCostBreakdown
 	{
-		const graph = this.reviveGraph(plan?.graph ?? null);
-		if (!plan || !graph) {
+		return this.buildCostOf(plan, null);
+	}
+
+	/** Only these nodes, e.g. a player's claimed part. Plan-wide extra power belongs to no node, so it is left out. */
+	public buildCostForNodes(plan: Plan | null, nodeIds: ReadonlySet<string>): BuildCostBreakdown
+	{
+		return this.buildCostOf(plan, nodeIds);
+	}
+
+	private buildCostOf(plan: Plan | null, only: ReadonlySet<string> | null): BuildCostBreakdown
+	{
+		const revived = this.reviveGraph(plan?.graph ?? null);
+		if (!plan || !revived) {
 			return this.costBreakdown([]);
 		}
+		const graph = only === null ? revived : {...revived, nodes: revived.nodes.filter(node => only.has(node.id))};
 
 		const subplanNodes: SubplanNode[] = [];
 		const augmenters: AugmenterNode[] = [];
@@ -286,7 +298,7 @@ export class PlanBreakdownService
 			}
 		});
 		// Only buildings are counted, so the generated MW the augmenters scale does not matter here.
-		const own: ProductionNodes = {recipes, generators, mines, extraPower: this.extraPowerEntries(plan, 0, false, augmenters)};
+		const own: ProductionNodes = {recipes, generators, mines, extraPower: only === null ? this.extraPowerEntries(plan, 0, false, augmenters) : []};
 
 		// The augmenter row comes from the settings, so its node ids are attached here.
 		const augmenterIds = augmenters.map(node => node.id);

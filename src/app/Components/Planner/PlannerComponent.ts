@@ -1,7 +1,7 @@
 import {AfterViewInit, Component, computed, effect, ElementRef, HostListener, OnDestroy, signal, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {ActivatedRoute, Router} from '@angular/router';
-import {faBolt, faBook, faChartPie, faCircleQuestion, faCoins, faCrosshairs, faCubes, faFolderTree, faGear, faListCheck, faMap} from '@fortawesome/free-solid-svg-icons';
+import {faBolt, faBook, faChartPie, faCircleQuestion, faCoins, faCrosshairs, faCubes, faFolderTree, faGear, faListCheck, faMap, faUsers} from '@fortawesome/free-solid-svg-icons';
 import {combineLatest, debounceTime, distinctUntilChanged, filter, finalize, pairwise, skip, Subscription} from 'rxjs';
 import {CodexNavigation} from '@src/Components/Codex/CodexNavigation';
 import {PanelCodexNavigation} from '@src/Components/Codex/PanelCodexNavigation';
@@ -15,7 +15,7 @@ import {EdgeAmountAction} from '@src/Components/Planner/ContextMenu/EdgeAmountAc
 import {EdgeContextMenu} from '@src/Components/Planner/ContextMenu/EdgeContextMenu';
 import {EdgeShortageMenu} from '@src/Components/Planner/ContextMenu/EdgeShortageMenu';
 import {MultiNodeContextMenu} from '@src/Components/Planner/ContextMenu/MultiNodeContextMenu';
-import {NodeContextMenu} from '@src/Components/Planner/ContextMenu/NodeContextMenu';
+import {NodeClaimOptions, NodeContextMenu} from '@src/Components/Planner/ContextMenu/NodeContextMenu';
 import {NodeResizeOptions} from '@src/Components/Planner/ContextMenu/NodeResizeOptions';
 import {NodeSplitOptions} from '@src/Components/Planner/ContextMenu/NodeSplitOptions';
 import {PlannerContextMenu} from '@src/Components/Planner/ContextMenu/PlannerContextMenu';
@@ -52,6 +52,9 @@ import {PlannerHelpComponent} from '@src/Components/Planner/Panels/Help/PlannerH
 import {PlannerMapComponent} from '@src/Components/Planner/Panels/Map/PlannerMapComponent';
 import {MapPanelRequests} from '@src/Components/Map/MapPanelRequests';
 import {PanelMapLocation} from '@src/Components/Map/PanelMapLocation';
+import {CoopClaimables} from '@src/Model/Coop/CoopClaimables';
+import {CoopSession} from '@src/Model/Coop/CoopSession';
+import {PlannerCoopComponent} from '@src/Components/Planner/Panels/Coop/PlannerCoopComponent';
 import {PlannerBuildCostComponent} from '@src/Components/Planner/Panels/BuildCost/PlannerBuildCostComponent';
 import {PlannerInspectorComponent} from '@src/Components/Planner/Panels/Inspector/PlannerInspectorComponent';
 import {PlannerItemsComponent} from '@src/Components/Planner/Panels/Items/PlannerItemsComponent';
@@ -207,6 +210,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		private readonly panelLayout: PanelLayoutService,
 		private readonly actions: PlannerActionsService,
 		private readonly history: GraphHistoryService,
+		private readonly coop: CoopSession,
 		private readonly contextMenu: PlannerContextMenuService,
 		private readonly hotkeys: HotkeyService,
 		private readonly calculatorTabs: CalculatorTabStateService,
@@ -308,6 +312,13 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			label: 'Build cost',
 			icon: faCoins,
 			component: PlannerBuildCostComponent,
+			defaultSide: 'right',
+		});
+		panelLayout.register({
+			id: 'coop',
+			label: 'Co-op',
+			icon: faUsers,
+			component: PlannerCoopComponent,
 			defaultSide: 'right',
 		});
 		panelLayout.register({
@@ -814,7 +825,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		if (nodes.length === 1) {
 			items.push(...new NodeContextMenu(nodes[0], this.nodeResizeOptions(nodes[0]), this.nodeSplitOptions(nodes[0]),
 				this.nodeTypeConverter.converted(nodes[0], this.versionManager.activeVersionData()),
-				this.actions, this.panelLayout, this.plannerGraph).getItems());
+				this.actions, this.panelLayout, this.plannerGraph, this.claimOptions(nodes[0])).getItems());
 		} else if (nodes.length > 1) {
 			items.push(...new MultiNodeContextMenu(nodes, this.actions).getItems());
 		}
@@ -888,7 +899,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		} else if (request.nodes.length === 1) {
 			menu = new NodeContextMenu(request.nodes[0], this.nodeResizeOptions(request.nodes[0]), this.nodeSplitOptions(request.nodes[0]),
 				this.nodeTypeConverter.converted(request.nodes[0], this.versionManager.activeVersionData()),
-				this.actions, this.panelLayout, this.plannerGraph);
+				this.actions, this.panelLayout, this.plannerGraph, this.claimOptions(request.nodes[0]));
 		} else {
 			menu = new MultiNodeContextMenu(request.nodes, this.actions);
 		}
@@ -1582,9 +1593,14 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.history.push(this.snapshotOf(plan));
 
 		const ids = new Set(request.nodeIds);
+		// In a co-op space what is built is locked, so nobody's recalculation changes what stands in the world.
+		const lockBuilt = this.planInCoopSpace(plan.id);
 		graph.nodes.forEach(node => {
 			if (ids.has(node.id)) {
 				node.done = request.done;
+				if (lockBuilt && node.canToggleLock()) {
+					node.locked = request.done;
+				}
 			}
 		});
 
@@ -1592,6 +1608,26 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.plannerGraph.selectNodesById(request.nodeIds);
 		// Not dirty: every solve carries done marks over (GraphComposer.carryDone), and dirty would pause automatic mode.
 		this.planManager.setGraph(plan.id, graph);
+	}
+
+	private planInCoopSpace(planId: string): boolean
+	{
+		return this.coop.active() && this.planManager.plans().some(p => p.id === planId);
+	}
+
+	private claimOptions(node: Node): NodeClaimOptions | null
+	{
+		const plan = this.planManager.activePlan();
+		if (plan === null || !this.planInCoopSpace(plan.id) || !CoopClaimables.isClaimable(node)) {
+			return null;
+		}
+		const holder = this.coop.claimHolder(plan.id, node.id);
+		return {
+			holderName: holder?.name ?? null,
+			mine: holder !== null && holder.id === this.coop.player()?.id,
+			claim: () => void this.coop.claim(plan.id, node.id),
+			unclaim: () => void this.coop.unclaim(plan.id, node.id),
+		};
 	}
 
 	private disableRecipe(recipeClassName: string): void

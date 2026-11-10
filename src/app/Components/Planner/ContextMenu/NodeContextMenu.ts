@@ -1,4 +1,4 @@
-import {faArrowRightArrowLeft, faArrowsSplitUpAndLeft, faBan, faBolt, faBoxOpen, faCheck, faCompress, faCrosshairs, faDiagramProject, faExpand, faFolderOpen, faLock, faLockOpen, faRotateLeft, faTrashCan, faXmark} from '@fortawesome/free-solid-svg-icons';
+import {faArrowRightArrowLeft, faArrowsSplitUpAndLeft, faBan, faBolt, faBoxOpen, faCheck, faCompress, faCrosshairs, faDiagramProject, faExpand, faFlag, faFolderOpen, faLock, faLockOpen, faRotateLeft, faTrashCan, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {ContextMenuItem} from '@src/Components/Planner/ContextMenu/ContextMenuItem';
 import {NodeResizeOptions} from '@src/Components/Planner/ContextMenu/NodeResizeOptions';
 import {NodeSplitOptions} from '@src/Components/Planner/ContextMenu/NodeSplitOptions';
@@ -18,6 +18,16 @@ import {ProductNode} from '@src/Model/Planner/Solver/Response/ProductNode';
 import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
 import {SubplanNode} from '@src/Model/Planner/Solver/Response/SubplanNode';
 
+/** Present when the plan is in a co-op space and the node stands for buildings. */
+export interface NodeClaimOptions
+{
+	/** Null = nobody has it. */
+	readonly holderName: string | null;
+	readonly mine: boolean;
+	readonly claim: () => void;
+	readonly unclaim: () => void;
+}
+
 export class NodeContextMenu extends PlannerContextMenu
 {
 
@@ -36,6 +46,7 @@ export class NodeContextMenu extends PlannerContextMenu
 		private readonly actions: PlannerActionsService,
 		private readonly panelLayout: PanelLayoutService,
 		private readonly plannerGraph: PlannerGraphService,
+		private readonly claimOptions: NodeClaimOptions | null = null,
 	)
 	{
 		super();
@@ -112,6 +123,17 @@ export class NodeContextMenu extends PlannerContextMenu
 				hotkey: 'graph.toggleLock',
 				action: () => this.actions.requestNodeLock({nodeIds: [this.node.id], locked: !this.node.locked}),
 			});
+		}
+
+		if (this.claimOptions !== null) {
+			const claim = this.claimOptions;
+			if (claim.holderName === null) {
+				items.push({label: 'Claim', icon: faFlag, hint: 'Take this part on: the other players see it as yours.', action: claim.claim});
+			} else if (claim.mine) {
+				items.push({label: 'Unclaim', icon: faXmark, action: claim.unclaim});
+			} else {
+				items.push({label: `Claimed by ${claim.holderName}`, icon: faFlag, disabled: true, hint: 'Only they can unclaim it.', action: () => undefined});
+			}
 		}
 
 		items.push({
