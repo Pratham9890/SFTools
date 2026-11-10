@@ -10,6 +10,16 @@ import {MachineGroupNormalizer} from '@src/Model/Planner/MachineGroupNormalizer'
 import {Node} from '@src/Model/Planner/Solver/Response/Node';
 import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
 
+/** Lookups for one graph revision, so each round scans the graph once instead of once per connection. */
+interface GraphIndex
+{
+	readonly nodes: ReadonlyMap<string, Node>;
+	/** Connection indices per node, per item. */
+	readonly outputs: ReadonlyMap<string, Map<string, number[]>>;
+	readonly inputs: ReadonlyMap<string, Map<string, number[]>>;
+	readonly selfLoops: ReadonlySet<string>;
+}
+
 /** A node being divided into lines: one part per line, each taking `shares[line]` of the node. */
 interface Replacement
 {
@@ -40,46 +50,17 @@ export class LineSplitter
 
 	private readonly normalizer = new MachineGroupNormalizer();
 
-	public plan(graph: Graph, edgeIndex: number, capacity: number, mode: GroupingMode, data: Data): LineSplitResult
+	public plan(graph: Graph, edgeIndex: number, capacity: number, mode: GroupingMode, data: Data, index: GraphIndex = LineSplitter.indexOf(graph)): LineSplitResult
 	{
+		const blocked = LineSplitter.blockedReason(graph, edgeIndex, capacity, index);
+		if (blocked !== null) {
+			return {blocked};
+		}
 		const edge = graph.edges[edgeIndex];
-		if (!edge) {
-			return {blocked: 'The connection no longer exists'};
-		}
-		if (!(capacity > 0)) {
-			return {blocked: 'No belt capacity is set'};
-		}
-		if (ConveyorCapacity.countNeeded(edge.amount, capacity) < 2) {
-			return {blocked: 'This connection fits on one belt'};
-		}
-
-		const source = graph.nodes.find(node => node.id === edge.sourceId) ?? null;
-		const target = graph.nodes.find(node => node.id === edge.targetId) ?? null;
-		if (source === null || target === null) {
-			return {blocked: 'The connection no longer exists'};
-		}
-		if (source.locked || target.locked) {
-			return {blocked: 'A locked block keeps its machines'};
-		}
+		const source = index.nodes.get(edge.sourceId)!;
+		const target = index.nodes.get(edge.targetId)!;
 		const sourceNode = source instanceof RecipeNode ? source : null;
 		const targetNode = target instanceof RecipeNode ? target : null;
-		if (sourceNode === null && targetNode === null) {
-			return {blocked: 'No production machines to split'};
-		}
-		if (sourceNode !== null && targetNode !== null && sourceNode.id === targetNode.id) {
-			return {blocked: 'A node cannot be split into lines against itself'};
-		}
-		if ((sourceNode !== null && LineSplitter.slooped(sourceNode)) || (targetNode !== null && LineSplitter.slooped(targetNode))) {
-			return {blocked: 'Slooped machines can\'t be split into lines'};
-		}
-		if (sourceNode !== null && graph.edges.some((candidate, index) =>
-			index !== edgeIndex && candidate.sourceId === sourceNode.id && candidate.itemClassName === edge.itemClassName)) {
-			return {blocked: 'The producer feeds several connections of this item'};
-		}
-		if (targetNode !== null && graph.edges.some((candidate, index) =>
-			index !== edgeIndex && candidate.targetId === targetNode.id && candidate.itemClassName === edge.itemClassName)) {
-			return {blocked: 'The consumer takes this item from several connections'};
-		}
 
 		const rate = sourceNode !== null
 			? this.machineRate(sourceNode, edge.itemClassName, 'output')
@@ -104,15 +85,58 @@ export class LineSplitter
 		};
 	}
 
+	/** Why a connection can't be split on its own, or null when it can. Cheap: builds no parts. */
+	private static blockedReason(graph: Graph, edgeIndex: number, capacity: number, index: GraphIndex): string | null
+	{
+		const edge = graph.edges[edgeIndex];
+		if (!edge) {
+			return 'The connection no longer exists';
+		}
+		if (!(capacity > 0)) {
+			return 'No belt capacity is set';
+		}
+		if (ConveyorCapacity.countNeeded(edge.amount, capacity) < 2) {
+			return 'This connection fits on one belt';
+		}
+
+		const source = index.nodes.get(edge.sourceId) ?? null;
+		const target = index.nodes.get(edge.targetId) ?? null;
+		if (source === null || target === null) {
+			return 'The connection no longer exists';
+		}
+		if (source.locked || target.locked) {
+			return 'A locked block keeps its machines';
+		}
+		const sourceNode = source instanceof RecipeNode ? source : null;
+		const targetNode = target instanceof RecipeNode ? target : null;
+		if (sourceNode === null && targetNode === null) {
+			return 'No production machines to split';
+		}
+		if (sourceNode !== null && targetNode !== null && sourceNode.id === targetNode.id) {
+			return 'A node cannot be split into lines against itself';
+		}
+		if ((sourceNode !== null && LineSplitter.slooped(sourceNode)) || (targetNode !== null && LineSplitter.slooped(targetNode))) {
+			return 'Slooped machines can\'t be split into lines';
+		}
+		if (sourceNode !== null && (index.outputs.get(sourceNode.id)?.get(edge.itemClassName)?.length ?? 0) > 1) {
+			return 'The producer feeds several connections of this item';
+		}
+		if (targetNode !== null && (index.inputs.get(targetNode.id)?.get(edge.itemClassName)?.length ?? 0) > 1) {
+			return 'The consumer takes this item from several connections';
+		}
+		return null;
+	}
+
 	/** Splits until every belt is within the limit. The next step is recomputed each round because ids and indices change. */
 	public splitAll(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data): Graph
 	{
 		const rounds = Math.max(200, graph.edges.length * 8);
 		let current = graph;
 		for (let round = 0; round < rounds; round++) {
-			const next = this.splitConnection(current, limit, mode, data)
-				?? this.splitProducer(current, limit, mode, data)
-				?? this.splitConsumer(current, limit, mode, data);
+			const index = LineSplitter.indexOf(current);
+			const next = this.splitConnection(current, limit, mode, data, index)
+				?? this.splitProducer(current, limit, mode, data, index)
+				?? this.splitConsumer(current, limit, mode, data, index);
 			if (next === null) {
 				break;
 			}
@@ -150,41 +174,42 @@ export class LineSplitter
 	/** Eligibility does not depend on the mode, so the whole-machine one is used to keep the flow split cheap. */
 	public eligibleEdges(graph: Graph, limit: ConveyorLimit, data: Data): number[]
 	{
+		const index = LineSplitter.indexOf(graph);
 		const indices: number[] = [];
-		graph.edges.forEach((edge, index) => {
-			if (!('blocked' in this.plan(graph, index, LineSplitter.capacityFor(edge, limit, data), 'underclock-last', data))) {
-				indices.push(index);
+		graph.edges.forEach((edge, edgeIndex) => {
+			if (LineSplitter.blockedReason(graph, edgeIndex, LineSplitter.capacityFor(edge, limit, data), index) === null) {
+				indices.push(edgeIndex);
 			}
 		});
 		return indices;
 	}
 
-	private splitConnection(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data): Graph | null
+	private splitConnection(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data, index: GraphIndex): Graph | null
 	{
-		const eligible = this.eligibleEdges(graph, limit, data);
-		if (eligible.length === 0) {
+		const edgeIndex = graph.edges.findIndex((edge, candidate) =>
+			LineSplitter.blockedReason(graph, candidate, LineSplitter.capacityFor(edge, limit, data), index) === null);
+		if (edgeIndex < 0) {
 			return null;
 		}
-		const edge = graph.edges[eligible[0]];
-		const plan = this.plan(graph, eligible[0], LineSplitter.capacityFor(edge, limit, data), mode, data);
+		const plan = this.plan(graph, edgeIndex, LineSplitter.capacityFor(graph.edges[edgeIndex], limit, data), mode, data, index);
 		return 'blocked' in plan ? null : this.apply(graph, plan);
 	}
 
 	/** A block making more of an item than one belt carries, for consumers the connection split could not take apart: divide it into belt-sized lines. */
-	private splitProducer(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data): Graph | null
+	private splitProducer(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data, index: GraphIndex): Graph | null
 	{
 		for (const node of graph.nodes) {
-			if (!this.splittable(graph, node)) {
+			if (!LineSplitter.splittable(node, index)) {
 				continue;
 			}
-			for (const [item, indices] of LineSplitter.groupEdges(graph, node.id, 'output')) {
+			for (const [item, indices] of index.outputs.get(node.id) ?? new Map<string, number[]>()) {
 				const capacity = LineSplitter.capacityFor(graph.edges[indices[0]], limit, data);
 				const total = indices.reduce((sum, index) => sum + graph.edges[index].amount, 0);
 				if (!(capacity > 0) || ConveyorCapacity.countNeeded(total, capacity) < 2) {
 					continue;
 				}
 				const flows = LineSplitter.lineFlows(total, capacity, this.machineRate(node, item, 'output'), mode);
-				const other = graph.nodes.find(candidate => candidate.id === graph.edges[indices[0]].targetId) ?? node;
+				const other = index.nodes.get(graph.edges[indices[0]].targetId) ?? node;
 				const parts = this.parts(node, flows, total, mode, LineSplitter.stackAlongX(node, other));
 				// The item's own connections are filled like any other, so whole belts go to one consumer at a time.
 				return this.rewrite(graph, new Map([[node.id, {parts, shares: flows.map(flow => flow / total)}]]), new Map());
@@ -194,13 +219,13 @@ export class LineSplitter
 	}
 
 	/** A block taking more of an item than one belt carries, from several belts: one part per incoming belt, so each belt feeds its own manifold. */
-	private splitConsumer(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data): Graph | null
+	private splitConsumer(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data, index: GraphIndex): Graph | null
 	{
 		for (const node of graph.nodes) {
-			if (!this.splittable(graph, node)) {
+			if (!LineSplitter.splittable(node, index)) {
 				continue;
 			}
-			for (const [item, indices] of LineSplitter.groupEdges(graph, node.id, 'input')) {
+			for (const indices of (index.inputs.get(node.id) ?? new Map<string, number[]>()).values()) {
 				if (indices.length < 2) {
 					continue;
 				}
@@ -218,7 +243,7 @@ export class LineSplitter
 				}
 				const flows = lines.map(line => line.reduce((sum, piece) => sum + piece.amount, 0));
 				const fixed = new Map<number, GraphEdge[]>();
-				const other = graph.nodes.find(candidate => candidate.id === graph.edges[indices[0]].sourceId) ?? node;
+				const other = index.nodes.get(graph.edges[indices[0]].sourceId) ?? node;
 				const parts = this.parts(node, flows, total, mode, LineSplitter.stackAlongX(other, node));
 				lines.forEach((line, lineIndex) => line.forEach(({index, amount}) => {
 					const edge = graph.edges[index];
@@ -232,12 +257,12 @@ export class LineSplitter
 		return null;
 	}
 
-	private splittable(graph: Graph, node: Node): node is RecipeNode
+	private static splittable(node: Node, index: GraphIndex): node is RecipeNode
 	{
 		return node instanceof RecipeNode
 			&& !node.locked
 			&& !LineSplitter.slooped(node)
-			&& !graph.edges.some(edge => edge.sourceId === node.id && edge.targetId === node.id);
+			&& !index.selfLoops.has(node.id);
 	}
 
 	/**
@@ -351,19 +376,27 @@ export class LineSplitter
 		return result;
 	}
 
-	/** Connection indices of a node on one side, per item. */
-	private static groupEdges(graph: Graph, nodeId: string, side: 'input' | 'output'): Map<string, number[]>
+	private static indexOf(graph: Graph): GraphIndex
 	{
-		const groups = new Map<string, number[]>();
-		graph.edges.forEach((edge, index) => {
-			if ((side === 'output' ? edge.sourceId : edge.targetId) !== nodeId) {
-				return;
+		const nodes = new Map<string, Node>(graph.nodes.map(node => [node.id, node]));
+		const outputs = new Map<string, Map<string, number[]>>();
+		const inputs = new Map<string, Map<string, number[]>>();
+		const selfLoops = new Set<string>();
+		const add = (map: Map<string, Map<string, number[]>>, nodeId: string, item: string, edgeIndex: number) => {
+			const byItem = map.get(nodeId) ?? new Map<string, number[]>();
+			const list = byItem.get(item) ?? [];
+			list.push(edgeIndex);
+			byItem.set(item, list);
+			map.set(nodeId, byItem);
+		};
+		graph.edges.forEach((edge, edgeIndex) => {
+			add(outputs, edge.sourceId, edge.itemClassName, edgeIndex);
+			add(inputs, edge.targetId, edge.itemClassName, edgeIndex);
+			if (edge.sourceId === edge.targetId) {
+				selfLoops.add(edge.sourceId);
 			}
-			const list = groups.get(edge.itemClassName) ?? [];
-			list.push(index);
-			groups.set(edge.itemClassName, list);
 		});
-		return groups;
+		return {nodes, outputs, inputs, selfLoops};
 	}
 
 	private static capacityFor(edge: GraphEdge, limit: ConveyorLimit, data: Data): number
@@ -464,7 +497,8 @@ export class LineSplitter
 		const step = stackAlongX ? LineSplitter.HORIZONTAL_STEP : LineSplitter.VERTICAL_STEP;
 
 		return flows.map((flow, index) => {
-			const target = node.target * flow / amount;
+			// Float noise from the division would otherwise round a clock up to e.g. 75.0001%.
+			const target = Math.round(node.target * flow / amount * 1e8) / 1e8;
 			const groups = this.normalizer.generateForTarget(target, clockSpeed, sloops, mode);
 			const part = new RecipeNode(index === 0 ? node.id : crypto.randomUUID(), target, groups, node.machine, node.recipe);
 			const offset = step * (index - (flows.length - 1) / 2);

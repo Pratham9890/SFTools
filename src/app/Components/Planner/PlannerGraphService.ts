@@ -442,6 +442,8 @@ export class PlannerGraphService implements OnDestroy
 	private vertexDragAnchorId: string | null = null;
 	/** Ids of the nodes x6 moved since the drag began, so the drag end can see the whole multi-selection. */
 	private readonly movedNodeIds = new Set<string>();
+	/** Where each node of the current drag started, so its connections can follow it by the same distance. */
+	private readonly dragStartPositions = new Map<string, GraphPoint>();
 	private readonly nodeById = new Map<string, Node>();
 	private doneNodeIds = new Set<string>();
 	private claimMarkers: ReadonlyMap<string, {color: string; label: string}> = new Map();
@@ -1184,7 +1186,7 @@ export class PlannerGraphService implements OnDestroy
 				}
 				modelEdge.vertices = edge.getVertices();
 				// A corner the user dragged is theirs, even if the layout placed the others. x6 translates vertices with a dragged node instead.
-				if (options['translateBy'] === undefined) {
+				if (options['translateBy'] === undefined && options['autoRoute'] !== true) {
 					modelEdge.autoRouted = false;
 				}
 				this.graphChangedSubject.next();
@@ -2520,6 +2522,9 @@ export class PlannerGraphService implements OnDestroy
 		// Not node:moved: that misses nodes dragged as part of a multi-selection.
 		x6Graph.on('node:change:position', ({node, current, previous}) => {
 			this.movedNodeIds.add(node.id);
+			if (previous && !this.dragStartPositions.has(node.id)) {
+				this.dragStartPositions.set(node.id, {x: previous.x, y: previous.y});
+			}
 			const modelNode = this.nodeById.get(node.id);
 			if (modelNode) {
 				const position = node.getPosition();
@@ -2536,17 +2541,22 @@ export class PlannerGraphService implements OnDestroy
 		x6Graph.on('node:moved', () => this.endNodeDrag());
 	}
 
-	/** The layout's corners describe where the nodes used to be, so a moved end drops them; both ends moving keeps the shape. */
+	/**
+	 * The layout's corners follow a moved end: the corner next to it shifts with it, so the route stays right-angled
+	 * instead of collapsing into a diagonal. Both ends moving keeps the shape (x6 translates the corners).
+	 */
 	private endNodeDrag(): void
 	{
 		const movedIds = new Set(this.movedNodeIds);
+		const starts = new Map(this.dragStartPositions);
 		this.movedNodeIds.clear();
+		this.dragStartPositions.clear();
 		const x6Graph = this.x6Graph;
 		if (this.readOnly || movedIds.size === 0 || x6Graph === null) {
 			return;
 		}
 
-		const dropped = [...new Set(this.edgeById.values())].filter(edge => {
+		const followed = [...new Set(this.edgeById.values())].filter(edge => {
 			if (edge.autoRouted !== true) {
 				return false;
 			}
@@ -2554,7 +2564,7 @@ export class PlannerGraphService implements OnDestroy
 			const targetMoved = movedIds.has(edge.targetId);
 			return sourceMoved !== targetMoved;
 		});
-		if (dropped.length === 0) {
+		if (followed.length === 0) {
 			return;
 		}
 
@@ -2564,16 +2574,69 @@ export class PlannerGraphService implements OnDestroy
 			this.vertexGestureActive = true;
 			this.graphEditStartSubject.next();
 		}
-		dropped.forEach(edge => {
-			edge.vertices = [];
-			edge.autoRouted = false;
+		followed.forEach(edge => {
+			const vertices = this.followMovedEnd(x6Graph, edge, movedIds.has(edge.sourceId), starts);
+			edge.vertices = vertices;
+			// Still the layout's route, so a later move adjusts it again; an empty route has nothing left to adjust.
+			edge.autoRouted = vertices.length > 0;
 			x6Graph.getEdges().forEach(cell => {
 				if (this.edgeById.get(cell.id) === edge) {
-					cell.setVertices([]);
+					cell.setVertices([...vertices], {autoRoute: true});
 				}
 			});
 		});
 		this.graphChangedSubject.next();
+	}
+
+	/**
+	 * Shifts the corner next to the moved end along with it. The segment into that end keeps its direction (horizontal
+	 * stays horizontal), and the segment before it keeps its own, so the route stays right-angled. A corner the move
+	 * passed or landed inside the block falls back to a plain two-corner route between the blocks.
+	 */
+	private followMovedEnd(x6Graph: X6Graph, edge: GraphEdge, sourceMoved: boolean, starts: ReadonlyMap<string, GraphPoint>): GraphPoint[]
+	{
+		const vertices = (edge.vertices ?? []).map(point => ({x: point.x, y: point.y}));
+		const movedId = sourceMoved ? edge.sourceId : edge.targetId;
+		const moved = x6Graph.getCellById(movedId);
+		const other = x6Graph.getCellById(sourceMoved ? edge.targetId : edge.sourceId);
+		const start = starts.get(movedId);
+		if (vertices.length === 0 || !(moved instanceof X6Node) || !(other instanceof X6Node) || start === undefined) {
+			return [];
+		}
+
+		const position = moved.getPosition();
+		const dx = position.x - start.x;
+		const dy = position.y - start.y;
+		const box = moved.getBBox();
+		const center = box.getCenter();
+		const before = {x: center.x - dx, y: center.y - dy};
+		const index = sourceMoved ? 0 : vertices.length - 1;
+		const corner = vertices[index];
+		const horizontal = Math.abs(corner.y - before.y) <= Math.abs(corner.x - before.x);
+
+		if (horizontal) {
+			corner.y += dy;
+		} else {
+			corner.x += dx;
+		}
+
+		// The corner must still be outside the block, on the side it was before; otherwise the line would double back.
+		const margin = 10;
+		const clear = horizontal
+			? Math.sign(corner.x - center.x) === Math.sign(corner.x - before.x) && Math.abs(corner.x - center.x) > box.width / 2 + margin
+			: Math.sign(corner.y - center.y) === Math.sign(corner.y - before.y) && Math.abs(corner.y - center.y) > box.height / 2 + margin;
+		if (clear) {
+			return vertices;
+		}
+
+		const source = (sourceMoved ? moved : other).getBBox().getCenter();
+		const target = (sourceMoved ? other : moved).getBBox().getCenter();
+		if (horizontal) {
+			const middle = (source.x + target.x) / 2;
+			return Math.abs(source.y - target.y) < 1 ? [] : [{x: middle, y: source.y}, {x: middle, y: target.y}];
+		}
+		const middle = (source.y + target.y) / 2;
+		return Math.abs(source.x - target.x) < 1 ? [] : [{x: source.x, y: middle}, {x: target.x, y: middle}];
 	}
 
 	private elkEdgeVertices(edge: ElkExtendedEdge): GraphPoint[]

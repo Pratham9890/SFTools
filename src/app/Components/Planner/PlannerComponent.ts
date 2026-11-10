@@ -2561,7 +2561,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		const hasLocks = existing?.nodes.some(node => node.locked) ?? false;
 
 		if (existing && mode === 'manual-append') {
-			const addition = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
+			const addition = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)}, null);
 			return this.graphComposer.append(existing, addition);
 		}
 
@@ -2575,10 +2575,10 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 		if (existing && hasLocks) {
 			const rebuilt = this.graphComposer.rebuild(existing, result.nodes);
-			return this.splitLines(plan, {nodes: rebuilt.nodes, edges: rebuilt.edges});
+			return this.splitLines(plan, {nodes: rebuilt.nodes, edges: rebuilt.edges}, existing);
 		}
 
-		return this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
+		return this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)}, existing);
 	}
 
 	/** Unsubscribing kills the solver worker. */
@@ -2611,7 +2611,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		const hasLocks = existing?.nodes.some(node => node.locked) ?? false;
 
 		if (existing && mode === 'manual-append') {
-			const addition = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
+			const addition = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)}, null);
 			await this.plannerGraph.layout(addition.nodes, addition.edges, plan.settings.graph);
 			const graph = this.graphComposer.append(existing, addition);
 			this.plannerGraph.restore(container, graph);
@@ -2635,13 +2635,13 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		if (existing && hasLocks) {
 			const rebuilt = this.graphComposer.rebuild(existing, result.nodes);
 			// Locked blocks keep their machines: an edge that touches one is not split.
-			const graph = this.splitLines(plan, {nodes: rebuilt.nodes, edges: rebuilt.edges});
+			const graph = this.splitLines(plan, {nodes: rebuilt.nodes, edges: rebuilt.edges}, existing);
 			await this.plannerGraph.layout(graph.nodes, graph.edges, plan.settings.graph);
 			this.plannerGraph.restore(container, graph);
 			return graph;
 		}
 
-		const graph = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
+		const graph = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)}, existing);
 		// An empty result still has to clear the view, which render handles.
 		if (graph.nodes.length === 0) {
 			return this.plannerGraph.render(container, result, plan.settings.graph);
@@ -2652,7 +2652,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 	}
 
 	/** Belt view turns over-limit connections into solver output: one block per belt, laid out like any result. Custom splits nothing. */
-	private splitLines(plan: Plan, graph: Graph): Graph
+	private splitLines(plan: Plan, graph: Graph, existing: Graph | null): Graph
 	{
 		const limit = plan.settings.conveyorLimit;
 		const layout = plan.settings.beltLayout;
@@ -2667,7 +2667,10 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		if (data === null) {
 			return graph;
 		}
-		return this.lineSplitter.splitAll(graph, limit, this.groupingModes.resolve(plan.settings), data);
+		const split = this.lineSplitter.splitAll(graph, limit, this.groupingModes.resolve(plan.settings), data);
+		// Built marks were matched against whole blocks; match them again per line, so one built belt of a recipe stays built.
+		this.graphComposer.carryDone(existing, split.nodes);
+		return split;
 	}
 
 	private existingGraph(plan: Plan): Graph | null
