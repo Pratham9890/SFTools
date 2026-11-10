@@ -28,6 +28,17 @@
 			/>
 			<label class="form-check-label" for="showEdgeLabelBoxes">Box behind connection labels</label><setting-reset-button category="graph" field="showEdgeLabelBoxes"/>
 		</div>
+		<div class="form-check">
+			<input
+				id="addBendPointsByClick"
+				type="checkbox"
+				class="form-check-input"
+				[ngModel]="graph.addBendPointsByClick"
+				(ngModelChange)="setToggle('addBendPointsByClick', $event)"
+			/>
+			<label class="form-check-label" for="addBendPointsByClick">Add bend points by clicking connection lines</label><setting-reset-button category="graph" field="addBendPointsByClick"/>
+			<div class="form-text">Off: lines can't be bent by accident; existing bend points still show and can be moved.</div>
+		</div>
 
 		<div class="subsection-title">Effects</div>
 		<div class="form-check">

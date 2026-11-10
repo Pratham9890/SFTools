@@ -130,6 +130,14 @@
 			(click)="shareDialog.openActive()"
 		><fa-icon [icon]="faShareNodes"></fa-icon> Share</button>
 
+		<button
+			class="btn btn-sm btn-outline-primary"
+			type="button"
+			tooltip="Preview what Calculate would change, and lock blocks you want to keep" placement="bottom"
+			[disabled]="actions.isCalculating()"
+			(click)="actions.requestCalculatePreview()"
+		><fa-icon [icon]="faEye"></fa-icon> Preview</button>
+
 		<!-- container="body": the panel's overflow container would clip the menu. -->
 		<div class="btn-group" dropdown container="body" placement="bottom right">
 			<button

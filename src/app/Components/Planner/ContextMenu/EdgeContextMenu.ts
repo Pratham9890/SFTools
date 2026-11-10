@@ -1,9 +1,9 @@
-import {faArrowsSplitUpAndLeft, faCompress, faExpand, faTrashCan} from '@fortawesome/free-solid-svg-icons';
+import {faCompress, faExpand, faMinus, faTrashCan} from '@fortawesome/free-solid-svg-icons';
 import {ContextMenuItem} from '@src/Components/Planner/ContextMenu/ContextMenuItem';
 import {EdgeAmountAction} from '@src/Components/Planner/ContextMenu/EdgeAmountAction';
 import {PlannerContextMenu} from '@src/Components/Planner/ContextMenu/PlannerContextMenu';
-import {LineSplitMenuOptions} from '@src/Components/Planner/LineSplit/LineSplitMenuOptions';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
+import {PlannerGraphService} from '@src/Components/Planner/PlannerGraphService';
 import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 
 export class EdgeContextMenu extends PlannerContextMenu
@@ -14,8 +14,8 @@ export class EdgeContextMenu extends PlannerContextMenu
 		private readonly title: string,
 		private readonly minimise: EdgeAmountAction | null,
 		private readonly maximise: EdgeAmountAction | null,
-		private readonly lineSplit: LineSplitMenuOptions,
 		private readonly actions: PlannerActionsService,
+		private readonly plannerGraph: PlannerGraphService,
 	)
 	{
 		super();
@@ -32,11 +32,11 @@ export class EdgeContextMenu extends PlannerContextMenu
 			this.amountItem('Minimise', faCompress, this.minimise),
 			this.amountItem('Maximise', faExpand, this.maximise),
 			{
-				label: 'Split into lines…',
-				icon: faArrowsSplitUpAndLeft,
-				disabled: this.lineSplit.disabled,
-				hint: this.lineSplit.hint,
-				action: () => this.actions.requestLineSplit({edgeIndex: this.lineSplit.edgeIndex}),
+				label: 'Straighten line',
+				icon: faMinus,
+				disabled: !this.hasBendPoints() || this.plannerGraph.readOnly,
+				hint: this.hasBendPoints() ? undefined : 'This connection has no bend points',
+				action: () => this.plannerGraph.straightenEdge(this.edge),
 			},
 			{
 				label: 'Delete connection',
@@ -58,6 +58,11 @@ export class EdgeContextMenu extends PlannerContextMenu
 				}
 			},
 		};
+	}
+
+	private hasBendPoints(): boolean
+	{
+		return (this.edge.vertices?.length ?? 0) > 0;
 	}
 
 }

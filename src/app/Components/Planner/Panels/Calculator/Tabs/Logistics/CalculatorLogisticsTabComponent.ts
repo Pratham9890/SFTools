@@ -1,6 +1,5 @@
 import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
-import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
 import {PlannerGraphService} from '@src/Components/Planner/PlannerGraphService';
 import {Item} from '@src/Model/Data/Entities/Item';
 import {VersionManager} from '@src/Model/Data/VersionManager';
@@ -8,9 +7,8 @@ import {ConveyorTiers} from '@src/Model/Map/ConveyorTiers';
 import {BeltLayoutMode, BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
-import {LineSplitter} from '@src/Model/Planner/LineSplitter';
+import {LineSplitStyle} from '@src/Model/Planner/LineSplit';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
-import {PlanSerializer} from '@src/Model/Planner/PlanSerializer';
 import {RateFormatter} from '@src/Model/RateFormatter';
 
 @Component({
@@ -30,15 +28,11 @@ export class CalculatorLogisticsTabComponent
 		{value: 'full', label: 'Round up to full belts', description: 'regroup machines so every belt but the last runs full'},
 	];
 
-	private readonly lineSplitter = new LineSplitter();
-
 	public constructor(
 		private readonly planManager: PlanManager,
 		private readonly plannerGraph: PlannerGraphService,
 		private readonly versionManager: VersionManager,
 		private readonly rateFormatter: RateFormatter,
-		private readonly actions: PlannerActionsService,
-		private readonly planSerializer: PlanSerializer,
 	)
 	{
 	}
@@ -98,6 +92,11 @@ export class CalculatorLogisticsTabComponent
 		return this.beltLayout?.beltView ?? false;
 	}
 
+	public get lineStyle(): LineSplitStyle
+	{
+		return this.beltLayout?.lineStyle ?? 'full';
+	}
+
 	public get overLimitCount(): number
 	{
 		const limit = this.limit;
@@ -114,34 +113,6 @@ export class CalculatorLogisticsTabComponent
 			return 'All connections fit on one belt/pipe';
 		}
 		return `${count} ${count === 1 ? 'connection' : 'connections'} over the limit`;
-	}
-
-	public get lineSplitCount(): number
-	{
-		if (this.planManager.activePlanReadOnly()) {
-			return 0;
-		}
-		const plan = this.planManager.activePlan();
-		const limit = this.limit;
-		const data = this.versionManager.activeVersionData();
-		if (!plan?.graph || limit === undefined || data === null) {
-			return 0;
-		}
-		try {
-			return this.lineSplitter.eligibleEdges(this.planSerializer.reviveGraph(plan.graph), limit, data).length;
-		} catch {
-			// A graph that cannot be revived offers nothing to split.
-			return 0;
-		}
-	}
-
-	public splitIntoLines(): void
-	{
-		const count = this.lineSplitCount;
-		if (count === 0 || !confirm(`Split ${count} connections into lines? Machines are regrouped per belt; you can undo it.`)) {
-			return;
-		}
-		this.actions.requestLineSplitAll();
 	}
 
 	public beltLabel(mark: number): string
@@ -188,7 +159,7 @@ export class CalculatorLogisticsTabComponent
 		this.planManager.updateActiveSettings({
 			...settings,
 			beltLayout: enabled
-				? {mode: 'fewest', evenness: 0.5, splitOutputs: true, allowPlanChanges: false, beltView: false}
+				? {mode: 'fewest', evenness: 0.5, splitOutputs: true, allowPlanChanges: false, beltView: false, lineStyle: 'full'}
 				: undefined,
 		});
 	}
@@ -216,6 +187,11 @@ export class CalculatorLogisticsTabComponent
 	public setBeltView(beltView: boolean): void
 	{
 		this.updateBeltLayout({beltView});
+	}
+
+	public setLineStyle(lineStyle: LineSplitStyle): void
+	{
+		this.updateBeltLayout({lineStyle});
 	}
 
 	private updateBeltLayout(changes: Partial<BeltLayoutSettings>): void

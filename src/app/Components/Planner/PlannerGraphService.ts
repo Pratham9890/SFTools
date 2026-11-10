@@ -848,6 +848,26 @@ export class PlannerGraphService implements OnDestroy
 		}
 	}
 
+	/** Drops the saved bend points so the connection follows its automatic route again; all of its lines move together. */
+	public straightenEdge(edge: GraphEdge): void
+	{
+		if (this.readOnly || !edge.vertices || edge.vertices.length === 0) {
+			return;
+		}
+		// Snapshot first, like a drag: the model edge still holds the pre-change vertices.
+		this.graphEditStartSubject.next();
+		// One snapshot for the whole change; the per-line handler below must not take one for each belt edge.
+		this.vertexGestureActive = true;
+		edge.vertices = [];
+		const x6Graph = this.x6Graph;
+		x6Graph?.getEdges().forEach(cell => {
+			if (this.edgeById.get(cell.id) === edge) {
+				cell.setVertices([]);
+			}
+		});
+		this.graphChangedSubject.next();
+	}
+
 	/** x6's zoomToFit centers on the full canvas, so the padding asymmetry is applied as a translation. */
 	private zoomToVisibleArea(x6Graph: X6Graph): void
 	{
@@ -1159,11 +1179,13 @@ export class PlannerGraphService implements OnDestroy
 
 	private verticesTool(): EdgeToolNativeItem
 	{
+		// Per hover: the tool is rebuilt on every mouseenter, so the setting applies without a reload.
+		const addable = this.settings.graph().addBendPointsByClick;
 		return {
 			name: 'vertices',
 			args: {
 				snapRadius: 10,
-				addable: true,
+				addable,
 				removable: true,
 				attrs: {
 					r: 5,

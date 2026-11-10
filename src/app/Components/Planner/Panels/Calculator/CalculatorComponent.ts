@@ -6,7 +6,7 @@ import {AppTooltipDirective} from '@src/Components/Common/AppTooltipDirective';
 import {SupporterBadgeComponent} from '@src/Components/Supporters/SupporterBadgeComponent';
 import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
 import {CalculatorTabsMode} from '@src/Components/Planner/Panels/Calculator/CalculatorTabsMode';
-import {faCopy, faDownload, faEllipsis, faFileImport, faIndustry, faLock, faPlay, faRotateLeft, faShareNodes, faSitemap, faSliders, faXmark} from '@fortawesome/free-solid-svg-icons';
+import {faCopy, faDownload, faEllipsis, faEye, faFileImport, faIndustry, faLock, faPlay, faRotateLeft, faShareNodes, faSitemap, faSliders, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {CalculationModeOption} from '@src/Components/Planner/Panels/Calculator/CalculationModeOption';
 import {HelpButtonComponent} from '@src/Components/Help/HelpButtonComponent';
 import {HelpTopicId} from '@src/Model/Help/HelpTopicId';
@@ -193,6 +193,7 @@ export class CalculatorComponent implements OnDestroy
 	public readonly faLock = faLock;
 	public readonly faSliders = faSliders;
 	public readonly faPlay = faPlay;
+	public readonly faEye = faEye;
 	public readonly faRotateLeft = faRotateLeft;
 	public readonly faSitemap = faSitemap;
 	public readonly faIndustry = faIndustry;

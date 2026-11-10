@@ -2,7 +2,7 @@
 
 	<info-note>
 		Shows how many belts or pipes each connection needs, and highlights the connections that need more than one.
-		This is display only: it never changes the plan.
+		This is display only, except Belt view, which turns over-limit connections into one line per belt when the plan is calculated.
 	</info-note>
 
 	<div class="form-check">
@@ -47,12 +47,6 @@
 		</div>
 
 		<div class="text-secondary">{{ overLimitText }}</div>
-
-		@if (lineSplitCount > 0) {
-			<button type="button" class="btn btn-sm btn-outline-secondary align-self-start" (click)="splitIntoLines()">
-				Split {{ lineSplitCount }} {{ lineSplitCount === 1 ? 'connection' : 'connections' }} into lines
-			</button>
-		}
 
 		<div class="border-top border-secondary pt-2 d-flex flex-column gap-2">
 			<div class="fw-semibold">Belt management</div>
@@ -137,8 +131,34 @@
 						[checked]="beltView"
 						(change)="setBeltView($any($event.target).checked)"
 					/>
-					<label class="form-check-label" for="belt-view">Belt view: draw each belt as its own line</label>
+					<label class="form-check-label" for="belt-view">Belt view: split over-limit connections into lines, one belt each</label>
 				</div>
+
+				@if (beltView) {
+					<div class="form-label mb-0">Machines per line</div>
+					<div class="form-check">
+						<input
+							class="form-check-input"
+							type="radio"
+							name="line-style"
+							id="line-style-full"
+							[checked]="lineStyle === 'full'"
+							(change)="setLineStyle('full')"
+						/>
+						<label class="form-check-label" for="line-style-full">Full machines, underclock the last</label>
+					</div>
+					<div class="form-check">
+						<input
+							class="form-check-input"
+							type="radio"
+							name="line-style"
+							id="line-style-even"
+							[checked]="lineStyle === 'even'"
+							(change)="setLineStyle('even')"
+						/>
+						<label class="form-check-label" for="line-style-even">Underclock all evenly</label>
+					</div>
+				}
 			}
 		</div>
 	}

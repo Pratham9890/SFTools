@@ -8,9 +8,7 @@ import {PanelCodexNavigation} from '@src/Components/Codex/PanelCodexNavigation';
 import {AddNodeDialogComponent} from '@src/Components/Planner/AddNode/AddNodeDialogComponent';
 import {AddNodeFilter} from '@src/Components/Planner/AddNode/AddNodeFilter';
 import {BeltProposalRequest} from '@src/Components/Planner/BeltProposalRequest';
-import {LineSplitDialogComponent} from '@src/Components/Planner/LineSplit/LineSplitDialogComponent';
-import {LineSplitDialogState} from '@src/Components/Planner/LineSplit/LineSplitDialogState';
-import {LineSplitMenuOptions} from '@src/Components/Planner/LineSplit/LineSplitMenuOptions';
+import {CalculatePreviewDialogComponent, CalculatePreviewState} from '@src/Components/Planner/CalculatePreview/CalculatePreviewDialogComponent';
 import {OverclockDialogComponent} from '@src/Components/Planner/Overclock/OverclockDialogComponent';
 import {BlankContextMenu} from '@src/Components/Planner/ContextMenu/BlankContextMenu';
 import {EdgeAmountAction} from '@src/Components/Planner/ContextMenu/EdgeAmountAction';
@@ -69,7 +67,6 @@ import {OldToolsImportRequestService} from '@src/Model/OldTools/OldToolsImportRe
 import {OldToolsShareService} from '@src/Model/OldTools/OldToolsShareService';
 import {BeltProposal} from '@src/Model/Planner/BeltLayoutResult';
 import {CalculationMode} from '@src/Model/Planner/CalculationMode';
-import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {EnabledRecipesResolver} from '@src/Model/Planner/EnabledRecipesResolver';
 import {Graph} from '@src/Model/Planner/Graph/Graph';
 import {GraphComposer} from '@src/Model/Planner/Graph/GraphComposer';
@@ -82,7 +79,6 @@ import {GraphDirection} from '@src/Model/Planner/GraphDirection';
 import {GraphSnapshot} from '@src/Model/Planner/Graph/GraphSnapshot';
 import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphReconciler} from '@src/Model/Planner/Graph/GraphReconciler';
-import {LineSplitPlan} from '@src/Model/Planner/LineSplit';
 import {LineSplitter} from '@src/Model/Planner/LineSplitter';
 import {NodeResizer} from '@src/Model/Planner/NodeResizer';
 import {NodeTypeConverter} from '@src/Model/Planner/NodeTypeConverter';
@@ -100,6 +96,7 @@ import {SubplanBuildCountRequest} from '@src/Components/Planner/SubplanBuildCoun
 import {SubplanScaleRequest} from '@src/Components/Planner/SubplanScaleRequest';
 import {Plan} from '@src/Model/Planner/Plan';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
+import {ProductionRequest} from '@src/Model/Planner/ProductionRequest';
 import {PlannerLocationService} from '@src/Model/Planner/PlannerLocationService';
 import {PlanSerializer} from '@src/Model/Planner/PlanSerializer';
 import {SubplanIOResolver} from '@src/Model/Planner/SubplanIOResolver';
@@ -132,7 +129,7 @@ const RATIO_TOLERANCE = 1e-4;
 
 @Component({
 	templateUrl: './PlannerComponent.html',
-	imports: [PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, OverclockDialogComponent, LineSplitDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
+	imports: [PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, CalculatePreviewDialogComponent, OverclockDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
 	providers: [
 		FolderRecalculationService,
 		PlannerGraphService,
@@ -186,8 +183,11 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 	private readonly overclockNodeSignal = signal<RecipeNode | null>(null);
 	public readonly overclockNode = this.overclockNodeSignal.asReadonly();
 
-	private readonly lineSplitStateSignal = signal<LineSplitDialogState | null>(null);
-	public readonly lineSplitState = this.lineSplitStateSignal.asReadonly();
+	private readonly calculatePreviewSignal = signal<CalculatePreviewState | null>(null);
+	public readonly calculatePreview = this.calculatePreviewSignal.asReadonly();
+	private readonly calculatePreviewBusySignal = signal(false);
+	public readonly calculatePreviewBusy = this.calculatePreviewBusySignal.asReadonly();
+	private pendingPreview: {planId: string; result: SolverResponse; existing: Graph} | null = null;
 
 	private readonly lineSplitter = new LineSplitter();
 
@@ -380,6 +380,10 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		);
 
 		this.subscription.add(
+			this.actions.calculatePreviewRequests.subscribe(() => this.previewCalculation()),
+		);
+
+		this.subscription.add(
 			this.actions.cancelRequests.subscribe(() => this.cancelCalculation()),
 		);
 
@@ -401,14 +405,6 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 		this.subscription.add(
 			this.actions.nodeOverclockRequests.subscribe(node => this.overclockNodeSignal.set(node)),
-		);
-
-		this.subscription.add(
-			this.actions.lineSplitRequests.subscribe(request => this.openLineSplit(request.edgeIndex)),
-		);
-
-		this.subscription.add(
-			this.actions.lineSplitAllRequests.subscribe(() => this.applyAllLineSplits()),
 		);
 
 		this.subscription.add(
@@ -542,6 +538,10 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 						sloops: [plan.settings.maxSloops, plan.settings.sloopAccuracy],
 						clocks: [plan.settings.defaultClockSpeed, plan.settings.recipeClockSpeeds, plan.settings.machineClockSpeeds, plan.settings.generatorClockSpeeds],
 						grouping: this.groupingModes.resolve(plan.settings),
+						// Belt view draws lines from the result, so these change it too.
+						lines: plan.settings.beltLayout?.beltView
+							? [plan.settings.conveyorLimit ?? null, plan.settings.beltLayout.lineStyle ?? 'full']
+							: null,
 					}),
 				};
 			})).pipe(
@@ -677,7 +677,12 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 				const settings = this.planManager.activePlan()?.settings;
 				return JSON.stringify([settings?.conveyorLimit ?? null, settings?.beltLayout ?? null]);
 			})).pipe(pairwise())
-				.subscribe(() => this.applyConveyorLimit()),
+				.subscribe(([previous, current]) => {
+					// Lines are drawn by the calculation that follows, so restyling first would render twice.
+					if (!this.linesRecalculate(previous, current)) {
+						this.applyConveyorLimit();
+					}
+				}),
 		);
 
 		this.subscription.add(
@@ -866,7 +871,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		if (request.edge) {
 			const amounts = this.edgeAmountActions(request.edge);
 			menu = new EdgeContextMenu(request.edge, this.edgeMenuTitle(request.edge), amounts.minimise, amounts.maximise,
-				this.lineSplitOptions(request.edge), this.actions);
+				this.actions, this.plannerGraph);
 		} else if (request.nodes.length === 0) {
 			menu = new BlankContextMenu(this.actions, request.local, this.planManager.activePlan() !== null);
 		} else if (request.nodes.length === 1) {
@@ -918,32 +923,6 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 				? {amount: upper, label: `Maximise (${this.rateFormatter.rate(upper, item)})`}
 				: null,
 		};
-	}
-
-	private lineSplitOptions(edge: GraphEdge): LineSplitMenuOptions
-	{
-		const graph = this.reviveActiveGraph();
-		const edgeIndex = graph?.edges.findIndex(candidate =>
-			candidate.sourceId === edge.sourceId
-			&& candidate.targetId === edge.targetId
-			&& candidate.itemClassName === edge.itemClassName) ?? -1;
-		if (this.planManager.activePlanReadOnly()) {
-			return {edgeIndex: Math.max(0, edgeIndex), disabled: true, hint: 'This plan is read-only'};
-		}
-		const data = this.versionManager.activeVersionData();
-		const limit = this.planManager.activeSettings()?.conveyorLimit;
-		if (!graph || !data || edgeIndex < 0) {
-			return {edgeIndex: 0, disabled: true, hint: 'The connection is no longer available'};
-		}
-		if (limit === undefined) {
-			return {edgeIndex, disabled: true, hint: 'Set a belt limit in the Logistics tab first'};
-		}
-		const item = data.searchItemByClassName(edge.itemClassName) ?? null;
-		const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
-		const result = this.lineSplitter.plan(graph, edgeIndex, capacity, 'full', data);
-		return 'blocked' in result
-			? {edgeIndex, disabled: true, hint: result.blocked}
-			: {edgeIndex, disabled: false};
 	}
 
 	private nodeResizeOptions(node: Node): NodeResizeOptions
@@ -1028,133 +1007,6 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		this.plannerGraph.restore(this.graphContainerRef.nativeElement, updated, false);
 		this.plannerGraph.selectNodesById(pieceIds);
 		this.planManager.setGraph(plan.id, updated, true);
-	}
-
-	private openLineSplit(edgeIndex: number): void
-	{
-		if (this.planManager.activePlanReadOnly()) {
-			return;
-		}
-		const plan = this.planManager.activePlan();
-		const data = this.versionManager.activeVersionData();
-		const limit = this.planManager.activeSettings()?.conveyorLimit;
-		if (!plan?.graph || plan.id !== this.renderedPlanId || !data || limit === undefined) {
-			return;
-		}
-
-		let graph: Graph;
-		try {
-			graph = this.planSerializer.reviveGraph(plan.graph);
-		} catch (err) {
-			this.notifications.show('Could not open the line split: ' + String(err));
-			return;
-		}
-		const edge = graph.edges[edgeIndex];
-		if (!edge) {
-			return;
-		}
-
-		const item = data.searchItemByClassName(edge.itemClassName) ?? null;
-		const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
-		const result = this.lineSplitter.plan(graph, edgeIndex, capacity, 'full', data);
-		if ('blocked' in result) {
-			this.notifications.show(result.blocked);
-			return;
-		}
-		this.lineSplitStateSignal.set({graph, edgeIndex, capacity, data});
-	}
-
-	private onLineSplitApply(plan: LineSplitPlan): void
-	{
-		const state = this.lineSplitStateSignal();
-		this.lineSplitStateSignal.set(null);
-		if (state === null || this.planManager.activePlanReadOnly()) {
-			return;
-		}
-		const active = this.planManager.activePlan();
-		if (!active?.graph || active.id !== this.renderedPlanId) {
-			return;
-		}
-
-		let graph: Graph;
-		try {
-			graph = this.planSerializer.reviveGraph(active.graph);
-		} catch (err) {
-			this.notifications.show('Could not split into lines: ' + String(err));
-			return;
-		}
-		const result = this.lineSplitter.plan(graph, state.edgeIndex, state.capacity, plan.style, state.data);
-		if ('blocked' in result) {
-			this.notifications.show(result.blocked);
-			return;
-		}
-
-		// Snapshot before reconcile, which mutates edge amounts in place.
-		this.history.push(this.snapshotOf(active));
-
-		const reconciled = this.graphReconciler.reconcile(this.lineSplitter.apply(graph, result), result.sourceId);
-		const selectedIds = this.plannerGraph.selectedNodes().map(node => node.id);
-		this.plannerGraph.restore(this.graphContainerRef.nativeElement, reconciled, false);
-		this.plannerGraph.selectNodesById(selectedIds.length > 0
-			? selectedIds
-			: (result.sourceParts ?? []).map(node => node.id));
-		this.planManager.setGraph(active.id, reconciled, true);
-	}
-
-	private closeLineSplit(): void
-	{
-		this.lineSplitStateSignal.set(null);
-	}
-
-	/** One undo step for the whole batch: eligibility is recomputed after each split because ids and indices change. */
-	private applyAllLineSplits(): void
-	{
-		if (this.planManager.activePlanReadOnly()) {
-			return;
-		}
-		const plan = this.planManager.activePlan();
-		const data = this.versionManager.activeVersionData();
-		const limit = this.planManager.activeSettings()?.conveyorLimit;
-		if (!plan?.graph || plan.id !== this.renderedPlanId || !data || limit === undefined) {
-			return;
-		}
-
-		let graph: Graph;
-		try {
-			graph = this.planSerializer.reviveGraph(plan.graph);
-		} catch (err) {
-			this.notifications.show('Could not split into lines: ' + String(err));
-			return;
-		}
-
-		const safetyLimit = graph.edges.length * 4;
-		let changed = false;
-		for (let step = 0; step < safetyLimit; step++) {
-			const eligible = this.lineSplitter.eligibleEdges(graph, limit, data);
-			if (eligible.length === 0) {
-				break;
-			}
-			const edge = graph.edges[eligible[0]];
-			const item = data.searchItemByClassName(edge.itemClassName) ?? null;
-			const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
-			const result = this.lineSplitter.plan(graph, eligible[0], capacity, 'full', data);
-			if ('blocked' in result) {
-				break;
-			}
-			if (!changed) {
-				this.history.push(this.snapshotOf(plan));
-				changed = true;
-			}
-			graph = this.graphReconciler.reconcile(this.lineSplitter.apply(graph, result), result.sourceId);
-		}
-		if (!changed) {
-			return;
-		}
-
-		const selectedIds = this.plannerGraph.selectedNodes().map(node => node.id);
-		this.plannerGraph.restore(this.graphContainerRef.nativeElement, graph, false);
-		this.plannerGraph.selectNodesById(selectedIds);
-		this.planManager.setGraph(plan.id, graph, true);
 	}
 
 	private applyNodeUpdate(updates: Node[]): void
@@ -2027,6 +1879,33 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		}
 	}
 
+	/**
+	 * Matches the automatic solve's line settings: when it will draw the graph, refreshing the labels first would render twice.
+	 */
+	private linesRecalculate(previous: string, current: string): boolean
+	{
+		const plan = this.planManager.activePlan();
+		if (plan === null || this.modeOf(plan) !== 'automatic' || (plan.metadata?.graphDirty ?? false)) {
+			return false;
+		}
+		// calculate() skips plans with nothing to solve, so those keep the label refresh.
+		const solvable = plan.requests.some(request => request.itemClassName !== '')
+			|| (plan.graph?.nodes.some(node => node.locked) ?? false);
+		if (!solvable) {
+			return false;
+		}
+		const before = JSON.parse(previous) as [unknown, {lineStyle?: string; beltView?: boolean} | null];
+		const after = JSON.parse(current) as [unknown, {lineStyle?: string; beltView?: boolean} | null];
+		const beforeView = before[1]?.beltView ?? false;
+		const afterView = after[1]?.beltView ?? false;
+		if (beforeView !== afterView) {
+			return true;
+		}
+		return afterView
+			&& (JSON.stringify(before[0]) !== JSON.stringify(after[0])
+				|| (before[1]?.lineStyle ?? 'full') !== (after[1]?.lineStyle ?? 'full'));
+	}
+
 	private restyleGraph(): void
 	{
 		const plan = this.planManager.activePlan();
@@ -2433,35 +2312,115 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		}
 		const validRequests = plan.requests.filter(r => r.itemClassName !== '');
 
-		// Append mode's island is self-contained by design, so no locks.
 		const existing = this.existingGraph(plan);
-		const lockedNodes = this.modeOf(plan) === 'manual-append'
-			? []
-			: existing?.nodes.filter(node => node.locked) ?? [];
+		const lockedNodes = this.lockedNodesFor(plan, existing);
 
 		if (validRequests.length === 0 && lockedNodes.length === 0) return;
 
-		let result$;
-		try {
-			result$ = this.productionSolver.solve({...plan, requests: validRequests}, lockedNodes);
-		} catch (err) {
-			if (err instanceof SolveSettingsError) {
-				this.actions.setSettingsProblem(err);
-			} else {
-				this.actions.setSolveError('error', 'Could not start the calculation: ' + String(err) + '. This is a bug, please tell me on Discord.');
+		this.runCalculation(plan, validRequests, existing, lockedNodes);
+	}
+
+	/** The Preview button: same solve as Calculate, shown as a list of block changes before anything is applied. */
+	private previewCalculation(): void
+	{
+		if (this.planManager.activePlanReadOnly() || this.actions.isCalculating()) return;
+		const plan = this.planManager.activePlan();
+		if (!plan) return;
+		const existing = this.existingGraph(plan);
+		if (existing === null || existing.nodes.length === 0) {
+			// Nothing on the canvas to compare against: calculating is the preview.
+			this.calculate();
+			return;
+		}
+		this.openCalculatePreview(plan, existing);
+	}
+
+	private lockedNodesFor(plan: Plan, existing: Graph | null): Node[]
+	{
+		// Append mode's island is self-contained by design, so no locks.
+		return this.modeOf(plan) === 'manual-append'
+			? []
+			: existing?.nodes.filter(node => node.locked) ?? [];
+	}
+
+	private openCalculatePreview(plan: Plan, existing: Graph): void
+	{
+		this.cancelCalculation();
+		this.calculatePreviewSignal.set({existing, graph: null});
+		this.solvePreview(plan);
+	}
+
+	private solvePreview(plan: Plan): void
+	{
+		const validRequests = plan.requests.filter(r => r.itemClassName !== '');
+		const existing = this.existingGraph(plan);
+		const lockedNodes = this.lockedNodesFor(plan, existing);
+
+		// The graph may have been cleared while the dialog was open; a solve without one has nothing to preview.
+		if (existing === null || existing.nodes.length === 0) {
+			this.closeCalculatePreview();
+			if (validRequests.length > 0 || lockedNodes.length > 0) {
+				this.runCalculation(plan, validRequests, existing, lockedNodes);
 			}
 			return;
 		}
 
-		this.actions.setCalculating(true);
-		this.actions.setSolveError(null);
-		this.calcSubscription = result$.pipe(finalize(() => this.actions.setCalculating(false))).subscribe({
-			next: result => {
-				if (result.status !== 'Optimal') {
-					this.actions.setSolveError('no solution');
-					this.explainSolveFailure({...plan, requests: validRequests}, lockedNodes);
-					return;
-				}
+		this.calculatePreviewBusySignal.set(true);
+		this.calculatePreviewSignal.set({existing, graph: null});
+		this.pendingPreview = null;
+		this.solve(plan, validRequests, lockedNodes, {
+			solved: result => {
+				this.pendingPreview = {planId: plan.id, result, existing};
+				this.calculatePreviewSignal.set({existing, graph: this.buildResultGraph(plan, result, existing)});
+				this.calculatePreviewBusySignal.set(false);
+			},
+			failed: () => this.closeCalculatePreview(),
+		});
+	}
+
+	public closeCalculatePreview(): void
+	{
+		this.cancelCalculation();
+		this.calculatePreviewSignal.set(null);
+		this.calculatePreviewBusySignal.set(false);
+		this.pendingPreview = null;
+	}
+
+	public lockPreviewNode(nodeId: string): void
+	{
+		const plan = this.planManager.activePlan();
+		if (plan === null || this.pendingPreview === null || plan.id !== this.pendingPreview.planId) {
+			return;
+		}
+		// The lock edit keeps its own undo step and stays if the preview is cancelled.
+		this.actions.requestNodeLock({nodeIds: [nodeId], locked: true});
+		this.solvePreview(plan);
+	}
+
+	public applyCalculatePreview(): void
+	{
+		const pending = this.pendingPreview;
+		const plan = this.planManager.activePlan();
+		if (pending === null || plan === null || plan.id !== pending.planId) {
+			this.closeCalculatePreview();
+			return;
+		}
+		this.closeCalculatePreview();
+		this.history.push(this.snapshotOf(plan));
+		void this.applyResult(plan, pending.result, pending.existing).then(graph => {
+			this.renderedPlanId = plan.id;
+			this.planManager.setGraph(plan.id, graph, false);
+			// Undefined clears stale maximise results.
+			this.planManager.setAchievedMaximums(plan.id, pending.result.achievedMaximums);
+		}).catch(err => {
+			this.actions.setSolveError('error', 'Could not draw the graph: ' + String(err) + '. This is a bug, please tell me on Discord.');
+		});
+	}
+
+	private runCalculation(plan: Plan, validRequests: ProductionRequest[], existing: Graph | null, lockedNodes: Node[]): void
+	{
+		this.solve(plan, validRequests, lockedNodes, {
+			solved: result => {
 				this.history.push(this.snapshotOf(plan));
 				void this.applyResult(plan, result, existing).then(graph => {
 					this.renderedPlanId = plan.id;
@@ -2472,15 +2431,76 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 					this.actions.setSolveError('error', 'Could not draw the graph: ' + String(err) + '. This is a bug, please tell me on Discord.');
 				});
 			},
+			failed: () => {},
+		});
+	}
+
+	private solve(plan: Plan, validRequests: ProductionRequest[], lockedNodes: Node[],
+		handlers: {solved: (result: SolverResponse) => void; failed: () => void}): void
+	{
+		let result$;
+		try {
+			result$ = this.productionSolver.solve({...plan, requests: validRequests}, lockedNodes);
+		} catch (err) {
+			if (err instanceof SolveSettingsError) {
+				this.actions.setSettingsProblem(err);
+			} else {
+				this.actions.setSolveError('error', 'Could not start the calculation: ' + String(err) + '. This is a bug, please tell me on Discord.');
+			}
+			handlers.failed();
+			return;
+		}
+
+		this.actions.setCalculating(true);
+		this.actions.setSolveError(null);
+		this.calcSubscription = result$.pipe(finalize(() => this.actions.setCalculating(false))).subscribe({
+			next: result => {
+				if (result.status !== 'Optimal') {
+					this.actions.setSolveError('no solution');
+					this.explainSolveFailure({...plan, requests: validRequests}, lockedNodes);
+					handlers.failed();
+					return;
+				}
+				handlers.solved(result);
+			},
 			error: err => {
 				if (err instanceof SolveSettingsError) {
 					this.actions.setSettingsProblem(err);
+					handlers.failed();
 					return;
 				}
 				console.error('Solver error:', err);
 				this.actions.setSolveError('error', 'Calculation failed: ' + String(err instanceof Error ? err.message : err));
+				handlers.failed();
 			},
 		});
+	}
+
+	/** Mirrors applyResult, minus layout and rendering: the preview only compares blocks. */
+	private buildResultGraph(plan: Plan, result: SolverResponse, existing: Graph | null): Graph
+	{
+		const mode = this.modeOf(plan);
+		const hasLocks = existing?.nodes.some(node => node.locked) ?? false;
+
+		if (existing && mode === 'manual-append') {
+			const addition = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
+			return this.graphComposer.append(existing, addition);
+		}
+
+		if (existing && mode === 'manual-upgrade') {
+			const merged = this.graphComposer.merge(existing, result.nodes);
+			return {nodes: merged.nodes, edges: merged.edges};
+		}
+
+		this.graphComposer.carryDone(existing, result.nodes);
+		this.graphComposer.carryExtractors(existing, result.nodes);
+
+		if (existing && hasLocks) {
+			const rebuilt = this.graphComposer.rebuild(existing, result.nodes);
+			return this.splitLines(plan, {nodes: rebuilt.nodes, edges: rebuilt.edges});
+		}
+
+		return this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
 	}
 
 	/** Unsubscribing kills the solver worker. */
@@ -2488,6 +2508,12 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 	{
 		this.calcSubscription?.unsubscribe();
 		this.calcSubscription = null;
+		// Cancelling a preview solve must not leave a spinner that never stops.
+		if (this.calculatePreviewSignal() !== null) {
+			this.calculatePreviewSignal.set(null);
+			this.calculatePreviewBusySignal.set(false);
+			this.pendingPreview = null;
+		}
 	}
 
 	private explainSolveFailure(plan: Plan, lockedNodes: Node[]): void
@@ -2507,9 +2533,9 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		const hasLocks = existing?.nodes.some(node => node.locked) ?? false;
 
 		if (existing && mode === 'manual-append') {
-			const additionEdges = this.edgeBuilder.build(result.nodes);
-			await this.plannerGraph.layout(result.nodes, additionEdges, plan.settings.graph);
-			const graph = this.graphComposer.append(existing, {nodes: result.nodes, edges: additionEdges});
+			const addition = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
+			await this.plannerGraph.layout(addition.nodes, addition.edges, plan.settings.graph);
+			const graph = this.graphComposer.append(existing, addition);
 			this.plannerGraph.restore(container, graph);
 			return graph;
 		}
@@ -2530,13 +2556,36 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 		if (existing && hasLocks) {
 			const rebuilt = this.graphComposer.rebuild(existing, result.nodes);
-			await this.plannerGraph.layout(rebuilt.nodes, rebuilt.edges, plan.settings.graph);
-			const graph: Graph = {nodes: rebuilt.nodes, edges: rebuilt.edges};
+			// Locked blocks keep their machines: an edge that touches one is not split.
+			const graph = this.splitLines(plan, {nodes: rebuilt.nodes, edges: rebuilt.edges});
+			await this.plannerGraph.layout(graph.nodes, graph.edges, plan.settings.graph);
 			this.plannerGraph.restore(container, graph);
 			return graph;
 		}
 
-		return this.plannerGraph.render(container, result, plan.settings.graph);
+		const graph = this.splitLines(plan, {nodes: result.nodes, edges: this.edgeBuilder.build(result.nodes)});
+		// An empty result still has to clear the view, which render handles.
+		if (graph.nodes.length === 0) {
+			return this.plannerGraph.render(container, result, plan.settings.graph);
+		}
+		await this.plannerGraph.layout(graph.nodes, graph.edges, plan.settings.graph);
+		this.plannerGraph.restore(container, graph);
+		return graph;
+	}
+
+	/** Belt view turns over-limit connections into solver output: one block per belt, laid out like any result. */
+	private splitLines(plan: Plan, graph: Graph): Graph
+	{
+		const limit = plan.settings.conveyorLimit;
+		const layout = plan.settings.beltLayout;
+		if (limit === undefined || layout === undefined || !layout.beltView) {
+			return graph;
+		}
+		const data = this.versionManager.activeVersionData();
+		if (data === null) {
+			return graph;
+		}
+		return this.lineSplitter.splitAll(graph, limit, layout.lineStyle ?? 'full', data);
 	}
 
 	private existingGraph(plan: Plan): Graph | null

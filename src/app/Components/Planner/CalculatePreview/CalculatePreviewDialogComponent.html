@@ -1,0 +1,52 @@
+<div class="calculate-preview-backdrop" hotkeyBlock>
+	<form class="calculate-preview-dialog card" (ngSubmit)="onCalculate()">
+		<div class="card-header d-flex align-items-start gap-2">
+			<span class="fw-semibold flex-grow-1">Calculate: review changes</span>
+			<button type="button" class="btn-close" aria-label="Close" (click)="close.emit()"></button>
+		</div>
+
+		<div class="p-3 d-flex flex-column gap-2" style="overflow-y: auto;">
+			<div class="small text-secondary">Lock a block to keep it as it is.</div>
+
+			@if (busy) {
+				<div class="d-flex align-items-center gap-2 small text-secondary">
+					<span class="spinner-border spinner-border-sm" role="status"></span>Updating…
+				</div>
+			}
+
+			@if (rows.length === 0) {
+				@if (!busy) {
+					<div class="small">Nothing changes.</div>
+				}
+			} @else {
+				<ul class="list-unstyled d-flex flex-column gap-2 mb-0">
+					@for (row of rows; track row.nodeId) {
+						<li class="d-flex align-items-start gap-2 p-2 rounded" style="background: rgba(255, 255, 255, 0.04);">
+							<div class="small flex-grow-1">
+								<div>{{ row.title }}</div>
+								@if (row.detail; as detail) {
+									<div class="text-secondary">{{ detail }}</div>
+								}
+							</div>
+							@if (row.lockable) {
+								<button
+									type="button"
+									class="btn btn-sm btn-outline-secondary"
+									aria-label="Lock this block"
+									title="Lock this block to keep it as it is"
+									[disabled]="busy"
+									(click)="lock.emit(row.nodeId)"
+								><fa-icon [icon]="faLock"></fa-icon></button>
+							}
+						</li>
+					}
+				</ul>
+			}
+		</div>
+
+		<div class="card-footer d-flex justify-content-end gap-2">
+			<button type="button" class="btn btn-sm btn-outline-secondary" (click)="close.emit()">Cancel</button>
+			<button type="submit" class="btn btn-sm btn-primary" [disabled]="busy || graph === null">Calculate</button>
+		</div>
+	</form>
+</div>

@@ -12,6 +12,8 @@ export interface GraphSettings
 
 	readonly showEdgeLabelBoxes: boolean;
 
+	readonly addBendPointsByClick: boolean;
+
 	readonly showNodeItemIcons: boolean;
 
 	readonly showNodeBuildingIcons: boolean;

@@ -170,7 +170,7 @@ export class GraphComposer
 		});
 	}
 
-	private identityKey(node: Node): string
+	public identityKey(node: Node): string
 	{
 		// Clock speed and sloops are deliberately not part of the key: solver output always arrives at 100%/0 sloops.
 		if (node instanceof RecipeNode) {

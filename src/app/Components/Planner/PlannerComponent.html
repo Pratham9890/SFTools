@@ -19,23 +19,23 @@
 	></add-node-dialog>
 }
 
+@if (calculatePreview(); as preview) {
+	<calculate-preview-dialog
+		[existing]="preview.existing"
+		[graph]="preview.graph"
+		[busy]="calculatePreviewBusy()"
+		(lock)="lockPreviewNode($event)"
+		(calculate)="applyCalculatePreview()"
+		(close)="closeCalculatePreview()"
+	></calculate-preview-dialog>
+}
+
 @if (overclockNode(); as node) {
 	<overclock-dialog
 		[node]="node"
 		(applyNode)="onOverclockApply($event)"
 		(close)="closeOverclock()"
 	></overclock-dialog>
-}
-
-@if (lineSplitState(); as state) {
-	<line-split-dialog
-		[graph]="state.graph"
-		[edgeIndex]="state.edgeIndex"
-		[capacity]="state.capacity"
-		[data]="state.data"
-		(applyPlan)="onLineSplitApply($event)"
-		(close)="closeLineSplit()"
-	></line-split-dialog>
 }
 
 @if (shareDialog.target(); as target) {

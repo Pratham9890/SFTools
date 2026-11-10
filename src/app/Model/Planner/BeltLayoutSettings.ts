@@ -1,3 +1,5 @@
+import type {LineSplitStyle} from '@src/Model/Planner/LineSplit';
+
 export type BeltLayoutMode = 'fewest' | 'even' | 'full';
 
 export interface BeltLayoutSettings
@@ -11,4 +13,6 @@ export interface BeltLayoutSettings
 	readonly allowPlanChanges: boolean;
 	/** Draw each belt as its own line on the graph. Default false. */
 	readonly beltView: boolean;
+	/** How Belt view divides over-limit connections into lines. Default 'full' for plans saved before it existed. */
+	readonly lineStyle: LineSplitStyle;
 }

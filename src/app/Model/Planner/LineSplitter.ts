@@ -5,7 +5,7 @@ import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
 import {Formulas} from '@src/Model/Planner/Formulas';
 import {GroupingMode} from '@src/Model/Planner/GroupingMode';
-import {LineSplitLine, LineSplitMachineTotal, LineSplitPlan, LineSplitResult, LineSplitStyle} from '@src/Model/Planner/LineSplit';
+import {LineSplitPlan, LineSplitResult, LineSplitStyle} from '@src/Model/Planner/LineSplit';
 import {MachineGroupNormalizer} from '@src/Model/Planner/MachineGroupNormalizer';
 import {Node} from '@src/Model/Planner/Solver/Response/Node';
 import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
@@ -42,6 +42,9 @@ export class LineSplitter
 		if (source === null || target === null) {
 			return {blocked: 'The connection no longer exists'};
 		}
+		if (source.locked || target.locked) {
+			return {blocked: 'A locked block keeps its machines'};
+		}
 		const sourceNode = source instanceof RecipeNode ? source : null;
 		const targetNode = target instanceof RecipeNode ? target : null;
 		if (sourceNode === null && targetNode === null) {
@@ -76,44 +79,39 @@ export class LineSplitter
 		const sourceParts = sourceNode !== null ? this.parts(sourceNode, flows, edge.amount, style, stackAlongX) : null;
 		const targetParts = targetNode !== null ? this.parts(targetNode, flows, edge.amount, style, stackAlongX) : null;
 
-		const lines: LineSplitLine[] = flows.map((flow, index) => ({
-			flow,
-			producer: sourceNode !== null && sourceParts !== null
-				? {machineName: sourceNode.machine.name, groups: sourceParts[index].groups}
-				: null,
-			consumer: targetNode !== null && targetParts !== null
-				? {machineName: targetNode.machine.name, groups: targetParts[index].groups}
-				: null,
-		}));
-
-		const machineTotals = new Map<string, {name: string; before: number; after: number}>();
-		if (sourceNode !== null && sourceParts !== null) {
-			this.addMachineTotal(machineTotals, sourceNode, sourceParts);
-		}
-		if (targetNode !== null && targetParts !== null) {
-			this.addMachineTotal(machineTotals, targetNode, targetParts);
-		}
-		const machines: LineSplitMachineTotal[] = [...machineTotals.values()];
-
-		const affected = [sourceNode, targetNode].filter((node): node is RecipeNode => node !== null);
-		const parts = [...(sourceParts ?? []), ...(targetParts ?? [])];
-
 		return {
 			style,
 			sourceId: edge.sourceId,
 			targetId: edge.targetId,
 			edgeIndex,
 			itemClassName: edge.itemClassName,
-			itemName: data.searchItemByClassName(edge.itemClassName)?.name ?? edge.itemClassName,
 			amount: edge.amount,
 			flows,
 			sourceParts,
 			targetParts,
-			lines,
-			machines,
-			powerBefore: affected.reduce((sum, node) => sum + node.powerDraw().average, 0),
-			powerAfter: parts.reduce((sum, node) => sum + node.powerDraw().average, 0),
 		};
+	}
+
+	/** Divides every over-limit connection into one line per belt. Eligibility is recomputed each round because ids and indices change. */
+	public splitAll(graph: Graph, limit: ConveyorLimit, style: LineSplitStyle, data: Data): Graph
+	{
+		const rounds = graph.edges.length * 4;
+		let current = graph;
+		for (let round = 0; round < rounds; round++) {
+			const eligible = this.eligibleEdges(current, limit, data);
+			if (eligible.length === 0) {
+				break;
+			}
+			const edge = current.edges[eligible[0]];
+			const item = data.searchItemByClassName(edge.itemClassName) ?? null;
+			const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
+			const plan = this.plan(current, eligible[0], capacity, style, data);
+			if ('blocked' in plan) {
+				break;
+			}
+			current = this.apply(current, plan);
+		}
+		return current;
 	}
 
 	public apply(graph: Graph, plan: LineSplitPlan): Graph
@@ -234,7 +232,6 @@ export class LineSplitter
 			const offset = step * (index - (flows.length - 1) / 2);
 			part.x = node.x + (stackAlongX ? offset : 0);
 			part.y = node.y + (stackAlongX ? 0 : offset);
-			part.locked = true;
 			part.done = node.done;
 			part.groupingMode = mode;
 			return part;
@@ -248,15 +245,6 @@ export class LineSplitter
 			return 100;
 		}
 		return node.groups.every(group => group.clockSpeed === first.clockSpeed) ? first.clockSpeed : 100;
-	}
-
-	private addMachineTotal(totals: Map<string, {name: string; before: number; after: number}>, node: RecipeNode, parts: readonly RecipeNode[]): void
-	{
-		const name = node.machine.name;
-		const total = totals.get(name) ?? {name, before: 0, after: 0};
-		total.before += node.groups.reduce((sum, group) => sum + group.machines, 0);
-		total.after += parts.reduce((sum, part) => sum + part.groups.reduce((count, group) => count + group.machines, 0), 0);
-		totals.set(name, total);
 	}
 
 	private splitEdgeIndex(graph: Graph, plan: LineSplitPlan): number

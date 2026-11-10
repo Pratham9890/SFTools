@@ -40,6 +40,7 @@ const GRAPH_LABELS: Record<Exclude<keyof GraphSettings, 'nodeAccentColors'>, Set
 	simplifyWhenZoomedOut: {label: 'Simplify the graph when zoomed out', format: YES_NO},
 	showEdgeItemIcons: {label: 'Item icons on connections', format: YES_NO},
 	showEdgeLabelBoxes: {label: 'Box behind connection labels', format: YES_NO},
+	addBendPointsByClick: {label: 'Add bend points by clicking connection lines', format: YES_NO},
 	showNodeItemIcons: {label: 'Item icons on nodes', format: YES_NO},
 	showNodeBuildingIcons: {label: 'Building icons on nodes', format: YES_NO},
 	showSubplanItemIcons: {label: 'Input/output icons on subplans', format: YES_NO},

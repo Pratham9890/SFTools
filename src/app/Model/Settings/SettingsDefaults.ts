@@ -39,6 +39,7 @@ export class SettingsDefaults
 			showEdgeItemIcons: true,
 			// Renamed from showEdgeLabelBox: settings are saved whole, so the old key would keep the previous default for everyone.
 			showEdgeLabelBoxes: false,
+			addBendPointsByClick: false,
 			showNodeItemIcons: true,
 			showNodeBuildingIcons: true,
 			showSubplanItemIcons: true,
