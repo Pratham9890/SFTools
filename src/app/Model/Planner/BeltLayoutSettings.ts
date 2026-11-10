@@ -1,9 +1,7 @@
-import type {LineSplitStyle} from '@src/Model/Planner/LineSplit';
-
 export type BeltLayoutMode = 'fewest' | 'even' | 'full';
 
-/** 'custom' leaves multi-belt connections to Belt management instead of splitting them into lines. */
-export type BeltLineStyle = LineSplitStyle | 'custom';
+/** Kept for stored plans: only 'custom' still matters, and means Belt management instead of splitting into lines. */
+export type BeltLineStyle = 'even' | 'full' | 'custom';
 
 export interface BeltLayoutSettings
 {
@@ -16,6 +14,6 @@ export interface BeltLayoutSettings
 	readonly allowPlanChanges: boolean;
 	/** Draw each belt as its own line on the graph. Default false. */
 	readonly beltView: boolean;
-	/** How Belt view divides over-limit connections into lines. Default 'even'. */
+	/** Only 'custom' (Belt management, no line splitting) still matters; machine grouping comes from the plan settings. Default 'even'. */
 	readonly lineStyle: BeltLineStyle;
 }

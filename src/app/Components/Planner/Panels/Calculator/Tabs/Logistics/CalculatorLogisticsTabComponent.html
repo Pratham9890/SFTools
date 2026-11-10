@@ -61,24 +61,23 @@
 			</div>
 
 			@if (beltView) {
-				<div class="form-label mb-0">Machines per line</div>
-				@for (option of lineStyles; track option.value) {
-					<div class="form-check">
-						<input
-							class="form-check-input"
-							type="radio"
-							name="line-style"
-							[id]="'line-style-' + option.value"
-							[checked]="lineStyle === option.value"
-							(change)="setLineStyle(option.value)"
-						/>
-						<label class="form-check-label" [for]="'line-style-' + option.value">{{ option.label }}</label>
-					</div>
-				}
+				<div class="small text-secondary">
+					Machines in each line follow Settings → Machine groups (default grouping for new nodes): {{ groupingModeLabel }}
+				</div>
+				<div class="form-check">
+					<input
+						class="form-check-input"
+						type="checkbox"
+						id="belt-custom"
+						[checked]="custom"
+						(change)="setCustom($any($event.target).checked)"
+					/>
+					<label class="form-check-label" for="belt-custom">Custom: arrange belts with Belt management instead of splitting into lines</label>
+				</div>
 			}
 		</div>
 
-		@if (beltView && lineStyle === 'custom') {
+		@if (beltView && custom) {
 			<div class="border-top border-secondary pt-2 d-flex flex-column gap-2">
 				<div class="fw-semibold">Belt management</div>
 

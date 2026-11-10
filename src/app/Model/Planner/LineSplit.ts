@@ -1,11 +1,10 @@
+import {GroupingMode} from '@src/Model/Planner/GroupingMode';
 import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
-
-export type LineSplitStyle = 'full' | 'even';
 
 /** What the graph rewrite needs, computed against one graph revision. */
 export interface LineSplitPlan
 {
-	readonly style: LineSplitStyle;
+	readonly mode: GroupingMode;
 	readonly sourceId: string;
 	readonly targetId: string;
 	readonly edgeIndex: number;

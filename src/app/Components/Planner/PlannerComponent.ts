@@ -66,7 +66,7 @@ import {OldToolsAutoImportService} from '@src/Model/OldTools/OldToolsAutoImportS
 import {OldToolsImportRequestService} from '@src/Model/OldTools/OldToolsImportRequestService';
 import {OldToolsShareService} from '@src/Model/OldTools/OldToolsShareService';
 import {BeltProposal} from '@src/Model/Planner/BeltLayoutResult';
-import {BeltLineStyle, BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
+import {BeltLayoutSettings} from '@src/Model/Planner/BeltLayoutSettings';
 import {BeltLayoutSettingsNormalizer} from '@src/Model/Planner/BeltLayoutSettingsNormalizer';
 import {CalculationMode} from '@src/Model/Planner/CalculationMode';
 import {EnabledRecipesResolver} from '@src/Model/Planner/EnabledRecipesResolver';
@@ -1879,15 +1879,15 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		}
 	}
 
-	/** Belt view with its style, or null when it is off: a style switch re-solves, the mode fields do not. */
-	private beltLinesKey(plan: Plan): [unknown, BeltLineStyle] | null
+	/** Belt view with its custom flag, or null when it is off: switching either re-solves, the Belt management fields do not. */
+	private beltLinesKey(plan: Plan): [unknown, boolean] | null
 	{
 		const layout = plan.settings.beltLayout;
 		if (layout === undefined) {
 			return null;
 		}
 		const normalized = BeltLayoutSettingsNormalizer.normalize(layout);
-		return normalized.beltView ? [plan.settings.conveyorLimit ?? null, normalized.lineStyle] : null;
+		return normalized.beltView ? [plan.settings.conveyorLimit ?? null, normalized.lineStyle === 'custom'] : null;
 	}
 
 	/**
@@ -1907,13 +1907,13 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		}
 		const before = JSON.parse(previous) as [unknown, BeltLayoutSettings | null];
 		const after = JSON.parse(current) as [unknown, BeltLayoutSettings | null];
-		const beforeStyle = before[1] === null ? null : BeltLayoutSettingsNormalizer.normalize(before[1]).lineStyle;
-		const afterStyle = after[1] === null ? null : BeltLayoutSettingsNormalizer.normalize(after[1]).lineStyle;
-		if ((beforeStyle === null) !== (afterStyle === null)) {
+		const beforeCustom = before[1] === null ? null : BeltLayoutSettingsNormalizer.normalize(before[1]).lineStyle === 'custom';
+		const afterCustom = after[1] === null ? null : BeltLayoutSettingsNormalizer.normalize(after[1]).lineStyle === 'custom';
+		if ((beforeCustom === null) !== (afterCustom === null)) {
 			return true;
 		}
-		return afterStyle !== null
-			&& (JSON.stringify(before[0]) !== JSON.stringify(after[0]) || beforeStyle !== afterStyle);
+		return afterCustom !== null
+			&& (JSON.stringify(before[0]) !== JSON.stringify(after[0]) || beforeCustom !== afterCustom);
 	}
 
 	private restyleGraph(): void
@@ -2599,7 +2599,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		if (data === null) {
 			return graph;
 		}
-		return this.lineSplitter.splitAll(graph, limit, normalized.lineStyle, data);
+		return this.lineSplitter.splitAll(graph, limit, this.groupingModes.resolve(plan.settings), data);
 	}
 
 	private existingGraph(plan: Plan): Graph | null

@@ -8,6 +8,8 @@ import {BeltLayoutMode, BeltLayoutSettings, BeltLineStyle} from '@src/Model/Plan
 import {BeltLayoutSettingsNormalizer} from '@src/Model/Planner/BeltLayoutSettingsNormalizer';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
+import {GroupingMode} from '@src/Model/Planner/GroupingMode';
+import {GroupingModeResolver} from '@src/Model/Planner/GroupingModeResolver';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {RateFormatter} from '@src/Model/RateFormatter';
 
@@ -27,17 +29,19 @@ export class CalculatorLogisticsTabComponent
 		{value: 'even', label: 'Even spread', description: 'spread the flow over the belts, with an adjustable target'},
 		{value: 'full', label: 'Round up to full belts', description: 'regroup machines so every belt but the last runs full'},
 	];
-	public readonly lineStyles: readonly {value: BeltLineStyle; label: string}[] = [
-		{value: 'even', label: 'Underclock all evenly'},
-		{value: 'full', label: 'Full machines, underclock the last'},
-		{value: 'custom', label: 'Custom: arrange belts with the settings below'},
-	];
+	/** Matches the option labels of Settings → Machine groups → Default machine grouping for new nodes. */
+	public readonly groupingModeLabels: Readonly<Record<GroupingMode, string>> = {
+		'underclock-last': 'Underclock the last machine',
+		'clock-equally': 'Same clock for all',
+		'no-clocking': 'Whole machines only',
+	};
 
 	public constructor(
 		private readonly planManager: PlanManager,
 		private readonly plannerGraph: PlannerGraphService,
 		private readonly versionManager: VersionManager,
 		private readonly rateFormatter: RateFormatter,
+		private readonly groupingModes: GroupingModeResolver,
 	)
 	{
 	}
@@ -96,6 +100,16 @@ export class CalculatorLogisticsTabComponent
 	public get lineStyle(): BeltLineStyle
 	{
 		return this.beltLayout?.lineStyle ?? 'even';
+	}
+
+	public get custom(): boolean
+	{
+		return this.lineStyle === 'custom';
+	}
+
+	public get groupingModeLabel(): string
+	{
+		return this.groupingModeLabels[this.groupingModes.resolve(this.planManager.activeSettings())];
 	}
 
 	public get overLimitCount(): number
@@ -190,9 +204,9 @@ export class CalculatorLogisticsTabComponent
 		});
 	}
 
-	public setLineStyle(lineStyle: BeltLineStyle): void
+	public setCustom(custom: boolean): void
 	{
-		this.updateBeltLayout({lineStyle});
+		this.updateBeltLayout({lineStyle: custom ? 'custom' : 'even'});
 	}
 
 	private updateBeltLayout(changes: Partial<BeltLayoutSettings>): void

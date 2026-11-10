@@ -5,7 +5,7 @@ import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ConveyorLimit} from '@src/Model/Planner/ConveyorLimit';
 import {Formulas} from '@src/Model/Planner/Formulas';
 import {GroupingMode} from '@src/Model/Planner/GroupingMode';
-import {LineSplitPlan, LineSplitResult, LineSplitStyle} from '@src/Model/Planner/LineSplit';
+import {LineSplitPlan, LineSplitResult} from '@src/Model/Planner/LineSplit';
 import {MachineGroupNormalizer} from '@src/Model/Planner/MachineGroupNormalizer';
 import {Node} from '@src/Model/Planner/Solver/Response/Node';
 import {RecipeNode} from '@src/Model/Planner/Solver/Response/RecipeNode';
@@ -24,7 +24,7 @@ export class LineSplitter
 
 	private readonly normalizer = new MachineGroupNormalizer();
 
-	public plan(graph: Graph, edgeIndex: number, capacity: number, style: LineSplitStyle, data: Data): LineSplitResult
+	public plan(graph: Graph, edgeIndex: number, capacity: number, mode: GroupingMode, data: Data): LineSplitResult
 	{
 		const edge = graph.edges[edgeIndex];
 		if (!edge) {
@@ -70,17 +70,17 @@ export class LineSplitter
 		const rate = sourceNode !== null
 			? this.machineRate(sourceNode, edge.itemClassName, 'output')
 			: this.machineRate(rateNode, edge.itemClassName, 'input');
-		const flows = style === 'even'
+		const flows = mode === 'clock-equally'
 			? LineSplitter.evenFlows(edge.amount, capacity)
 			: LineSplitter.fullFlows(edge.amount, capacity, rate);
 
 		// Like NodeSplitter, stack perpendicular to the connection so each line stays a row of its own.
 		const stackAlongX = Math.abs(target.y - source.y) > Math.abs(target.x - source.x);
-		const sourceParts = sourceNode !== null ? this.parts(sourceNode, flows, edge.amount, style, stackAlongX) : null;
-		const targetParts = targetNode !== null ? this.parts(targetNode, flows, edge.amount, style, stackAlongX) : null;
+		const sourceParts = sourceNode !== null ? this.parts(sourceNode, flows, edge.amount, mode, stackAlongX) : null;
+		const targetParts = targetNode !== null ? this.parts(targetNode, flows, edge.amount, mode, stackAlongX) : null;
 
 		return {
-			style,
+			mode,
 			sourceId: edge.sourceId,
 			targetId: edge.targetId,
 			edgeIndex,
@@ -93,7 +93,7 @@ export class LineSplitter
 	}
 
 	/** Divides every over-limit connection into one line per belt. Eligibility is recomputed each round because ids and indices change. */
-	public splitAll(graph: Graph, limit: ConveyorLimit, style: LineSplitStyle, data: Data): Graph
+	public splitAll(graph: Graph, limit: ConveyorLimit, mode: GroupingMode, data: Data): Graph
 	{
 		const rounds = graph.edges.length * 4;
 		let current = graph;
@@ -105,7 +105,7 @@ export class LineSplitter
 			const edge = current.edges[eligible[0]];
 			const item = data.searchItemByClassName(edge.itemClassName) ?? null;
 			const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
-			const plan = this.plan(current, eligible[0], capacity, style, data);
+			const plan = this.plan(current, eligible[0], capacity, mode, data);
 			if ('blocked' in plan) {
 				break;
 			}
@@ -168,13 +168,14 @@ export class LineSplitter
 		return {nodes, edges};
 	}
 
+	/** Eligibility does not depend on the mode, so the whole-machine one is used to keep the flow split cheap. */
 	public eligibleEdges(graph: Graph, limit: ConveyorLimit, data: Data): number[]
 	{
 		const indices: number[] = [];
 		graph.edges.forEach((edge, index) => {
 			const item = data.searchItemByClassName(edge.itemClassName) ?? null;
 			const capacity = ConveyorCapacity.capacity(limit, ConveyorCapacity.isFluid(item));
-			if (!('blocked' in this.plan(graph, index, capacity, 'full', data))) {
+			if (!('blocked' in this.plan(graph, index, capacity, 'underclock-last', data))) {
 				indices.push(index);
 			}
 		});
@@ -218,9 +219,8 @@ export class LineSplitter
 		return node.target > 0 ? total / node.target : 0;
 	}
 
-	private parts(node: RecipeNode, flows: readonly number[], amount: number, style: LineSplitStyle, stackAlongX: boolean): RecipeNode[]
+	private parts(node: RecipeNode, flows: readonly number[], amount: number, mode: GroupingMode, stackAlongX: boolean): RecipeNode[]
 	{
-		const mode: GroupingMode = style === 'full' ? 'underclock-last' : 'clock-equally';
 		const clockSpeed = this.clockSpeed(node);
 		const sloops = node.groups[0]?.sloops ?? 0;
 		const step = stackAlongX ? LineSplitter.HORIZONTAL_STEP : LineSplitter.VERTICAL_STEP;
