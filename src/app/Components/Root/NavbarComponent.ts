@@ -11,6 +11,7 @@ import {MobileSearchComponent} from '@src/Components/Root/MobileSearchComponent'
 import {NavbarCommunityLinksComponent} from '@src/Components/Root/NavbarCommunityLinksComponent';
 import {NavbarUserDropdownComponent} from '@src/Components/Root/NavbarUserDropdownComponent';
 import {AppTooltipDirective} from '@src/Components/Common/AppTooltipDirective';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {AccountProfileService} from '@src/Model/Auth/AccountProfileService';
 import {VersionManager} from '@src/Model/Data/VersionManager';
 import {HelpManager} from '@src/Model/Help/HelpManager';
@@ -92,6 +93,9 @@ export class NavbarComponent implements AfterViewInit, OnDestroy
 	public readonly faDiagramProject = faDiagramProject;
 	public readonly faMagnifyingGlass = faMagnifyingGlass;
 	public readonly faCircleQuestion = faCircleQuestion;
+
+	/** No sign-in or account menu: this fork uses co-op spaces instead. */
+	protected readonly features = AppFeatures;
 
 	/** Bootstrap's lg breakpoint: below it the navbar is folded into the menu. */
 	private static readonly WIDE_SCREEN = 992;

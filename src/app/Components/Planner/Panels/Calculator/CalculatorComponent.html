@@ -122,13 +122,15 @@
 			(click)="relayout()"
 		><fa-icon [icon]="faSitemap"></fa-icon> Rearrange</button>
 
-		<button
-			class="btn btn-sm btn-blue"
-			type="button"
-			[tooltip]="'Share this plan' + hotkeys.suffix('plans.sharePlan')" placement="bottom"
-			[disabled]="shareDialog.activeTarget() === null"
-			(click)="shareDialog.openActive()"
-		><fa-icon [icon]="faShareNodes"></fa-icon> Share</button>
+		@if (features.shareLinks) {
+			<button
+				class="btn btn-sm btn-blue"
+				type="button"
+				[tooltip]="'Share this plan' + hotkeys.suffix('plans.sharePlan')" placement="bottom"
+				[disabled]="shareDialog.activeTarget() === null"
+				(click)="shareDialog.openActive()"
+			><fa-icon [icon]="faShareNodes"></fa-icon> Share</button>
+		}
 
 		<button
 			class="btn btn-sm btn-outline-primary"

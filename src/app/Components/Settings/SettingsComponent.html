@@ -23,7 +23,7 @@
 					(click)="resetAll()"
 				><fa-icon [icon]="faRotateLeft"></fa-icon> Reset all settings</button>
 			}
-			@if (!auth.isAuthenticated()) {
+			@if (!auth.isAuthenticated() && features.accounts) {
 				<info-note class="d-none d-md-flex">
 					Changes are saved on {{ platform.device }} only. Sign in to use them on other devices.
 				</info-note>

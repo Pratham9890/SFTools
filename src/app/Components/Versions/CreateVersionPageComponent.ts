@@ -20,6 +20,7 @@ import {WorldDataMode} from '@src/Model/API/Schema/World/WorldDataMode';
 import {WorldDataPayload} from '@src/Model/API/Schema/World/WorldDataPayload';
 import {WorldDataPurity} from '@src/Model/API/Schema/World/WorldDataPurity';
 import {VersionsApiService} from '@src/Model/API/VersionsApiService';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {AuthService} from '@src/Model/Auth/AuthService';
 import {Data} from '@src/Model/Data/Data';
 import {DataTransformer} from '@src/Model/Data/DataTransformer';
@@ -110,6 +111,8 @@ const EMPTY_COUNTS: PurityCounts = {impure: 0, normal: 0, pure: 0};
 })
 export class CreateVersionPageComponent
 {
+
+	protected readonly features = AppFeatures;
 
 	public readonly faCubes = faCubes;
 	public readonly faSliders = faSliders;

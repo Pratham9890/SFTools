@@ -27,5 +27,7 @@
 </div>
 
 <settings-conflict-dialog/>
-<sign-in-prompt-dialog/>
+@if (features.accounts) {
+	<sign-in-prompt-dialog/>
+}
 <supporter-welcome-dialog/>

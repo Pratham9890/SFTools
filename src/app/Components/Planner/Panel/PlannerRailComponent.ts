@@ -5,6 +5,7 @@ import {AppTooltipDirective} from '@src/Components/Common/AppTooltipDirective';
 import {PanelLayoutService} from '@src/Components/Planner/Panel/PanelLayoutService';
 import {PlanCreator} from '@src/Components/Planner/Panels/Plans/PlanCreator';
 import {ShareDialogService} from '@src/Components/Planner/Share/ShareDialogService';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {HotkeyService} from '@src/Model/Hotkeys/HotkeyService';
 
 @Component({
@@ -71,6 +72,9 @@ export class PlannerRailComponent
 
 	public readonly faPlus = faPlus;
 	public readonly faShareNodes = faShareNodes;
+
+	/** Share links are hidden in this fork: co-op spaces replace them. */
+	protected readonly features = AppFeatures;
 
 	public readonly shareTooltip: Signal<string> = computed(() => {
 		const target = this.shareDialog.activeTarget();

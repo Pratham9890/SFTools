@@ -67,7 +67,9 @@
 						Settings
 					</a>
 				</li>
-				<navbar-user-dropdown/>
+				@if (features.accounts) {
+					<navbar-user-dropdown/>
+				}
 			</ul>
 		</div>
 	</div>

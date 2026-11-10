@@ -48,6 +48,7 @@ import {PlanSettings} from '@src/Model/Planner/PlanSettings';
 import {SettingsGroup} from '@src/Model/Planner/SettingsGroup';
 import {SettingsGroups} from '@src/Model/Planner/SettingsGroups';
 import {ShareDialogService} from '@src/Components/Planner/Share/ShareDialogService';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {ActiveShareManager} from '@src/Model/Shares/ActiveShareManager';
 import {ActivePlanLinkManager} from '@src/Model/PlanLinks/ActivePlanLinkManager';
 import {AppPlatform} from '@src/Model/Desktop/AppPlatform';
@@ -200,6 +201,9 @@ export class CalculatorComponent implements OnDestroy
 	public readonly faShareNodes = faShareNodes;
 	public readonly faXmark = faXmark;
 	public readonly faEllipsis = faEllipsis;
+
+	/** Share links are hidden in this fork: co-op spaces replace them. */
+	protected readonly features = AppFeatures;
 
 	public readonly activeTab: Signal<CalculatorTab>;
 

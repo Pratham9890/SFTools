@@ -18,11 +18,13 @@
 	placement="right"
 	(click)="planCreator.createPlan()"
 ><fa-icon [icon]="faPlus"></fa-icon></button>
-<span [tooltip]="shareTooltip()" placement="right">
-	<button
-		class="rail-btn rail-btn-accent"
-		type="button"
-		[disabled]="shareDialog.activeTarget() === null"
-		(click)="shareDialog.openActive()"
-	><fa-icon [icon]="faShareNodes"></fa-icon></button>
-</span>
+@if (features.shareLinks) {
+	<span [tooltip]="shareTooltip()" placement="right">
+		<button
+			class="rail-btn rail-btn-accent"
+			type="button"
+			[disabled]="shareDialog.activeTarget() === null"
+			(click)="shareDialog.openActive()"
+		><fa-icon [icon]="faShareNodes"></fa-icon></button>
+	</span>
+}

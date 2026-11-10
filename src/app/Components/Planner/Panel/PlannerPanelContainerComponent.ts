@@ -6,6 +6,7 @@ import {FloatingGroup} from '@src/Components/Planner/Panel/FloatingGroup';
 import {PanelContentAreaComponent} from '@src/Components/Planner/Panel/PanelContentAreaComponent';
 import {MOBILE_NAV_HEIGHT, PanelLayoutService, STATUS_BAR_HEIGHT} from '@src/Components/Planner/Panel/PanelLayoutService';
 import {ShareDialogService} from '@src/Components/Planner/Share/ShareDialogService';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {PanelDefinition} from '@src/Components/Planner/Panel/PanelDefinition';
 import {PanelSide} from '@src/Components/Planner/Panel/PanelSide';
 import {PlannerCanvasHintComponent} from '@src/Components/Planner/CanvasHint/PlannerCanvasHintComponent';
@@ -202,6 +203,9 @@ export class PlannerPanelContainerComponent implements AfterViewInit, OnDestroy
 	public readonly faXmark = faXmark;
 	public readonly faChevronLeft = faChevronLeft;
 	public readonly faChevronRight = faChevronRight;
+
+	/** Share links are hidden in this fork: co-op spaces replace them. */
+	protected readonly features = AppFeatures;
 
 	private readonly navCanScrollLeftSignal = signal(false);
 	public readonly navCanScrollLeft = this.navCanScrollLeftSignal.asReadonly();

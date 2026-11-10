@@ -9,6 +9,7 @@ import {HomeFeature} from '@src/Components/Home/HomeFeature';
 import {VersionTag} from '@src/Components/Home/VersionTag';
 import {Version} from '@src/Model/API/Schema/Version';
 import {WorldDataPayload} from '@src/Model/API/Schema/World/WorldDataPayload';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {AccountProfileService} from '@src/Model/Auth/AccountProfileService';
 import {AuthService} from '@src/Model/Auth/AuthService';
 import {LogoutService} from '@src/Model/Auth/LogoutService';
@@ -525,6 +526,9 @@ export class HomeComponent
 	public readonly faShareNodes = faShareNodes;
 
 	public readonly desktopAppLink: boolean;
+
+	/** The sign-in card only exists with accounts: this fork uses co-op spaces instead. */
+	protected readonly appFeatures = AppFeatures;
 
 	private readonly localPlanStore: LocalPlanStoreBackend;
 

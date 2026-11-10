@@ -1,3 +1,4 @@
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {HotkeyAction} from '@src/Model/Hotkeys/HotkeyAction';
 import {HotkeyDefinition} from '@src/Model/Hotkeys/HotkeyDefinition';
 import {HotkeyGroup} from '@src/Model/Hotkeys/HotkeyGroup';
@@ -68,13 +69,18 @@ export class HotkeyCatalog
 		{action: 'plans.newFolder', group: 'plans', label: 'New folder', default: {key: 'n', ctrl: true, shift: true}},
 		{action: 'plans.renamePlan', group: 'plans', label: 'Rename the open plan', default: {key: 'F2', shift: true}},
 		{action: 'plans.clonePlan', group: 'plans', label: 'Clone the open plan', default: {key: 'd', ctrl: true}},
-		{action: 'plans.sharePlan', group: 'plans', label: 'Share the open plan', default: {key: 's', ctrl: true, shift: true}},
+		// Share links are hidden in this fork, so their keys are not handed out or listed either.
+		...(AppFeatures.shareLinks ? [
+			{action: 'plans.sharePlan', group: 'plans', label: 'Share the open plan', default: {key: 's', ctrl: true, shift: true}},
+		] satisfies HotkeyDefinition[] : []),
 		{action: 'plans.deletePlan', group: 'plans', label: 'Delete the open plan', default: {key: 'Delete', ctrl: true}},
 		{action: 'plans.pickPlanIcon', group: 'plans', label: 'Pick an icon for the open plan', default: null},
 		{action: 'plans.resetPlanIcon', group: 'plans', label: "Reset the open plan's icon", default: null},
 		{action: 'plans.renameFolder', group: 'plans', label: 'Rename the open folder', hint: 'The folder the open plan is in.', default: null},
 		{action: 'plans.cloneFolder', group: 'plans', label: 'Clone the open folder', default: null},
-		{action: 'plans.shareFolder', group: 'plans', label: 'Share the open folder', default: null},
+		...(AppFeatures.shareLinks ? [
+			{action: 'plans.shareFolder', group: 'plans', label: 'Share the open folder', default: null},
+		] satisfies HotkeyDefinition[] : []),
 		{action: 'plans.deleteFolder', group: 'plans', label: 'Delete the open folder', default: null},
 		{action: 'plans.importFile', group: 'plans', label: 'Import plans from a file', default: {key: 'o', ctrl: true}},
 		{action: 'plans.exportFile', group: 'plans', label: 'Export the open plan or folder to a file', hint: 'With nothing open, all plans are offered.', default: {key: 'e', ctrl: true}},

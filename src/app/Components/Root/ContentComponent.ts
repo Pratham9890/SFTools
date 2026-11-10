@@ -6,6 +6,7 @@ import {SignInPromptDialogComponent} from '@src/Components/Auth/SignInPromptDial
 import {SupporterWelcomeDialogComponent} from '@src/Components/Supporters/SupporterWelcomeDialogComponent';
 import {NavbarComponent} from '@src/Components/Root/NavbarComponent';
 import {SettingsConflictDialogComponent} from '@src/Components/Settings/SettingsConflictDialogComponent';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {ServerStatusService} from '@src/Model/API/ServerStatusService';
 import {HelpManager} from '@src/Model/Help/HelpManager';
 import {NotificationService} from '@src/Model/NotificationService';
@@ -26,6 +27,9 @@ export class ContentComponent
 {
 
 	public readonly faXmark = faXmark;
+
+	/** No "sign in to do X" prompt without accounts: this fork uses co-op spaces instead. */
+	protected readonly features = AppFeatures;
 
 	public constructor(
 		public readonly notifications: NotificationService,

@@ -15,6 +15,7 @@ import {SettingsMapComponent} from '@src/Components/Settings/SettingsMapComponen
 import {SettingsPlannerComponent} from '@src/Components/Settings/SettingsPlannerComponent';
 import {SettingsSection} from '@src/Components/Settings/SettingsSection';
 import {SettingsSupporterComponent} from '@src/Components/Settings/SettingsSupporterComponent';
+import {AppFeatures} from '@src/Model/AppFeatures';
 import {AccountProfileService} from '@src/Model/Auth/AccountProfileService';
 import {AuthService} from '@src/Model/Auth/AuthService';
 import {AppPlatform} from '@src/Model/Desktop/AppPlatform';
@@ -89,6 +90,9 @@ export class SettingsComponent implements OnDestroy
 
 	public readonly faRotateLeft = faRotateLeft;
 
+	/** The sign-in note only exists with accounts: this fork uses co-op spaces instead. */
+	protected readonly features = AppFeatures;
+
 	private readonly activeSectionSignal: WritableSignal<string>;
 	public readonly activeSection: Signal<string>;
 
@@ -110,7 +114,8 @@ export class SettingsComponent implements OnDestroy
 			{id: 'map', label: 'Map', icon: faMap},
 			{id: 'plan-defaults', label: 'Plan defaults', icon: faFileCirclePlus},
 			{id: 'hotkeys', label: 'Hotkeys', icon: faKeyboard},
-			{id: 'account', label: 'Account', icon: faUser},
+			// Without accounts the section is not offered, so its URL falls through to the first section below.
+			...(AppFeatures.accounts ? [{id: 'account', label: 'Account', icon: faUser}] : []),
 		];
 		if (platform.desktop || platform.desktopAppPublic) {
 			this.sections.push({id: 'desktop', label: 'Desktop app', icon: faDesktop});
