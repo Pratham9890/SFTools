@@ -13,6 +13,9 @@ import {GroupingModeResolver} from '@src/Model/Planner/GroupingModeResolver';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {RateFormatter} from '@src/Model/RateFormatter';
 
+/** Drawing this many blocks takes tens of seconds, so the tab warns above it. */
+const LARGE_BELT_VIEW_BLOCKS = 600;
+
 @Component({
 	selector: 'calculator-logistics-tab',
 	templateUrl: './CalculatorLogisticsTabComponent.html',
@@ -105,6 +108,22 @@ export class CalculatorLogisticsTabComponent
 	public get custom(): boolean
 	{
 		return this.lineStyle === 'custom';
+	}
+
+	public get blockCount(): number
+	{
+		return this.planManager.activePlan()?.graph?.nodes.length ?? 0;
+	}
+
+	public get largeBeltView(): boolean
+	{
+		return this.blockCount > LARGE_BELT_VIEW_BLOCKS;
+	}
+
+	public get blockCountText(): string
+	{
+		const count = this.blockCount;
+		return `This plan has ${this.rateFormatter.amount(count)} ${count === 1 ? 'block' : 'blocks'}.`;
 	}
 
 	public readonly groupingModeOptions: readonly GroupingMode[] = ['underclock-last', 'clock-equally', 'no-clocking'];

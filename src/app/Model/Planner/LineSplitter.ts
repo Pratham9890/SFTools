@@ -237,7 +237,23 @@ export class LineSplitter
 
 				// Incoming connections are packed onto as few belts as possible, so small pieces share a line instead of each getting its own buildings.
 				// Bins are whole belts: a belt feeding 4.5 machines' worth stays one line, its last machine underclocked.
-				const lines = LineSplitter.pack(indices.map(index => ({index, amount: graph.edges[index].amount})), capacity);
+				const count = ConveyorCapacity.countNeeded(total, capacity);
+				const packed = LineSplitter.pack(indices.map(index => ({index, amount: graph.edges[index].amount})), capacity);
+				// Whole connections can need an extra bin (300 + 300 + 200 on a 480 belt), and equal clocks want equal lines:
+				// those cases fill the fewest lines instead, largest connection first so the small pieces land on the last line.
+				const ordered = [...indices].sort((a, b) => graph.edges[b].amount - graph.edges[a].amount);
+				const fillLines = (shares: readonly number[]): {index: number; amount: number}[][] => {
+					const bins: {index: number; amount: number}[][] = shares.map(() => []);
+					LineSplitter.fill(shares, ordered.map(index => graph.edges[index].amount))
+						.forEach(({line, demand, amount}) => bins[line].push({index: ordered[demand], amount}));
+					return bins;
+				};
+				let lines = packed;
+				if (mode === 'clock-equally') {
+					lines = fillLines(Array.from({length: count}, () => total / count));
+				} else if (packed.length > count) {
+					lines = fillLines([...Array.from({length: count - 1}, () => capacity), total - capacity * (count - 1)]);
+				}
 				if (lines.length < 2) {
 					continue;
 				}

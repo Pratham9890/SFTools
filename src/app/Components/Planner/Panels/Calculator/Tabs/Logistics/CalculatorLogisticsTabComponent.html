@@ -74,6 +74,13 @@
 						}
 					</select>
 					<div class="small text-secondary mt-1">Same setting as Settings → Machine groups → Default machine grouping for new nodes.</div>
+					@if (!custom) {
+						@if (largeBeltView) {
+							<div class="small text-warning mt-1">{{ blockCountText }} Plans this large are slow to draw; a faster belt can carry more per line, so it needs fewer blocks.</div>
+						} @else if (blockCount > 0) {
+							<div class="small text-secondary mt-1">{{ blockCountText }}</div>
+						}
+					}
 				</div>
 				<div class="form-check">
 					<input
