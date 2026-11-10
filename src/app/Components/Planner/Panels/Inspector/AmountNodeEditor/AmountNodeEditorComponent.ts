@@ -16,7 +16,7 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 import {MapPurity} from '@src/Model/Map/MapPurity';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
-import {ExtractorRow} from '@src/Model/Planner/ExtractorSetup';
+import {DEFAULT_SATELLITES, ExtractorRow, WELL_PRESSURIZER_CLASS} from '@src/Model/Planner/ExtractorSetup';
 import {Formulas} from '@src/Model/Planner/Formulas';
 import {NodeResizer} from '@src/Model/Planner/NodeResizer';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
@@ -34,6 +34,7 @@ interface ExtractorDraft
 	purity: MapPurity;
 	buildingClassName: string;
 	clockSpeed: number;
+	satellites: {impure: number; normal: number; pure: number};
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -51,19 +52,70 @@ const TYPE_LABELS: Record<string, string> = {
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [FormsModule, FaIconComponent, AppTooltipDirective, GameIconComponent, InfoNoteComponent, ClockSpeedInputComponent, GoToNodeButtonComponent],
 	styles: [`
-		@container panel (max-width: 300px) {
-			.extractors-table td.stack-grow {
-				display: flex;
-				flex: 1 1 4rem;
-				flex-direction: column;
-				align-items: stretch;
-			}
-			.extractors-table td.stack-grow[data-label]::before {
-				margin: 0 0 0.1rem;
-				white-space: nowrap;
-			}
-			.extractors-table tbody td:last-child { margin-left: auto; }
+		.extractors-table {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
 		}
+		.extractor-row {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: flex-end;
+			gap: 0.4rem 0.5rem;
+			padding-bottom: 0.5rem;
+			border-bottom: 1px solid var(--bs-table-border-color);
+		}
+		.extractor-row:last-child {
+			padding-bottom: 0;
+			border-bottom: 0;
+		}
+		.extractor-field {
+			display: flex;
+			flex-direction: column;
+			gap: 0.1rem;
+			min-width: 0;
+		}
+		.extractor-label {
+			color: #9fb0c0;
+			font-size: 0.72rem;
+			line-height: 1.1;
+			white-space: nowrap;
+		}
+		.field-count { flex: 1 1 4.5rem; min-width: 4.5rem; }
+		.field-purity { flex: 1 1 6.5rem; min-width: 6.5rem; }
+		.field-satellites { flex: 1 1 10rem; min-width: 10rem; }
+		.field-extractor { flex: 1 1 9.5rem; min-width: 9.5rem; }
+		.field-clock { flex: 1 1 15.5rem; min-width: 15.5rem; }
+		.field-rate { flex: 0 1 auto; }
+		/* Under 300px the clock input stacks its value over its presets, so it needs only a small width. */
+		@container panel (max-width: 300px) {
+			.field-clock { flex: 1 1 7rem; min-width: 7rem; }
+		}
+		.field-actions {
+			flex: 0 0 auto;
+			margin-left: auto;
+		}
+		.satellite-grid {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 0.25rem;
+		}
+		.satellite-cell {
+			display: flex;
+			flex-direction: column;
+			gap: 0.1rem;
+			min-width: 0;
+			color: #9fb0c0;
+			font-size: 0.68rem;
+			line-height: 1.1;
+		}
+		.satellite-cell > span {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.btn-add { flex: 1 1 8rem; }
+		.btn-remove { flex: 0 1 auto; }
 	`],
 })
 export class AmountNodeEditorComponent implements OnChanges, OnDestroy
@@ -224,7 +276,7 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 		const data = this.versionManager.activeVersionData();
 		const item = this.item;
 		const building = data?.searchBuildingByClassName(row.buildingClassName);
-		return building && item ? ExtractorCapacity.rowRate(row, building, item, this.extractorBeltCap) : 0;
+		return building && item && data ? ExtractorCapacity.rowRate(row, building, item, this.extractorBeltCap, data) : 0;
 	}
 
 	public rowHasPurity(row: ExtractorDraft): boolean
@@ -235,9 +287,22 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 		return building !== undefined && item !== null && ExtractorCapacity.hasPurity(building, item);
 	}
 
-	public get hasPurityColumn(): boolean
+	/** A well row's purity is per satellite node, so it gets three satellite counts instead of one purity. */
+	public isWellRow(row: ExtractorDraft): boolean
 	{
-		return this.extractorRows.some(row => this.rowHasPurity(row));
+		return row.buildingClassName === WELL_PRESSURIZER_CLASS;
+	}
+
+	/** The pressurizer's full name is too long for the closed select at a narrow panel width. */
+	public buildingLabel(building: Building): string
+	{
+		return building.className === WELL_PRESSURIZER_CLASS ? 'Well pressurizer' : building.name;
+	}
+
+	public buildingTitle(row: ExtractorDraft): string
+	{
+		const data = this.versionManager.activeVersionData();
+		return data?.searchBuildingByClassName(row.buildingClassName)?.name ?? '';
 	}
 
 	public purityLabel(purity: MapPurity): string
@@ -258,6 +323,7 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 			purity: 'normal',
 			buildingClassName: building.className,
 			clockSpeed: this.defaultExtractorClock,
+			satellites: {...DEFAULT_SATELLITES},
 		}];
 		this.onExtractorsChange();
 	}
@@ -313,6 +379,9 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 				purity: row.purity,
 				buildingClassName: row.buildingClassName,
 				clockSpeed: row.clockSpeed,
+				satellites: row.satellites
+					? {impure: row.satellites.impure, normal: row.satellites.normal, pure: row.satellites.pure}
+					: {...DEFAULT_SATELLITES},
 			}))
 			: [];
 	}
@@ -425,6 +494,15 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 			purity: row.purity,
 			buildingClassName: row.buildingClassName,
 			clockSpeed: Formulas.clampClock(row.clockSpeed || 100),
+			...(this.isWellRow(row)
+				? {
+					satellites: {
+						impure: Math.max(0, Math.round(row.satellites.impure || 0)),
+						normal: Math.max(0, Math.round(row.satellites.normal || 0)),
+						pure: Math.max(0, Math.round(row.satellites.pure || 0)),
+					},
+				}
+				: {}),
 		}));
 	}
 

@@ -1,7 +1,7 @@
 import {Injectable} from '@angular/core';
 import {Data} from '@src/Model/Data/Data';
 import {VersionManager} from '@src/Model/Data/VersionManager';
-import {ExtractorRow} from '@src/Model/Planner/ExtractorSetup';
+import {DEFAULT_SATELLITES, ExtractorRow, WELL_PRESSURIZER_CLASS} from '@src/Model/Planner/ExtractorSetup';
 import {Formulas} from '@src/Model/Planner/Formulas';
 import {GroupingMode} from '@src/Model/Planner/GroupingMode';
 import {MachineGroupNormalizer} from '@src/Model/Planner/MachineGroupNormalizer';
@@ -207,10 +207,25 @@ export class PlanSerializer
 				purity: purity === 'impure' || purity === 'pure' ? purity : 'normal',
 				buildingClassName: building.className,
 				clockSpeed: Formulas.clampClock(Number.isFinite(clockSpeed) ? clockSpeed : 100),
+				...(building.className === WELL_PRESSURIZER_CLASS ? {satellites: this.deserializeSatellites(row['satellites'])} : {}),
 			});
 		});
 
 		return rows.length > 0 ? rows : null;
+	}
+
+	/** Satellite node counts are non-negative integers; a missing or broken value falls back to a single normal node. */
+	private deserializeSatellites(raw: unknown): {impure: number; normal: number; pure: number}
+	{
+		if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+			return {...DEFAULT_SATELLITES};
+		}
+		const record = raw as Record<string, unknown>;
+		const count = (key: string, fallback: number): number => {
+			const value = Number(record[key]);
+			return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallback;
+		};
+		return {impure: count('impure', 0), normal: count('normal', 1), pure: count('pure', 0)};
 	}
 
 	private deserializeNodeIO(raw: unknown, data: Data): NodeIO[]
