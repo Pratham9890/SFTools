@@ -2189,6 +2189,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		}
 
 		this.graphComposer.carryDone(existing, result.nodes);
+		this.graphComposer.carryExtractors(existing, result.nodes);
 
 		if (existing && hasLocks) {
 			const rebuilt = this.graphComposer.rebuild(existing, result.nodes);

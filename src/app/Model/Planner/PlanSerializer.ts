@@ -1,6 +1,8 @@
 import {Injectable} from '@angular/core';
 import {Data} from '@src/Model/Data/Data';
 import {VersionManager} from '@src/Model/Data/VersionManager';
+import {ExtractorRow} from '@src/Model/Planner/ExtractorSetup';
+import {Formulas} from '@src/Model/Planner/Formulas';
 import {GroupingMode} from '@src/Model/Planner/GroupingMode';
 import {MachineGroupNormalizer} from '@src/Model/Planner/MachineGroupNormalizer';
 import {MachineGroup} from '@src/Model/Planner/Solver/Response/MachineGroup';
@@ -114,9 +116,12 @@ export class PlanSerializer
 				node = recipeNode;
 				break;
 			}
-			case 'mine':
-				node = new MineNode(id, amount, data.getItemByClassName(raw['itemClassName'] as string));
+			case 'mine': {
+				const mine = new MineNode(id, amount, data.getItemByClassName(raw['itemClassName'] as string));
+				mine.extractors = this.deserializeExtractors(raw['extractors'], data);
+				node = mine;
 				break;
+			}
 			case 'input':
 				node = new InputNode(id, amount, data.getItemByClassName(raw['itemClassName'] as string));
 				break;
@@ -175,6 +180,37 @@ export class PlanSerializer
 			&& (raw['locked'] === true || node instanceof SubplanNode);
 		node.done = raw['done'] === true;
 		return node;
+	}
+
+	private deserializeExtractors(raw: unknown, data: Data): ExtractorRow[] | null
+	{
+		if (!Array.isArray(raw)) {
+			return null;
+		}
+
+		const rows: ExtractorRow[] = [];
+		raw.forEach(entry => {
+			if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+				return;
+			}
+			const row = entry as Record<string, unknown>;
+			const building = data.searchBuildingByClassName(row['buildingClassName'] as string);
+			if (!building) {
+				return;
+			}
+
+			const count = Number(row['count']);
+			const clockSpeed = Number(row['clockSpeed']);
+			const purity = row['purity'];
+			rows.push({
+				count: Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1,
+				purity: purity === 'impure' || purity === 'pure' ? purity : 'normal',
+				buildingClassName: building.className,
+				clockSpeed: Formulas.clampClock(Number.isFinite(clockSpeed) ? clockSpeed : 100),
+			});
+		});
+
+		return rows.length > 0 ? rows : null;
 	}
 
 	private deserializeNodeIO(raw: unknown, data: Data): NodeIO[]

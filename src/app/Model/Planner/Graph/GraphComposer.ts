@@ -3,6 +3,7 @@ import {Graph} from '@src/Model/Planner/Graph/Graph';
 import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphMergeResult} from '@src/Model/Planner/Graph/GraphMergeResult';
+import {ExtractorRow} from '@src/Model/Planner/ExtractorSetup';
 import {AugmenterNode} from '@src/Model/Planner/Solver/Response/AugmenterNode';
 import {ByproductNode} from '@src/Model/Planner/Solver/Response/ByproductNode';
 import {GeneratorNode} from '@src/Model/Planner/Solver/Response/GeneratorNode';
@@ -100,6 +101,27 @@ export class GraphComposer
 		});
 	}
 
+	/** A recalculation recreates mine nodes, so each one takes back the extractor setup of the existing node for its item. */
+	public carryExtractors(existing: Graph | null, incoming: Node[]): void
+	{
+		const setups = new Map<string, ExtractorRow[]>();
+		existing?.nodes.forEach(node => {
+			if (node instanceof MineNode && node.extractors !== null && node.extractors.length > 0 && !setups.has(node.item.className)) {
+				setups.set(node.item.className, node.extractors);
+			}
+		});
+
+		incoming.forEach(node => {
+			if (!(node instanceof MineNode)) {
+				return;
+			}
+			const extractors = setups.get(node.item.className);
+			if (extractors !== undefined) {
+				node.extractors = [...extractors];
+			}
+		});
+	}
+
 	/** Machines can be overclocked by hand, so a recipe counts by what it can make, not by machine count. */
 	private builtSize(node: Node): number
 	{
@@ -183,7 +205,9 @@ export class GraphComposer
 			merged.groupingMode = existing.groupingMode;
 			node = merged;
 		} else if (existing instanceof MineNode) {
-			node = new MineNode(existing.id, amount, existing.item);
+			const merged = new MineNode(existing.id, amount, existing.item);
+			merged.extractors = existing.extractors;
+			node = merged;
 		} else if (existing instanceof ProductNode) {
 			node = new ProductNode(existing.id, amount, existing.item);
 		} else if (existing instanceof ByproductNode) {
@@ -215,7 +239,9 @@ export class GraphComposer
 			adopted.groupingMode = incoming.groupingMode;
 			node = adopted;
 		} else if (incoming instanceof MineNode) {
-			node = new MineNode(match.id, incoming.amount, incoming.item);
+			const adopted = new MineNode(match.id, incoming.amount, incoming.item);
+			adopted.extractors = match instanceof MineNode ? match.extractors : incoming.extractors;
+			node = adopted;
 		} else if (incoming instanceof ProductNode) {
 			node = new ProductNode(match.id, incoming.amount, incoming.item);
 		} else if (incoming instanceof ByproductNode) {

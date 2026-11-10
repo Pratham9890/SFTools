@@ -75,6 +75,10 @@ export class NodeSplitter
 		}
 
 		// A self-feeding connection stays as is: the first copy keeps the original's id.
+		if (node instanceof MineNode && pieces[0] instanceof MineNode) {
+			// The setup describes one set of real nodes, so it stays on the first slice only.
+			pieces[0].extractors = node.extractors;
+		}
 		const edges = graph.edges.filter(edge => (edge.sourceId !== nodeId && edge.targetId !== nodeId)
 			|| (edge.sourceId === nodeId && edge.targetId === nodeId));
 

@@ -1,3 +1,4 @@
+import {ExtractorRow} from '@src/Model/Planner/ExtractorSetup';
 import {ItemAmountNode} from '@src/Model/Planner/Solver/Response/ItemAmountNode';
 import {NodeIO} from '@src/Model/Planner/Solver/Response/NodeIO';
 
@@ -5,6 +6,9 @@ export class MineNode extends ItemAmountNode
 {
 
 	public readonly type = 'mine' as const;
+
+	/** The real resource nodes behind this rate; null means the plan has no setup to show. */
+	public extractors: ExtractorRow[] | null = null;
 
 	protected setupIO(): void
 	{
@@ -20,6 +24,7 @@ export class MineNode extends ItemAmountNode
 			amount: this.amount,
 			x: this.x,
 			y: this.y,
+			...(this.extractors !== null && this.extractors.length > 0 ? {extractors: this.extractors} : {}),
 			...this.serializeFlags(),
 		};
 	}

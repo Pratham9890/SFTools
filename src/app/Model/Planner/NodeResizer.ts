@@ -165,7 +165,9 @@ export class NodeResizer
 		if (node instanceof InputNode) {
 			replacement = new InputNode(id, amount, node.item);
 		} else if (node instanceof MineNode) {
-			replacement = new MineNode(id, amount, node.item);
+			const mine = new MineNode(id, amount, node.item);
+			mine.extractors = node.extractors;
+			replacement = mine;
 		} else if (node instanceof ProductNode) {
 			replacement = new ProductNode(id, amount, node.item);
 		} else if (node instanceof ByproductNode) {
