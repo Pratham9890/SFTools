@@ -20,6 +20,51 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 	changeDetection: ChangeDetectionStrategy.Eager,
 	templateUrl: './PlannerBuildCostComponent.html',
 	imports: [FaIconComponent, GameIconComponent, PlanResultHintComponent, GoToNodeButtonComponent, BuiltMarkComponent],
+	styles: `
+		:host { display: block; }
+
+		.pp-chips { flex: 1 1 520px; min-width: 0; }
+		.pp-chips b { color: var(--ink); font-weight: 700; }
+		.built-count { color: var(--good); }
+
+		.search { flex: 0 1 300px; min-width: 200px; }
+
+		.pp-section.grow { min-width: 0; }
+
+		.mat-row {
+			display: grid;
+			grid-template-columns: 22px minmax(0, 1fr) auto auto;
+			align-items: center;
+			gap: 8px;
+			min-height: 30px;
+			padding: 2px 6px;
+			border-radius: 6px;
+		}
+		.pp-cols.no-left .mat-row { grid-template-columns: 22px minmax(0, 1fr) auto; }
+		.mat-row:hover { background: var(--surface-2); }
+		.mat-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink); }
+		.mat-amount { min-width: 62px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
+		.mat-left { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; color: var(--dim); }
+
+		.table { margin: 0; }
+		.table thead th {
+			color: var(--dim);
+			font-size: 12px;
+			font-weight: 600;
+			text-transform: uppercase;
+			letter-spacing: .04em;
+			border-bottom: 1px solid var(--rule-strong);
+			padding-top: 4px;
+			padding-bottom: 4px;
+		}
+		.table tbody td { border-color: var(--rule); }
+		.table tbody tr:hover { background: var(--surface-2); }
+		.stack-sub td { background: transparent; color: var(--ink-2); }
+
+		@media (max-width: 720px) {
+			.search { flex: 1 1 100%; }
+		}
+	`,
 })
 export class PlannerBuildCostComponent
 {
