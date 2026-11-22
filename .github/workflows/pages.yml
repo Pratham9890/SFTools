@@ -32,6 +32,15 @@ jobs:
             -   name: Create env.ts from env.prod.ts
                 run: cp src/env/env.prod.ts src/env/env.ts
 
+            # The live build comes with the owner's co-op server (repo variables COOP_URL and COOP_KEY).
+            # Forks without these variables build with no server; users enter their own in Settings.
+            -   name: Set the default co-op server
+                env:
+                    COOP_URL: ${{ vars.COOP_URL }}
+                    COOP_KEY: ${{ vars.COOP_KEY }}
+                run: |
+                    node -e "const fs=require('fs');const f='src/env/env.ts';let s=fs.readFileSync(f,'utf8');s=s.replace(/url: '',/,'url: '+JSON.stringify(process.env.COOP_URL||'')+',').replace(/key: '',/,'key: '+JSON.stringify(process.env.COOP_KEY||'')+',');fs.writeFileSync(f,s);"
+
             -   name: Build the web app
                 run: npx ng build --base-href /SFTools/
 

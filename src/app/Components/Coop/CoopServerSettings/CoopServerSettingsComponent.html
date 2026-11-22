@@ -10,7 +10,11 @@
 		</div>
 		<div class="pp-row server-actions">
 			<button type="button" class="btn btn-success btn-sm" (click)="save()">Save</button>
-			<button type="button" class="btn btn-outline-secondary btn-sm" (click)="clear()">Clear</button>
+			@if (config.hasDefault) {
+				<button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="config.usingDefault()" (click)="clear()">Use this site's server</button>
+			} @else {
+				<button type="button" class="btn btn-outline-secondary btn-sm" (click)="clear()">Clear</button>
+			}
 		</div>
 	</div>
 	@if (error(); as message) {
@@ -18,5 +22,16 @@
 	} @else if (saved()) {
 		<p class="text-success small mb-0">Server saved.</p>
 	}
-	<p class="pp-note mb-0">To host your own, follow the guide in the README.</p>
+	@if (config.hasDefault) {
+		<p class="pp-note mb-0">
+			@if (config.usingDefault()) {
+				Using this site's server.
+			} @else {
+				Using your own server, saved on this device.
+			}
+			To host your own, follow the guide in the README.
+		</p>
+	} @else {
+		<p class="pp-note mb-0">To host your own, follow the guide in the README.</p>
+	}
 </section>

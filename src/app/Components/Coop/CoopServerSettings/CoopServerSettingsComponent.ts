@@ -24,7 +24,7 @@ import {CoopServerConfig} from '@src/Model/Coop/CoopServerConfig';
 export class CoopServerSettingsComponent
 {
 
-	private readonly config = inject(CoopServerConfig);
+	protected readonly config = inject(CoopServerConfig);
 
 	public serverAddress = this.config.url();
 	public publicKey = this.config.key();

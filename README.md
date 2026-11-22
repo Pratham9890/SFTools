@@ -32,7 +32,7 @@ Co-op spaces are stored in a Supabase project that you host. Everything else wor
 3. In the project, open Settings, then API, and copy the Project URL and the publishable (anon) key.
 4. In the app, open Settings, Co-op server, and paste the address and the key there. The Co-op panel shows the same form until a server is set.
 
-The address and key are saved on each device, not in the plan files. A deployment can still ship a default server through `env.coop.url` and `env.coop.key` in `src/env/env.prod.ts`.
+The address and key are saved on each device, not in the plan files. A deployment can ship a default server: the Pages and desktop workflows read the repository variables `COOP_URL` and `COOP_KEY` and build them in. A server saved on a device replaces the default there, and "Use this site's server" goes back to it.
 
 Free Supabase projects pause after about a week without use. Co-op stops working while a project is paused; you can restore it from the Supabase dashboard.
 

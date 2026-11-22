@@ -20,6 +20,9 @@ export class CoopServerConfig
 	public readonly url: Signal<string>;
 	public readonly key: Signal<string>;
 	public readonly configured: Signal<boolean>;
+	/** True when this build comes with a server (the live site does); a server saved on this device replaces it. */
+	public readonly hasDefault = CoopServerConfig.fallback().url !== '' && CoopServerConfig.fallback().key !== '';
+	public readonly usingDefault: Signal<boolean>;
 
 	public constructor(private readonly storage: AppStorage)
 	{
@@ -27,6 +30,10 @@ export class CoopServerConfig
 		this.url = computed(() => this.serverSignal().url);
 		this.key = computed(() => this.serverSignal().key);
 		this.configured = computed(() => this.url() !== '' && this.key() !== '');
+		this.usingDefault = computed(() => {
+			const fallback = CoopServerConfig.fallback();
+			return this.hasDefault && this.url() === fallback.url && this.key() === fallback.key;
+		});
 	}
 
 	/** Resolves to an error message to show, or null when saved. */
