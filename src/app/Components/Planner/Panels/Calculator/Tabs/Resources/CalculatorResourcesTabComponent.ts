@@ -71,6 +71,13 @@ import {RateFormatter} from '@src/Model/RateFormatter';
 		.area-locked .res-item > :not(.weight-cell) { opacity: 0.45; }
 		.area-locked .res-item > .weight-cell { opacity: 1; }
 
+		/* Phone: name on the first line, limit and weight on the second. */
+		@media (max-width: 560px) {
+			.res-item { flex-wrap: wrap; row-gap: 4px; padding: 6px; }
+			.res-name { flex: 1 1 calc(100% - 32px); }
+			.limit-group { flex: 1 1 200px; margin-left: 24px; }
+		}
+
 		/* As wide as "m³/min", so the numbers line up. */
 		.unit-addon { min-width: 4.2em; justify-content: flex-start; }
 

@@ -106,12 +106,12 @@
 								@if (status.disabled) {
 									<small class="text-secondary">switched off by the folder</small>
 								} @else if (barSegments(status); as segments) {
-									<div class="progress pool-bar" [tooltip]="'Other plans ' + rateFormatter.rate(status.usedByOthers, status.item) + ' · this plan ' + rateFormatter.rate(status.usedByPlan, status.item) + ' · ' + (status.available === null ? '' : rateFormatter.rate(status.available - status.usedByPlan > 0 ? status.available - status.usedByPlan : 0, status.item) + ' free of ') + rateFormatter.rate(status.limit!, status.item)" container="body" placement="top">
+									<div class="progress pool-bar" [tooltip]="'Other plans ' + rateFormatter.rate(status.usedByOthers, status.item) + ', this plan ' + rateFormatter.rate(status.usedByPlan, status.item) + ', ' + (status.available === null ? '' : rateFormatter.rate(status.available - status.usedByPlan > 0 ? status.available - status.usedByPlan : 0, status.item) + ' free of ') + rateFormatter.rate(status.limit!, status.item)" container="body" placement="top">
 										<div class="progress-bar pool-others" [style.width.%]="segments.others"></div>
 										<div class="progress-bar" [class.pool-plan]="!status.overUse" [class.bg-danger]="status.overUse" [style.width.%]="segments.plan"></div>
 									</div>
 									<small class="text-secondary text-nowrap">
-										other plans {{ rateFormatter.rate(status.usedByOthers, status.item) }} · {{ status.available === null ? '∞' : rateFormatter.rate(status.available, status.item) }} available
+										other plans {{ rateFormatter.rate(status.usedByOthers, status.item) }}, {{ status.available === null ? '∞' : rateFormatter.rate(status.available, status.item) }} available
 									</small>
 									@if (status.overUse) {
 										<small class="text-danger d-block">Uses more than its share. Recalculate this plan.</small>

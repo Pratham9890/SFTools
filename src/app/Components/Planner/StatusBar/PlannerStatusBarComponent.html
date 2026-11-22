@@ -101,15 +101,15 @@
 	} @else if (actions.solveError(); as error) {
 		<span class="state" [class.state-error]="!actions.solveErrorIsSettingsProblem()" [class.state-modified]="actions.solveErrorIsSettingsProblem()" [tooltip]="actions.solveErrorDetail() ?? error" container="body" placement="top"><span class="dot"></span><span class="state-text">{{ error }}</span></span>
 	} @else if (hasGraph() && automaticPaused()) {
-		<span class="state state-modified" tooltip="Press Calculate to build the graph again. Locked nodes are kept." container="body" placement="top"><span class="dot"></span><span class="state-text">edited by hand · calculation paused</span></span>
+		<span class="state state-modified" tooltip="Press Calculate to build the graph again. Locked nodes are kept." container="body" placement="top"><span class="dot"></span><span class="state-text">Edited by hand, calculation paused</span></span>
 	} @else if (hasGraph() && graphDirty()) {
-		<span class="state state-modified" tooltip="calculated · edited by hand" container="body" placement="top"><span class="dot"></span><span class="state-text">calculated · edited by hand</span></span>
+		<span class="state state-modified" tooltip="Calculated, then edited by hand" container="body" placement="top"><span class="dot"></span><span class="state-text">Calculated, then edited by hand</span></span>
 	} @else if (hasGraph() && recalculationNeeded()) {
-		<span class="state state-modified" tooltip="The folder changed the settings of this plan." container="body" placement="top"><span class="dot"></span><span class="state-text">settings changed · recalculate</span></span>
+		<span class="state state-modified" tooltip="The folder changed the settings of this plan." container="body" placement="top"><span class="dot"></span><span class="state-text">Settings changed, calculate again</span></span>
 	} @else if (hasGraph() && poolWarnings().length > 0) {
-		<span class="state state-error" tooltip="Other plans in the folder now use raw resources this plan needs." container="body" placement="top"><span class="dot"></span><span class="state-text">over the shared limit · recalculate</span></span>
+		<span class="state state-error" tooltip="Other plans in the folder now use raw resources this plan needs." container="body" placement="top"><span class="dot"></span><span class="state-text">Over the shared limit, calculate again</span></span>
 	} @else if (hasGraph()) {
-		<span class="state state-solved" tooltip="calculated · up to date" container="body" placement="top"><span class="dot"></span><span class="state-text">calculated · up to date</span></span>
+		<span class="state state-solved" tooltip="Calculated and up to date" container="body" placement="top"><span class="dot"></span><span class="state-text">Up to date</span></span>
 	} @else {
 		<span class="state state-idle" tooltip="nothing calculated yet" container="body" placement="top"><span class="dot"></span><span class="state-text">nothing calculated yet</span></span>
 	}
