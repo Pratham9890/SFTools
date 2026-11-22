@@ -1,7 +1,10 @@
 <div class="p-2 d-flex flex-column gap-3 coop">
 
-	@if (!configured) {
-		<p class="text-secondary mb-0">Co-op is not set up in this build.</p>
+	@if (!configured()) {
+		<section class="d-flex flex-column gap-2">
+			<p class="mb-0">No co-op server set. Add one below to play co-op.</p>
+			<coop-server-settings></coop-server-settings>
+		</section>
 	} @else if (player() === null || editingPlayer()) {
 		<section class="d-flex flex-column gap-2">
 			<h6 class="mb-0">{{ player() === null ? 'Who are you?' : 'Your name and colour' }}</h6>

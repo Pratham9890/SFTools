@@ -3,6 +3,7 @@ import {FormsModule} from '@angular/forms';
 import {FaIconComponent} from '@fortawesome/angular-fontawesome';
 import {faCheck, faCopy, faFlag, faPen, faRightFromBracket, faRotateLeft, faTriangleExclamation, faUserPlus, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {GameIconComponent} from '@src/Components/Common/GameIconComponent';
+import {CoopServerSettingsComponent} from '@src/Components/Coop/CoopServerSettings/CoopServerSettingsComponent';
 import {GoToNodeButtonComponent} from '@src/Components/Planner/Panels/GoToNode/GoToNodeButtonComponent';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
 import {CoopPlayer} from '@src/Model/Coop/CoopApi';
@@ -27,7 +28,7 @@ interface PartRow extends CoopClaimable
 	changeDetection: ChangeDetectionStrategy.Eager,
 	templateUrl: './PlannerCoopComponent.html',
 	styleUrl: './PlannerCoopComponent.scss',
-	imports: [FormsModule, FaIconComponent, GameIconComponent, GoToNodeButtonComponent],
+	imports: [FormsModule, FaIconComponent, GameIconComponent, GoToNodeButtonComponent, CoopServerSettingsComponent],
 })
 export class PlannerCoopComponent
 {
@@ -67,6 +68,7 @@ export class PlannerCoopComponent
 	public readonly player = this.coop.player;
 	public readonly active = this.coop.active;
 	public readonly connection = this.coop.connection;
+	public readonly configured = this.coop.configured;
 
 	public readonly players: Signal<(CoopPlayer & {online: boolean; me: boolean})[]> = computed(() => {
 		const online = this.coop.online();
@@ -140,11 +142,6 @@ export class PlannerCoopComponent
 			this.playerName = player.name;
 			this.playerColor = player.color;
 		}
-	}
-
-	public get configured(): boolean
-	{
-		return this.coop.configured;
 	}
 
 	public spaceTitle(): string

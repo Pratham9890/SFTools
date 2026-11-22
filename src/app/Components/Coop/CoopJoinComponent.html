@@ -3,7 +3,13 @@
 		<div class="card-body p-4">
 			<h1 class="h4 mb-3 text-center">Join co-op space</h1>
 
-			@if (invite === null) {
+			@if (!configured()) {
+				<p class="mb-3">No co-op server set. Add one below to play co-op.</p>
+				<coop-server-settings></coop-server-settings>
+				<div class="text-center mt-3">
+					<a routerLink="/">Back to the version list</a>
+				</div>
+			} @else if (invite === null) {
 				<p class="mb-3">This invite link is incomplete. Ask for a new one.</p>
 				<div class="text-center">
 					<a routerLink="/">Back to the version list</a>

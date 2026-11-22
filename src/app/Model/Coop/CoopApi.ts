@@ -1,5 +1,5 @@
 import {Injectable} from '@angular/core';
-import {env} from '@env/env';
+import {CoopServerConfig} from '@src/Model/Coop/CoopServerConfig';
 
 export interface CoopPlayer
 {
@@ -73,7 +73,9 @@ export class CoopAccessDeniedError extends Error
 export class CoopApi
 {
 
-	public readonly configured = !!env.coop?.url && !!env.coop?.key;
+	public constructor(private readonly server: CoopServerConfig)
+	{
+	}
 
 	public async createSpace(name: string, player: CoopPlayer): Promise<CoopSpaceInfo & {token: string}>
 	{
@@ -174,10 +176,13 @@ export class CoopApi
 
 	private async rpc<T>(name: string, args: object): Promise<T>
 	{
-		const response = await fetch(`${env.coop.url}/rest/v1/rpc/${name}`, {
+		if (!this.server.configured()) {
+			throw new Error('No co-op server is set.');
+		}
+		const response = await fetch(`${this.server.url()}/rest/v1/rpc/${name}`, {
 			method: 'POST',
 			headers: {
-				'apikey': env.coop.key,
+				'apikey': this.server.key(),
 				'Content-Type': 'application/json',
 			},
 			body: JSON.stringify(args),

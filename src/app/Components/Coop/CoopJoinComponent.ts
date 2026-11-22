@@ -1,8 +1,9 @@
-import {ChangeDetectionStrategy, Component, Signal, inject, signal} from '@angular/core';
+import {ChangeDetectionStrategy, Component, Signal, effect, inject, signal, untracked} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {Router, RouterLink} from '@angular/router';
 import {CoopAccessDeniedError, CoopPlayer} from '@src/Model/Coop/CoopApi';
 import {COOP_COLORS, CoopSession} from '@src/Model/Coop/CoopSession';
+import {CoopServerSettingsComponent} from '@src/Components/Coop/CoopServerSettings/CoopServerSettingsComponent';
 import {VersionManager} from '@src/Model/Data/VersionManager';
 
 /** What an invite link opens: the fragment holds the space and its token, so nothing is fetched until it parses. */
@@ -23,7 +24,7 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 			box-shadow: 0 0 0 2px var(--bs-dark);
 		}
 	`],
-	imports: [FormsModule, RouterLink],
+	imports: [FormsModule, RouterLink, CoopServerSettingsComponent],
 })
 export class CoopJoinComponent
 {
@@ -35,6 +36,7 @@ export class CoopJoinComponent
 	private readonly router = inject(Router);
 
 	public readonly player: Signal<CoopPlayer | null> = this.coop.player;
+	public readonly configured = this.coop.configured;
 
 	/** '#<spaceId>.<token>', as carried by the invite link. */
 	public readonly invite = CoopSession.parseInvite(window.location.hash.replace(/^#/, ''));
@@ -47,8 +49,18 @@ export class CoopJoinComponent
 
 	public constructor()
 	{
-		if (this.invite !== null && this.player() !== null) {
+		if (this.invite !== null && this.player() !== null && this.configured()) {
 			void this.join();
+		} else if (!this.configured()) {
+			// The server can be entered here; joining then starts from the name form.
+			effect(() => {
+				if (!this.configured()) return;
+				untracked(() => {
+					if (this.invite !== null && this.player() !== null) {
+						void this.join();
+					}
+				});
+			});
 		}
 	}
 
@@ -64,7 +76,7 @@ export class CoopJoinComponent
 
 	public async join(): Promise<void>
 	{
-		if (this.invite === null) {
+		if (this.invite === null || !this.configured()) {
 			return;
 		}
 		this.busy.set(true);

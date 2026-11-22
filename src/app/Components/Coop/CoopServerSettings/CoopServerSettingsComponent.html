@@ -1,0 +1,20 @@
+<section class="d-flex flex-column gap-2">
+	<div>
+		<label class="form-label small mb-1" for="coop-server-address">Server address</label>
+		<input id="coop-server-address" class="form-control form-control-sm" type="url" autocomplete="off" spellcheck="false" placeholder="https://your-project.supabase.co" [(ngModel)]="serverAddress" (keydown.enter)="save()"/>
+	</div>
+	<div>
+		<label class="form-label small mb-1" for="coop-server-key">Public key</label>
+		<input id="coop-server-key" class="form-control form-control-sm" type="text" autocomplete="off" spellcheck="false" [(ngModel)]="publicKey" (keydown.enter)="save()"/>
+	</div>
+	@if (error(); as message) {
+		<p class="text-danger small mb-0">{{ message }}</p>
+	} @else if (saved()) {
+		<p class="text-success small mb-0">Server saved.</p>
+	}
+	<div class="d-flex gap-2">
+		<button type="button" class="btn btn-success btn-sm" (click)="save()">Save</button>
+		<button type="button" class="btn btn-outline-secondary btn-sm" (click)="clear()">Clear</button>
+	</div>
+	<p class="text-secondary small mb-0">To host your own, follow the guide in the README.</p>
+</section>

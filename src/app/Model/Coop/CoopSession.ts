@@ -1,8 +1,9 @@
-import {Injectable, NgZone, OnDestroy, Signal, computed, signal} from '@angular/core';
+import {Injectable, NgZone, OnDestroy, Signal, computed, effect, signal, untracked} from '@angular/core';
 import {RealtimeChannel, RealtimeClient} from '@supabase/realtime-js';
 import {Observable, Subject} from 'rxjs';
 import {env} from '@env/env';
 import {CoopAccessDeniedError, CoopApi, CoopClaimRecord, CoopCredentials, CoopPlayer, CoopSpaceInfo} from '@src/Model/Coop/CoopApi';
+import {CoopServerConfig} from '@src/Model/Coop/CoopServerConfig';
 import {NotificationService} from '@src/Model/NotificationService';
 import {AppStorage} from '@src/Model/Storage/AppStorage';
 
@@ -38,7 +39,7 @@ export class CoopSession implements OnDestroy
 	public readonly spaceName: Signal<string | null> = computed(() => this.spaceSignal()?.name ?? this.credentialsSignal()?.name ?? null);
 
 	/** In a space: the plan list shows the space's plans, saved for everyone in it. */
-	public readonly active: Signal<boolean> = computed(() => this.credentialsSignal() !== null && this.playerSignal() !== null);
+	public readonly active: Signal<boolean> = computed(() => this.server.configured() && this.credentialsSignal() !== null && this.playerSignal() !== null);
 	/** Same shape as AuthService, so the synced services can switch on it. */
 	public readonly isAuthenticated: Signal<boolean> = this.active;
 
@@ -69,6 +70,7 @@ export class CoopSession implements OnDestroy
 
 	public constructor(
 		private readonly api: CoopApi,
+		private readonly server: CoopServerConfig,
 		private readonly storage: AppStorage,
 		private readonly notifications: NotificationService,
 		private readonly zone: NgZone,
@@ -79,12 +81,31 @@ export class CoopSession implements OnDestroy
 		if (this.active()) {
 			void this.connect();
 		}
+		// A changed server means a stored space belongs to another one: leave it before switching, like Leave.
+		// A server entered for the first time may be the stored space's: try it; a wrong one leaves through the join error.
+		let wasConfigured = this.server.configured();
+		let knownUrl = this.server.url();
+		let knownKey = this.server.key();
+		effect(() => {
+			const configured = this.server.configured();
+			const url = this.server.url();
+			const key = this.server.key();
+			untracked(() => {
+				if (url === knownUrl && key === knownKey) return;
+				knownUrl = url;
+				knownKey = key;
+				if (wasConfigured && this.credentialsSignal() !== null) {
+					this.leave();
+					this.notifications.show('The co-op server changed, so you left the space on this device.', 6_000);
+				} else if (!wasConfigured && configured && this.credentialsSignal() !== null) {
+					void this.connect();
+				}
+				wasConfigured = configured;
+			});
+		});
 	}
 
-	public get configured(): boolean
-	{
-		return this.api.configured;
-	}
+	public readonly configured: Signal<boolean> = computed(() => this.server.configured());
 
 	public credentials(): CoopCredentials | null
 	{
@@ -110,7 +131,7 @@ export class CoopSession implements OnDestroy
 		this.write(PLAYER_KEY, player);
 		this.playerSignal.set(player);
 		const credentials = this.credentials();
-		if (credentials !== null) {
+		if (credentials !== null && this.server.configured()) {
 			void this.api.join(credentials, player).then(info => this.spaceSignal.set(info)).catch(() => undefined);
 		}
 		return player;
@@ -118,6 +139,7 @@ export class CoopSession implements OnDestroy
 
 	public async createSpace(name: string): Promise<void>
 	{
+		if (!this.server.configured()) return;
 		const player = this.requirePlayer();
 		const created = await this.api.createSpace(name.trim(), player);
 		this.enter({spaceId: created.id, token: created.token, name: created.name}, created);
@@ -125,6 +147,7 @@ export class CoopSession implements OnDestroy
 
 	public async joinSpace(credentials: CoopCredentials): Promise<void>
 	{
+		if (!this.server.configured()) return;
 		const player = this.requirePlayer();
 		const info = await this.api.join(credentials, player);
 		this.enter({...credentials, name: info.name}, info);
@@ -247,7 +270,7 @@ export class CoopSession implements OnDestroy
 	{
 		const credentials = this.credentials();
 		const player = this.playerSignal();
-		if (credentials === null || player === null || !this.api.configured) return;
+		if (credentials === null || player === null || !this.server.configured()) return;
 		this.connectionSignal.set('connecting');
 
 		let info = known;
@@ -261,6 +284,11 @@ export class CoopSession implements OnDestroy
 					this.leave();
 					return;
 				}
+				// Left while the join was in flight: nothing to retry.
+				if (this.credentials() === null) {
+					this.connectionSignal.set('off');
+					return;
+				}
 				this.connectionSignal.set('offline');
 				this.retryTimer = setTimeout(() => {
 					this.retryTimer = null;
@@ -269,9 +297,13 @@ export class CoopSession implements OnDestroy
 				return;
 			}
 		}
+		// Left or switched while the join was in flight.
+		if (this.credentials() === null) {
+			return;
+		}
 
 		this.zone.runOutsideAngular(() => {
-			this.client = new RealtimeClient(`${env.coop.url}/realtime/v1`, {params: {apikey: env.coop.key}});
+			this.client = new RealtimeClient(`${this.server.url()}/realtime/v1`, {params: {apikey: this.server.key()}});
 			const channelKey = info?.channelKey;
 			if (channelKey === undefined) {
 				return;

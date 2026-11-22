@@ -3,10 +3,11 @@ export const env = {
 	webUrl: 'https://www.satisfactorytools.com',
 	apiUrl: 'https://api.new.satisfactorytools.com',
 	desktopAppPublic: false,
-	// Co-op spaces (Supabase). The publishable key is public by design: the database functions check each space's invite secret.
+	// Co-op spaces (Supabase). Empty here: each user enters their own server in Settings.
+	// A deployment may still set a default at build time. The publishable key is public by design.
 	coop: {
-		url: 'https://rkhxvrqqvtczjuragoqq.supabase.co',
-		key: 'sb_publishable_G6URYGxNd_kIS7yiOLEaaA_JLXmnjrC',
+		url: '',
+		key: '',
 		// Where invite links from the desktop app point.
 		siteUrl: 'https://pratham9890.github.io/SFTools',
 	},
