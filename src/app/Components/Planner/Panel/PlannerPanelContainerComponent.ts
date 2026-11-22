@@ -1,17 +1,12 @@
-import {AfterViewInit, Component, computed, effect, ElementRef, HostListener, OnDestroy, signal, untracked, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {AfterViewInit, Component, OnDestroy, ElementRef, HostListener, ViewChild, computed, signal, untracked, ChangeDetectionStrategy} from '@angular/core';
 import {NgComponentOutlet} from '@angular/common';
 import {FaIconComponent} from '@fortawesome/angular-fontawesome';
 import {faBars, faChevronLeft, faChevronRight, faShareNodes, faXmark} from '@fortawesome/free-solid-svg-icons';
-import {FloatingGroup} from '@src/Components/Planner/Panel/FloatingGroup';
-import {PanelContentAreaComponent} from '@src/Components/Planner/Panel/PanelContentAreaComponent';
 import {MOBILE_NAV_HEIGHT, PanelLayoutService, STATUS_BAR_HEIGHT} from '@src/Components/Planner/Panel/PanelLayoutService';
 import {ShareDialogService} from '@src/Components/Planner/Share/ShareDialogService';
 import {AppFeatures} from '@src/Model/AppFeatures';
 import {PanelDefinition} from '@src/Components/Planner/Panel/PanelDefinition';
-import {PanelSide} from '@src/Components/Planner/Panel/PanelSide';
 import {PlannerCanvasHintComponent} from '@src/Components/Planner/CanvasHint/PlannerCanvasHintComponent';
-import {PlannerFloatingWindowComponent} from '@src/Components/Planner/Panel/PlannerFloatingWindowComponent';
-import {PlannerRailComponent} from '@src/Components/Planner/Panel/PlannerRailComponent';
 import {PlannerStatusBarComponent} from '@src/Components/Planner/StatusBar/PlannerStatusBarComponent';
 import {PlannerZoomControlsComponent} from '@src/Components/Planner/ZoomControls/PlannerZoomControlsComponent';
 
@@ -20,35 +15,23 @@ const MOBILE_NAV = MOBILE_NAV_HEIGHT;
 const MOBILE_HEAD = 44;
 const MOBILE_BREAKPOINT = 768;
 
+/**
+ * The phone shell (bottom bar, drawer, sheet) and, on the desktop, only the chart's overlays: the status bar,
+ * the canvas hint and the zoom controls. Panels on the desktop live in the top bar and its dock.
+ */
 @Component({
 	selector: 'planner-panel-container',
 	templateUrl: './PlannerPanelContainerComponent.html',
 	imports: [
 		FaIconComponent,
 		NgComponentOutlet,
-		PanelContentAreaComponent,
 		PlannerCanvasHintComponent,
-		PlannerFloatingWindowComponent,
-		PlannerRailComponent,
 		PlannerStatusBarComponent,
 		PlannerZoomControlsComponent,
 	],
 	host: {style: 'position: absolute; inset: 0; pointer-events: none;'},
 	changeDetection: ChangeDetectionStrategy.Eager,
 	styles: [`
-		.fw-merge {
-			outline: 2px dashed rgba(var(--bs-primary-rgb), 0.8);
-			outline-offset: 2px;
-		}
-		.rail {
-			position: absolute;
-			left: 0; top: 0; bottom: 0;
-			background: #1b2834;
-			border-right: 1px solid #34475a;
-			pointer-events: auto;
-			z-index: 10;
-		}
-
 		.mob-nav-wrap {
 			position: absolute;
 			left: 0; right: 0; bottom: 0;
@@ -247,12 +230,6 @@ export class PlannerPanelContainerComponent implements AfterViewInit, OnDestroy
 		private readonly elementRef: ElementRef<HTMLElement>,
 	)
 	{
-		effect(() => {
-			this.layout.railWidth();
-			if (this.viewReady) {
-				untracked(() => this.measureAndUpdate());
-			}
-		});
 	}
 
 	public ngAfterViewInit(): void
@@ -274,18 +251,17 @@ export class PlannerPanelContainerComponent implements AfterViewInit, OnDestroy
 
 	private measureAndUpdate(): void
 	{
+		if (!this.viewReady) {
+			return;
+		}
 		const el = this.elementRef.nativeElement;
 		const mobile = el.clientWidth < MOBILE_BREAKPOINT;
 		this.isMobileSignal.set(mobile);
 		this.layout.setMobile(mobile);
 		if (!mobile) {
+			// The desktop has no side panels any more, so the whole content box is available to floating windows and drag targets.
 			const rect = el.getBoundingClientRect();
-			this.layout.updateAvailableSpace(
-				el.clientWidth - this.layout.railWidth(),
-				el.clientHeight - STATUS,
-				rect.left + this.layout.railWidth(),
-				rect.top,
-			);
+			this.layout.updateAvailableSpace(el.clientWidth, el.clientHeight - STATUS, rect.left, rect.top);
 		}
 	}
 
@@ -324,75 +300,21 @@ export class PlannerPanelContainerComponent implements AfterViewInit, OnDestroy
 		}
 	}
 
-	public readonly leftOpen  = computed(() => this.layout.activeLeft()  !== null);
-	public readonly rightOpen = computed(() => this.layout.activeRight() !== null);
-	public readonly topOpen   = computed(() => this.layout.activeTop()   !== null);
-
-	public get leftPanelStyle(): string
-	{
-		const w = this.layout.sizes().left;
-		return `position:absolute;left:${this.layout.railWidth()}px;top:0;bottom:0;width:${w}px;pointer-events:auto;z-index:9;`;
-	}
-
-	public get rightPanelStyle(): string
-	{
-		const w = this.layout.sizes().right;
-		return `position:absolute;right:0;top:0;bottom:0;width:${w}px;pointer-events:auto;z-index:9;`;
-	}
-
-	public get topPanelStyle(): string
-	{
-		const sizes = this.layout.sizes();
-		const l = this.layout.railWidth() + (this.leftOpen() ? sizes.left : 0);
-		const r = this.rightOpen() ? sizes.right : 0;
-		return `position:absolute;left:${l}px;right:${r}px;top:0;height:${sizes.top}px;pointer-events:auto;z-index:8;`;
-	}
-
 	public get statusBarStyle(): string
 	{
-		const sizes = this.layout.sizes();
-		const l = this.layout.railWidth() + (this.leftOpen() ? sizes.left : 0);
-		const r = this.rightOpen() ? sizes.right : 0;
-		return `position:absolute;left:${l}px;right:${r}px;bottom:0;height:${STATUS}px;pointer-events:auto;z-index:8;`;
+		return `position:absolute;left:0;right:0;bottom:0;height:${STATUS}px;pointer-events:auto;z-index:8;`;
 	}
 
 	public get canvasHintStyle(): string
 	{
-		const sizes = this.layout.sizes();
-		const l = this.layout.railWidth() + (this.leftOpen() ? sizes.left : 0);
-		const r = this.rightOpen() ? sizes.right : 0;
-		const t = this.topOpen() ? sizes.top : 0;
-		return `position:absolute;left:${l}px;right:${r}px;top:${t}px;bottom:${STATUS}px;pointer-events:none;z-index:6;`;
+		// Centres the hint in the part of the chart the top bar, the dock and the status bar leave visible.
+		const top = this.isMobile() ? '0px' : `calc(var(--planner-top-bar, 54px) + ${this.layout.overlayTop()}px)`;
+		return `position:absolute;left:0;right:0;top:${top};bottom:${STATUS}px;pointer-events:none;z-index:6;`;
 	}
 
 	public get zoomStyle(): string
 	{
-		const sizes = this.layout.sizes();
-		const l = this.layout.railWidth() + (this.leftOpen() ? sizes.left : 0) + 12;
-		return `position:absolute;left:${l}px;bottom:${STATUS + 12}px;pointer-events:auto;z-index:7;`;
-	}
-
-	public floatWrapStyle(group: FloatingGroup, stackIndex: number): string
-	{
-		return `position:absolute;left:${this.layout.railWidth() + group.x}px;top:${group.y}px;`
-			+ `width:${group.width}px;height:${group.height}px;`
-			+ `pointer-events:auto;z-index:${15 + stackIndex};`;
-	}
-
-	public dockPreviewStyle(side: PanelSide): string
-	{
-		const sizes = this.layout.sizes();
-		const base = 'position:absolute;background:rgba(var(--bs-primary-rgb), 0.14);'
-			+ 'border:2px dashed rgba(var(--bs-primary-rgb), 0.65);pointer-events:none;z-index:20;';
-		if (side === 'left') {
-			return base + `left:${this.layout.railWidth()}px;top:0;bottom:0;width:${sizes.left}px;`;
-		}
-		if (side === 'right') {
-			return base + `right:0;top:0;bottom:0;width:${sizes.right}px;`;
-		}
-		const l = this.layout.railWidth() + (this.leftOpen() ? sizes.left : 0);
-		const r = this.rightOpen() ? sizes.right : 0;
-		return base + `left:${l}px;right:${r}px;top:0;height:${sizes.top}px;`;
+		return `position:absolute;left:12px;bottom:${STATUS + 12}px;pointer-events:auto;z-index:7;`;
 	}
 
 }

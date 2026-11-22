@@ -47,28 +47,6 @@
 
 } @else {
 
-	<div class="rail" [style.width.px]="layout.railWidth()">
-		<planner-rail></planner-rail>
-	</div>
-
-	@if (leftOpen()) {
-		<div [style]="leftPanelStyle">
-			<panel-content-area [side]="'left'"></panel-content-area>
-		</div>
-	}
-
-	@if (rightOpen()) {
-		<div [style]="rightPanelStyle">
-			<panel-content-area [side]="'right'"></panel-content-area>
-		</div>
-	}
-
-	@if (topOpen()) {
-		<div [style]="topPanelStyle">
-			<panel-content-area [side]="'top'"></panel-content-area>
-		</div>
-	}
-
 	<div [style]="statusBarStyle">
 		<planner-status-bar></planner-status-bar>
 	</div>
@@ -80,19 +58,5 @@
 	<div [style]="zoomStyle">
 		<planner-zoom-controls></planner-zoom-controls>
 	</div>
-
-	@for (group of layout.floatingGroups(); track group.id; let i = $index) {
-		<div
-			[style]="floatWrapStyle(group, i)"
-			[class.fw-merge]="layout.mergePreview() === group.id"
-			(pointerdown)="layout.bringToFront(group.id)"
-		>
-			<planner-floating-window [group]="group"></planner-floating-window>
-		</div>
-	}
-
-	@if (layout.dockPreview(); as side) {
-		<div [style]="dockPreviewStyle(side)"></div>
-	}
 
 }

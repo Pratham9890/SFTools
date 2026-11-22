@@ -9,6 +9,16 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 	selector: 'calculator-machines-tab',
 	templateUrl: './CalculatorMachinesTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
+	styles: [`
+		.pp-lrow label {
+			cursor: pointer;
+			min-width: 0;
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+	`],
 	imports: [GameIconComponent],
 })
 export class CalculatorMachinesTabComponent

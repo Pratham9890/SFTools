@@ -8,6 +8,7 @@ import {InfoNoteComponent} from '@src/Components/Common/InfoNoteComponent';
 import {CalculatorTabsMode} from '@src/Components/Planner/Panels/Calculator/CalculatorTabsMode';
 import {faCopy, faDownload, faEllipsis, faEye, faFileImport, faIndustry, faLock, faPlay, faRotateLeft, faShareNodes, faSitemap, faSliders, faXmark} from '@fortawesome/free-solid-svg-icons';
 import {CalculationModeOption} from '@src/Components/Planner/Panels/Calculator/CalculationModeOption';
+import {CalculatorRunControls} from '@src/Components/Planner/Panels/Calculator/CalculatorRunControls';
 import {HelpButtonComponent} from '@src/Components/Help/HelpButtonComponent';
 import {HelpTopicId} from '@src/Model/Help/HelpTopicId';
 import {CalculatorTab} from '@src/Components/Planner/Panels/Calculator/CalculatorTab';
@@ -17,6 +18,7 @@ import {FolderRecalculationService} from '@src/Components/Planner/FolderRecalcul
 import {FolderRecalculationProgress} from '@src/Components/Planner/FolderRecalculationProgress';
 import {CalculatorTabDefinition} from '@src/Components/Planner/Panels/Calculator/CalculatorTabDefinition';
 import {CalculatorTabDefinitions} from '@src/Components/Planner/Panels/Calculator/CalculatorTabDefinitions';
+import {PlanSettingsActions} from '@src/Components/Planner/Panels/Calculator/PlanSettingsActions';
 import {LoadFromSaveDialogComponent} from '@src/Components/Planner/Panels/Calculator/LoadFromSaveDialogComponent';
 import {CalculatorByproductsTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Byproducts/CalculatorByproductsTabComponent';
 import {CalculatorOptimisationTabComponent} from '@src/Components/Planner/Panels/Calculator/Tabs/Optimisation/CalculatorOptimisationTabComponent';
@@ -217,12 +219,10 @@ export class CalculatorComponent implements OnDestroy
 
 	public readonly moreTabActive: Signal<boolean>;
 
-	public readonly modeOptions: CalculationModeOption[] = [
-		{mode: 'automatic', label: 'Automatic', description: 'Recalculates after every change'},
-		{mode: 'manual-fresh', label: 'Manual (replace)', description: 'Replaces the current graph'},
-		{mode: 'manual-upgrade', label: 'Manual (merge)', description: 'Adds to the current graph. Matching nodes are combined.'},
-		{mode: 'manual-append', label: 'Manual (add)', description: 'Adds the result next to the current graph. Nothing is combined.'},
-	];
+	/** Shared with the planner's top bar, so both calculate buttons always agree. */
+	public readonly run: CalculatorRunControls;
+
+	public readonly modeOptions: readonly CalculationModeOption[];
 
 	public readonly activePlan: Signal<Plan | null>;
 	public readonly activePlanLocal: Signal<boolean>;
@@ -241,6 +241,8 @@ export class CalculatorComponent implements OnDestroy
 	public readonly folderHasCustomSettings: Signal<boolean>;
 
 	public readonly parentLabel: Signal<string>;
+
+	private readonly planSettings: PlanSettingsActions;
 
 	public readonly modeLabel: Signal<string>;
 
@@ -262,8 +264,7 @@ export class CalculatorComponent implements OnDestroy
 
 	public readonly recalculationProgress: Signal<FolderRecalculationProgress | null>;
 
-	private readonly loadFromSaveSignal = signal<{name: string} | null>(null);
-	public readonly loadFromSave = this.loadFromSaveSignal.asReadonly();
+	public readonly loadFromSave: Signal<{name: string} | null>;
 
 	public constructor(
 		private readonly planManager: PlanManager,
@@ -280,7 +281,7 @@ export class CalculatorComponent implements OnDestroy
 		private readonly badgeResolver: CalculatorTabBadgeResolver,
 		private readonly versionManager: VersionManager,
 		private readonly settingsManager: SettingsManager,
-		private readonly panelLayout: PanelLayoutService,
+		public readonly panelLayout: PanelLayoutService,
 		private readonly mapPanelRequests: MapPanelRequests,
 	)
 	{
@@ -308,67 +309,32 @@ export class CalculatorComponent implements OnDestroy
 			this.tabs.forEach(tab => badges.set(tab.id, this.badgeResolver.badge(tab.id, plan, settings, data)));
 			return badges;
 		});
-		this.fixedFolder = computed(() => {
-			const plan = planManager.activePlan();
-			return plan && !planManager.activePlanReadOnly() ? planManager.fixedFolderOf(plan) : null;
-		});
-		this.fixedGroups = computed(() => this.fixedFolder()?.fixedGroups ?? []);
-		this.allGroupsFixed = computed(() => SettingsGroups.all.every(group => this.fixedGroups().includes(group)));
-		this.customSettingsBlocker = computed(() => {
-			const folder = planManager.activeFolder();
-			return folder ? planManager.customSettingsBlocker(folder.id) : null;
-		});
-		this.fixGroupsBlocker = computed(() => {
-			const folder = planManager.activeFolder();
-			return folder ? planManager.fixGroupsBlocker(folder.id) : null;
-		});
-		this.innerPlans = computed(() => {
-			const folder = planManager.activeFolder();
-			return folder ? planManager.innerPlans(folder.id) : [];
-		});
-		this.outdatedPlans = computed(() => {
-			const folder = planManager.activeFolder();
-			return folder ? folderRecalculation.outdatedPlans(folder.id) : [];
-		});
-		this.skippedOutdatedPlans = computed(() => {
-			const folder = planManager.activeFolder();
-			return folder ? folderRecalculation.skippedOutdatedPlans(folder.id) : [];
-		});
-		this.recalculationProgress = folderRecalculation.progress;
+		// The plan and folder actions live in PlanSettingsActions so the plan panel cannot drift from this header.
+		this.planSettings = new PlanSettingsActions(planManager, planNames, notifications, folderRecalculation);
+		this.fixedFolder = this.planSettings.fixedFolder;
+		this.fixedGroups = this.planSettings.fixedGroups;
+		this.allGroupsFixed = this.planSettings.allGroupsFixed;
+		this.customSettingsBlocker = this.planSettings.customSettingsBlocker;
+		this.fixGroupsBlocker = this.planSettings.fixGroupsBlocker;
+		this.innerPlans = this.planSettings.innerPlans;
+		this.outdatedPlans = this.planSettings.outdatedPlans;
+		this.skippedOutdatedPlans = this.planSettings.skippedOutdatedPlans;
+		this.recalculationProgress = this.planSettings.recalculationProgress;
+		this.folderHasCustomSettings = this.planSettings.folderHasCustomSettings;
+		this.parentLabel = this.planSettings.parentLabel;
+		this.loadFromSave = this.planSettings.loadFromSave;
 
 		this.activePlan = planManager.activePlan;
 		this.activePlanLocal = planManager.activePlanLocal;
 		this.activeFolder = planManager.activeFolder;
 		this.graphDirty = planManager.activePlanGraphDirty;
-		// Plans saved before calculation modes existed have no mode - treat them as automatic.
-		this.mode = computed(() => this.planManager.activeSettings()?.calculationMode ?? 'automatic');
-		this.modeLabel = computed(() =>
-			this.modeOptions.find(option => option.mode === this.mode())?.label ?? 'Automatic');
-		this.buttonLabel = computed(() => {
-			switch (this.mode()) {
-				case 'manual-fresh': return 'Calculate';
-				case 'manual-upgrade': return 'Calculate (merge)';
-				case 'manual-append': return 'Calculate (add)';
-				default: return this.graphDirty() ? 'Back to automatic' : 'Automatic';
-			}
-		});
+		this.run = new CalculatorRunControls(planManager, actions);
+		this.modeOptions = this.run.modeOptions;
+		this.mode = this.run.mode;
+		this.modeLabel = this.run.modeLabel;
+		this.buttonLabel = this.run.buttonLabel;
 		this.hasGraph = computed(() => (this.activePlan()?.graph?.nodes.length ?? 0) > 0);
-		this.calculateHint = computed(() => this.graphDirty()
-			? 'Build the graph again. Only locked nodes keep your hand edits.'
-			: this.modeOptions.find(option => option.mode === this.mode())?.description ?? '');
-		this.folderHasCustomSettings = computed(() => (this.activeFolder()?.settings ?? null) !== null);
-		this.parentLabel = computed(() => {
-			const plan = this.activePlan();
-			if (plan?.parentPlanId) {
-				const parent = this.planManager.plans().find(p => p.id === plan.parentPlanId);
-				if (parent) {
-					return `"${parent.name}"`;
-				}
-			}
-			const folderId = plan ? plan.folderId : this.activeFolder()?.parentId ?? null;
-			const folder = this.planManager.folders().find(f => f.id === folderId);
-			return folder ? `"${folder.name}"` : 'the defaults';
-		});
+		this.calculateHint = this.run.calculateHint;
 	}
 
 	/** The strip exists only while a plan or folder is selected, so the observers re-attach as the elements come and go. */
@@ -493,94 +459,53 @@ export class CalculatorComponent implements OnDestroy
 
 	public setMode(mode: CalculationMode): void
 	{
-		const settings = this.planManager.activeSettings();
-		if (settings) {
-			this.planManager.updateActiveSettings({...settings, calculationMode: mode});
-		}
+		this.run.setMode(mode);
 	}
 
 	public calculate(): void
 	{
-		const plan = this.activePlan();
-		if (!plan) return;
-		// No confirmation: the note and tooltip explain the rebuild, and undo restores the graph.
-		// The dirty flag is cleared by the solve completing, so a failed or cancelled solve stays paused.
-		this.actions.requestCalculate();
+		this.run.calculate();
 	}
 
 	public cancel(): void
 	{
-		this.actions.requestCancel();
+		this.run.cancel();
 	}
 
 	public resetSettings(): void
 	{
-		if (!confirm('Set all settings back to the defaults?')) {
-			return;
-		}
-		this.planManager.updateActiveSettings(this.planManager.defaultSettings());
+		this.planSettings.resetSettings();
 	}
 
 	public inheritSettings(): void
 	{
-		if (!confirm(`Replace all settings with those of ${this.parentLabel()}?`)) {
-			return;
-		}
-		this.planManager.updateActiveSettings(this.parentSettings());
+		this.planSettings.inheritSettings();
 	}
 
 	public enableFolderSettings(): void
 	{
-		const folder = this.activeFolder();
-		if (folder) {
-			this.planManager.enableFolderSettings(folder.id);
-		}
+		this.planSettings.enableFolderSettings();
 	}
 
 	public disableFolderSettings(): void
 	{
-		const folder = this.activeFolder();
-		if (!folder || !confirm('Remove this folder\'s own settings? It will use its parent\'s settings again.')) {
-			return;
-		}
-		this.planManager.setFolderSettings(folder.id, null);
+		this.planSettings.disableFolderSettings();
 	}
 
 	public openLoadFromSave(): void
 	{
-		const plan = this.activePlan();
-		const folder = this.activeFolder();
-		if (plan) {
-			this.loadFromSaveSignal.set({name: this.planNames.displayName(plan)});
-		} else if (folder) {
-			this.loadFromSaveSignal.set({name: folder.name});
-		}
+		this.planSettings.openLoadFromSave();
 	}
 
 	/** Applied to the settings as they are now: loading the map's part may have just counted a resource area again. */
 	public onLoadFromSaveApply(patch: Partial<PlanSettings> | null): void
 	{
-		const target = this.loadFromSaveSignal();
-		const plan = this.activePlan();
-		const folder = this.activeFolder();
-		if (target) {
-			if (patch === null) {
-				this.notifications.showSuccess('Loaded your game from the save file.');
-			} else if (plan) {
-				this.planManager.updateActiveSettings({...plan.settings, ...patch});
-				this.notifications.showSuccess(`Loaded settings from the save file into "${target.name}".`);
-			} else if (folder) {
-				// effectiveFolderSettings covers a folder still inheriting; applying the save then gives it custom settings.
-				this.planManager.setFolderSettings(folder.id, {...this.planManager.effectiveFolderSettings(folder.id), ...patch});
-				this.notifications.showSuccess(`Loaded settings from the save file into "${target.name}".`);
-			}
-		}
-		this.loadFromSaveSignal.set(null);
+		this.planSettings.onLoadFromSaveApply(patch);
 	}
 
 	public closeLoadFromSave(): void
 	{
-		this.loadFromSaveSignal.set(null);
+		this.planSettings.closeLoadFromSave();
 	}
 
 	public isGroupTab(tab: CalculatorTab): tab is SettingsGroup
@@ -595,7 +520,7 @@ export class CalculatorComponent implements OnDestroy
 
 	public groupLabel(group: SettingsGroup): string
 	{
-		return SettingsGroups.labelOf(group);
+		return this.planSettings.groupLabel(group);
 	}
 
 	/** The name is repeated even when the tab shows it: the tooltip is what carries the tab's hotkey. */
@@ -628,59 +553,32 @@ export class CalculatorComponent implements OnDestroy
 
 	public groupMode(group: SettingsGroup): FolderGroupMode
 	{
-		const folder = this.activeFolder();
-		return folder ? this.planManager.folderGroupMode(folder, group) : 'default';
+		return this.planSettings.groupMode(group);
 	}
 
 	public setGroupMode(group: SettingsGroup, mode: FolderGroupMode): void
 	{
-		const folder = this.activeFolder();
-		if (!folder || this.groupMode(group) === mode) {
-			return;
-		}
-		if (mode !== 'default' && this.fixGroupsBlocker() !== null) {
-			return;
-		}
-		if (this.groupMode(group) === 'default') {
-			const count = this.innerPlans().length;
-			if (count > 0 && !confirm(`Apply the folder's ${this.groupLabel(group)} settings to the ${count} plan${count === 1 ? '' : 's'} inside "${folder.name}"? `
-				+ `Their own ${this.groupLabel(group)} settings are replaced.`)) {
-				return;
-			}
-		}
-		this.planManager.setFolderGroupMode(folder.id, group, mode);
+		this.planSettings.setGroupMode(group, mode);
 	}
 
 	public fixedGroupsSummary(): string
 	{
-		const folder = this.activeFolder();
-		if (!folder) {
-			return '';
-		}
-		return folder.fixedGroups
-			.map(group => group === 'resources' && folder.resourcePool ? 'Resources (shared pool)' : this.groupLabel(group))
-			.join(', ');
+		return this.planSettings.fixedGroupsSummary();
 	}
 
 	public openFixedFolder(): void
 	{
-		const folder = this.fixedFolder();
-		if (folder) {
-			this.planManager.setActiveFolder(folder.id);
-		}
+		this.planSettings.openFixedFolder();
 	}
 
 	public recalculateFolder(): void
 	{
-		const folder = this.activeFolder();
-		if (folder) {
-			void this.folderRecalculation.run(folder.id);
-		}
+		this.planSettings.recalculateFolder();
 	}
 
 	public cancelFolderRecalculation(): void
 	{
-		this.folderRecalculation.cancel();
+		this.planSettings.cancelFolderRecalculation();
 	}
 
 	public createPlanInFolder(): void
@@ -690,19 +588,6 @@ export class CalculatorComponent implements OnDestroy
 			const plan = this.planManager.createPlan('', folder.id);
 			this.planManager.setActivePlan(plan.id);
 		}
-	}
-
-	private parentSettings(): PlanSettings
-	{
-		const plan = this.activePlan();
-		if (plan?.parentPlanId) {
-			const parent = this.planManager.plans().find(p => p.id === plan.parentPlanId);
-			if (parent) {
-				return this.planManager.cloneSettings(parent.settings);
-			}
-		}
-		const folderId = plan ? plan.folderId : this.activeFolder()?.parentId ?? null;
-		return this.planManager.effectiveFolderSettings(folderId);
 	}
 
 }

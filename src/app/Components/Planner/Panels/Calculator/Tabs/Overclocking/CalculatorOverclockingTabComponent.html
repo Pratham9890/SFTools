@@ -1,12 +1,18 @@
-<div class="p-2 d-flex flex-column gap-2">
+<div class="pp-columns p-2">
 
-	<div class="card">
-		<div class="card-header py-1 px-2 fw-semibold">Power shard budget</div>
-		<div class="card-body p-2 d-flex flex-column gap-2">
-			<info-note>
-				Each building has up to three shard slots, and each shard raises its maximum clock by 50 points.
-			</info-note>
-			<div class="form-check">
+	<div class="pp-section clamp">
+		<div class="pp-field">
+			<label class="pp-label" for="default-clock-speed">Default clock speed</label>
+			<clock-speed-input
+				inputId="default-clock-speed"
+				[value]="defaultClockSpeed"
+				(valueChange)="setDefaultClockSpeed($event)"
+			></clock-speed-input>
+		</div>
+
+		<div class="pp-stack">
+			<h3 class="pp-title">Power shard budget</h3>
+			<div class="form-check mb-0">
 				<input
 					class="form-check-input"
 					type="checkbox"
@@ -17,11 +23,11 @@
 				<label class="form-check-label" for="shard-budget-enabled">Limit power shards</label>
 			</div>
 			@if (hasShardBudget) {
-				<div class="d-flex align-items-center gap-2 flex-wrap">
-					<label class="form-label mb-0" for="shard-budget">Shards available</label>
+				<div class="pp-row">
+					<label class="pp-label mb-0" for="shard-budget">Shards available</label>
 					<input
 						type="number"
-						class="form-control form-control-sm bg-dark text-light border-secondary"
+						class="form-control form-control-sm"
 						style="width: 100px; flex: none;"
 						id="shard-budget"
 						min="0"
@@ -29,7 +35,7 @@
 						[value]="shardBudget"
 						(change)="setShardBudget(+$any($event.target).value)"
 					/>
-					<span class="text-secondary">
+					<span class="pp-note">
 						Used: <span [class.text-danger]="shardsOverBudget">{{ shardsUsed }} of {{ shardBudget }}</span>
 					</span>
 					@if (shardsOverBudget && canFitShards) {
@@ -37,163 +43,106 @@
 					}
 				</div>
 			} @else {
-				<span class="text-secondary">Used: {{ shardsUsed }}</span>
+				<span class="pp-note">Used: {{ shardsUsed }}</span>
+			}
+			<info-note>
+				Each building has up to three shard slots, and each shard raises its maximum clock by 50 points.
+			</info-note>
+		</div>
+	</div>
+
+	<div class="pp-section list">
+		<h3 class="pp-title">Per recipe</h3>
+		<div class="rows">
+			@for (row of rows; track $index; let i = $index) {
+				<div class="pp-row">
+					<item-picker
+						[options]="recipeOptions"
+						[value]="row.recipeClassName"
+						placeholder="- select recipe -"
+						(valueChange)="onRecipeChange(row, $event)"
+					></item-picker>
+					<clock-speed-input
+						[value]="row.clockSpeed"
+						(valueChange)="onClockChange(row, $event)"
+					></clock-speed-input>
+					<button
+						class="btn btn-sm btn-outline-danger px-2"
+						type="button"
+						(click)="removeRow(i)"
+					><fa-icon [icon]="faXmark"></fa-icon></button>
+				</div>
+			} @empty {
+				<div class="pp-note">No recipes with their own clock speed.</div>
 			}
 		</div>
+		<button class="btn btn-sm btn-outline-success add" type="button" (click)="addRow()">
+			+ Add recipe
+		</button>
 	</div>
 
-	<info-note>A recipe setting wins over a machine setting.</info-note>
-
-	<div class="d-flex align-items-center gap-2">
-		<label class="form-label mb-0 text-nowrap" for="default-clock-speed">Default clock speed</label>
-		<clock-speed-input
-			inputId="default-clock-speed"
-			[value]="defaultClockSpeed"
-			(valueChange)="setDefaultClockSpeed($event)"
-		></clock-speed-input>
-	</div>
-
-	<div class="card">
-		<div class="card-header py-1 px-2 fw-semibold">Per machine type</div>
-		<table class="table table-dark table-sm align-middle mb-0 table-stack">
-			<thead>
-				<tr>
-					<th>Machine</th>
-					<th style="width: 260px;">Clock speed</th>
-					<th style="width: 36px;"></th>
-				</tr>
-			</thead>
-			<tbody>
-				@for (row of machineRows; track $index; let i = $index) {
-					<tr>
-						<td class="stack-full">
-							<item-picker
-								[options]="machineOptions"
-								[value]="row.machineClassName"
-								placeholder="- select machine -"
-								(valueChange)="onMachineChange(row, $event)"
-							></item-picker>
-						</td>
-						<td class="stack-grow">
-							<clock-speed-input
-								[value]="row.clockSpeed"
-								(valueChange)="onMachineClockChange(row, $event)"
-							></clock-speed-input>
-						</td>
-						<td>
-							<button
-								class="btn btn-sm btn-outline-danger px-2"
-								type="button"
-								(click)="removeMachineRow(i)"
-							><fa-icon [icon]="faXmark"></fa-icon></button>
-						</td>
-					</tr>
-				} @empty {
-					<tr><td colspan="3" class="text-secondary fst-italic text-center">No machine types with their own clock speed.</td></tr>
-				}
-			</tbody>
-		</table>
-		<div class="card-footer p-2">
-			<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addMachineRow()">
-				+ Add machine
-			</button>
+	<div class="pp-section list">
+		<h3 class="pp-title">Per machine type</h3>
+		<div class="rows">
+			@for (row of machineRows; track $index; let i = $index) {
+				<div class="pp-row">
+					<item-picker
+						[options]="machineOptions"
+						[value]="row.machineClassName"
+						placeholder="- select machine -"
+						(valueChange)="onMachineChange(row, $event)"
+					></item-picker>
+					<clock-speed-input
+						[value]="row.clockSpeed"
+						(valueChange)="onMachineClockChange(row, $event)"
+					></clock-speed-input>
+					<button
+						class="btn btn-sm btn-outline-danger px-2"
+						type="button"
+						(click)="removeMachineRow(i)"
+					><fa-icon [icon]="faXmark"></fa-icon></button>
+				</div>
+			} @empty {
+				<div class="pp-note">No machine types with their own clock speed.</div>
+			}
 		</div>
+		<button class="btn btn-sm btn-outline-success add" type="button" (click)="addMachineRow()">
+			+ Add machine
+		</button>
 	</div>
 
-	<div class="card">
-		<div class="card-header py-1 px-2 fw-semibold">Per recipe</div>
-		<table class="table table-dark table-sm align-middle mb-0 table-stack">
-			<thead>
-				<tr>
-					<th>Recipe</th>
-					<th style="width: 260px;">Clock speed</th>
-					<th style="width: 36px;"></th>
-				</tr>
-			</thead>
-			<tbody>
-				@for (row of rows; track $index; let i = $index) {
-					<tr>
-						<td class="stack-full">
-							<item-picker
-								[options]="recipeOptions"
-								[value]="row.recipeClassName"
-								placeholder="- select recipe -"
-								(valueChange)="onRecipeChange(row, $event)"
-							></item-picker>
-						</td>
-						<td class="stack-grow">
-							<clock-speed-input
-								[value]="row.clockSpeed"
-								(valueChange)="onClockChange(row, $event)"
-							></clock-speed-input>
-						</td>
-						<td>
-							<button
-								class="btn btn-sm btn-outline-danger px-2"
-								type="button"
-								(click)="removeRow(i)"
-							><fa-icon [icon]="faXmark"></fa-icon></button>
-						</td>
-					</tr>
-				} @empty {
-					<tr><td colspan="3" class="text-secondary fst-italic text-center">No recipes with their own clock speed.</td></tr>
-				}
-			</tbody>
-		</table>
-		<div class="card-footer p-2">
-			<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addRow()">
-				+ Add recipe
-			</button>
+	<div class="pp-section list">
+		<h3 class="pp-title">Per power generator</h3>
+		<div class="pp-note">Generators ignore the default clock speed.</div>
+		<div class="rows">
+			@for (row of generatorRows; track $index; let i = $index) {
+				<div class="pp-row">
+					<item-picker
+						[options]="generatorOptions"
+						[value]="row.generatorClassName"
+						placeholder="- select generator -"
+						(valueChange)="onGeneratorChange(row, $event)"
+					></item-picker>
+					<clock-speed-input
+						[value]="row.clockSpeed"
+						(valueChange)="onGeneratorClockChange(row, $event)"
+					></clock-speed-input>
+					<button
+						class="btn btn-sm btn-outline-danger px-2"
+						type="button"
+						(click)="removeGeneratorRow(i)"
+					><fa-icon [icon]="faXmark"></fa-icon></button>
+				</div>
+			} @empty {
+				<div class="pp-note">No generators with their own clock speed.</div>
+			}
 		</div>
+		<button class="btn btn-sm btn-outline-success add" type="button" (click)="addGeneratorRow()">
+			+ Add generator
+		</button>
 	</div>
 
-	<div class="card">
-		<div class="card-header py-1 px-2 fw-semibold">Per power generator</div>
-		<info-note class="d-block p-2 pb-0">Generators ignore the default clock speed.</info-note>
-		<table class="table table-dark table-sm align-middle mb-0 table-stack">
-			<thead>
-				<tr>
-					<th>Generator</th>
-					<th style="width: 260px;">Clock speed</th>
-					<th style="width: 36px;"></th>
-				</tr>
-			</thead>
-			<tbody>
-				@for (row of generatorRows; track $index; let i = $index) {
-					<tr>
-						<td class="stack-full">
-							<item-picker
-								[options]="generatorOptions"
-								[value]="row.generatorClassName"
-								placeholder="- select generator -"
-								(valueChange)="onGeneratorChange(row, $event)"
-							></item-picker>
-						</td>
-						<td class="stack-grow">
-							<clock-speed-input
-								[value]="row.clockSpeed"
-								(valueChange)="onGeneratorClockChange(row, $event)"
-							></clock-speed-input>
-						</td>
-						<td>
-							<button
-								class="btn btn-sm btn-outline-danger px-2"
-								type="button"
-								(click)="removeGeneratorRow(i)"
-							><fa-icon [icon]="faXmark"></fa-icon></button>
-						</td>
-					</tr>
-				} @empty {
-					<tr><td colspan="3" class="text-secondary fst-italic text-center">No generators with their own clock speed.</td></tr>
-				}
-			</tbody>
-		</table>
-		<div class="card-footer p-2">
-			<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addGeneratorRow()">
-				+ Add generator
-			</button>
-		</div>
-	</div>
+	<div class="pp-note span">A recipe setting wins over a machine setting.</div>
 
 	@if (fitPreview(); as preview) {
 		<shard-budget-dialog

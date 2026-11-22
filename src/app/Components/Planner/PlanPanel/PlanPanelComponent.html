@@ -1,0 +1,227 @@
+<div class="pp-stack">
+
+	@if (activePlan(); as plan) {
+
+		<div class="pp-row">
+			<h3 class="pp-title">This plan</h3>
+			@if (!allGroupsFixed()) {
+				<!-- container="body": the panel's overflow container would clip the menu. -->
+				<div class="btn-group" dropdown container="body" placement="bottom left">
+					<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" dropdownToggle><fa-icon [icon]="faSliders"></fa-icon> Plan settings</button>
+					<div *dropdownMenu class="dropdown-menu" style="min-width: 320px;">
+						<button class="dropdown-item" type="button" (click)="resetSettings()">
+							<fa-icon [icon]="faRotateLeft" [fixedWidth]="true"></fa-icon> Reset to defaults
+							<span class="d-block text-wrap opacity-75 small">All settings go back to the defaults{{ fixedFolder() !== null ? '. Groups fixed by the folder are kept' : '' }}.</span>
+						</button>
+						<button class="dropdown-item" type="button" (click)="inheritSettings()">
+							<fa-icon [icon]="faCopy" [fixedWidth]="true"></fa-icon> Inherit from {{ parentLabel() }}
+							<span class="d-block text-wrap opacity-75 small">Copy all settings from the parent plan or folder{{ fixedFolder() !== null ? '. Groups fixed by the folder are kept' : '' }}.</span>
+						</button>
+					</div>
+				</div>
+				<button
+					class="btn btn-sm btn-outline-secondary"
+					type="button"
+					tooltip="Use only what you have unlocked in a game save" placement="bottom"
+					(click)="openLoadFromSave()"
+				><fa-icon [icon]="faFileImport"></fa-icon> Load from a game save</button>
+			} @else if (fixedFolder(); as folder) {
+				<span class="pp-note"><fa-icon [icon]="faLock"></fa-icon> All settings are fixed by folder "{{ folder.name }}".</span>
+			}
+
+			<span class="flex-grow-1"></span>
+
+			@if (mapAvailable()) {
+				<button
+					class="btn btn-sm btn-outline-secondary"
+					type="button"
+					tooltip="Open the map with a heatmap of where this factory has its resources nearby" placement="bottom"
+					[disabled]="!hasGraph()"
+					(click)="openFactorySites()"
+				><fa-icon [icon]="faIndustry"></fa-icon> Factory location on the map</button>
+			}
+		</div>
+
+		@if (fixedFolder(); as folder) {
+			<div class="pp-row">
+				<info-note>
+					<div class="d-flex align-items-center flex-wrap gap-2">
+						<span class="flex-grow-1">These settings are fixed by folder "{{ folder.name }}". Change them in the folder.</span>
+						<button class="btn btn-sm btn-outline-secondary flex-shrink-0" type="button" (click)="openFixedFolder()">Open folder</button>
+					</div>
+				</info-note>
+			</div>
+		}
+
+	} @else if (activeFolder(); as folder) {
+
+		<h3 class="pp-title">This folder</h3>
+
+		<div class="pp-row">
+			@if (folderHasCustomSettings()) {
+				<div class="btn-group" dropdown container="body" placement="bottom left">
+					<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" dropdownToggle><fa-icon [icon]="faSliders"></fa-icon> Folder settings</button>
+					<div *dropdownMenu class="dropdown-menu" style="min-width: 320px;">
+						<button class="dropdown-item" type="button" (click)="resetSettings()">
+							<fa-icon [icon]="faRotateLeft" [fixedWidth]="true"></fa-icon> Reset to defaults
+							<span class="d-block text-wrap opacity-75 small">All settings go back to the defaults.</span>
+						</button>
+						<button class="dropdown-item" type="button" (click)="inheritSettings()">
+							<fa-icon [icon]="faCopy" [fixedWidth]="true"></fa-icon> Inherit from {{ parentLabel() }}
+							<span class="d-block text-wrap opacity-75 small">Copy all settings from the parent folder.</span>
+						</button>
+						<div class="dropdown-divider"></div>
+						<button class="dropdown-item" type="button" (click)="disableFolderSettings()">
+							<fa-icon [icon]="faXmark" [fixedWidth]="true"></fa-icon> Remove custom settings
+							<span class="d-block text-wrap opacity-75 small">The folder uses the settings of its parent again.</span>
+						</button>
+					</div>
+				</div>
+				<button
+					class="btn btn-sm btn-outline-secondary"
+					type="button"
+					tooltip="Use only what you have unlocked in a game save" placement="bottom"
+					(click)="openLoadFromSave()"
+				><fa-icon [icon]="faFileImport"></fa-icon> Load from a game save</button>
+				<div class="btn-group" dropdown container="body" placement="bottom left">
+					<button
+						class="btn btn-sm btn-outline-secondary dropdown-toggle"
+						type="button"
+						dropdownToggle
+						tooltip="Default calculation mode for new plans" placement="bottom"
+					>Mode: {{ modeLabel() }}</button>
+					<div *dropdownMenu class="dropdown-menu" style="min-width: 280px;">
+						<h6 class="dropdown-header">Default calculation mode</h6>
+						@for (option of modeOptions; track option.mode) {
+							<button class="dropdown-item" [class.active]="mode() === option.mode" type="button" (click)="setMode(option.mode)">
+								{{ option.label }}
+								<span class="d-block text-wrap opacity-75">{{ option.description }}</span>
+							</button>
+						}
+					</div>
+				</div>
+			} @else {
+				<span class="pp-note">This folder uses the settings of {{ parentLabel() }}.</span>
+				@if (customSettingsBlocker(); as blocker) {
+					<span class="pp-warn">{{ blocker }}</span>
+				} @else {
+					<button
+						class="btn btn-sm btn-outline-secondary"
+						type="button"
+						tooltip="Give this folder its own settings from a game save" placement="bottom"
+						(click)="openLoadFromSave()"
+					><fa-icon [icon]="faFileImport"></fa-icon> Load from a game save</button>
+					<button
+						class="btn btn-sm btn-primary"
+						type="button"
+						tooltip="New plans and subfolders here start with these settings" placement="bottom"
+						(click)="enableFolderSettings()"
+					>Set default settings for folder</button>
+				}
+			}
+
+			<span class="flex-grow-1"></span>
+
+			@if (folder.fixedGroups.length > 0) {
+				@if (recalculationProgress(); as progress) {
+					<span class="pp-note">
+						<span class="spinner-border spinner-border-sm me-1" role="status"></span>
+						Recalculating {{ progress.done + 1 }}/{{ progress.total }}: {{ progress.currentName }}
+					</span>
+					<button class="btn btn-sm btn-danger" type="button" tooltip="Stop after the current plan" placement="bottom" (click)="cancelFolderRecalculation()"><fa-icon [icon]="faXmark"></fa-icon></button>
+				} @else {
+					<button
+						class="btn btn-sm"
+						[class.btn-warning]="outdatedPlans().length > 0"
+						[class.btn-outline-secondary]="outdatedPlans().length === 0"
+						type="button"
+						tooltip="Recalculate all automatic plans in this folder, in list order" placement="bottom"
+						[disabled]="actions.isCalculating() || innerPlans().length === 0"
+						(click)="recalculateFolder()"
+					><fa-icon [icon]="faPlay"></fa-icon> Recalculate plans@if (outdatedPlans().length > 0) { ({{ outdatedPlans().length }} outdated)}</button>
+				}
+			}
+		</div>
+
+		<div class="pp-stack">
+			@if (folder.fixedGroups.length > 0) {
+				<info-note>
+					Fixed for the {{ innerPlans().length }} plan{{ innerPlans().length === 1 ? '' : 's' }} inside: {{ fixedGroupsSummary() }}. Changes here apply to all of them.
+					The other groups are starting values for new plans.@if (folder.resourcePool && folder.fixedGroups.includes('resources')) { Plans higher in the list get the shared raw resources first.}
+				</info-note>
+				@if (skippedOutdatedPlans().length > 0) {
+					<info-note kind="warning">
+						{{ skippedOutdatedPlans().length }} outdated plan{{ skippedOutdatedPlans().length === 1 ? ' is' : 's are' }} in manual mode or edited by hand. Recalculate {{ skippedOutdatedPlans().length === 1 ? 'it' : 'them' }} yourself.
+					</info-note>
+				}
+			} @else {
+				<info-note>
+					New plans and subfolders in "{{ folder.name }}" start with these settings.
+					Set a group to "Fixed" to make every plan inside use it.
+				</info-note>
+			}
+
+			@if (folderHasCustomSettings()) {
+				<div class="pp-row">
+					<span class="pp-label">Settings for plans inside</span>
+					<div class="btn-group btn-group-sm" role="group">
+						@for (group of groups; track group) {
+							<button
+								type="button"
+								class="btn"
+								[class.btn-secondary]="activeGroup() === group"
+								[class.btn-outline-secondary]="activeGroup() !== group"
+								(click)="setGroup(group)"
+							>{{ groupLabel(group) }}</button>
+						}
+					</div>
+				</div>
+
+				<div class="pp-row">
+					<span class="pp-label">{{ groupLabel(activeGroup()) }} for plans inside</span>
+					<div class="btn-group btn-group-sm" role="group">
+						<button
+							type="button"
+							class="btn"
+							[class.btn-secondary]="groupMode(activeGroup()) === 'default'"
+							[class.btn-outline-secondary]="groupMode(activeGroup()) !== 'default'"
+							tooltip="Each plan can change its own copy" placement="bottom"
+							(click)="setGroupMode(activeGroup(), 'default')"
+						>Default for new plans</button>
+						<button
+							type="button"
+							class="btn"
+							[class.btn-secondary]="groupMode(activeGroup()) === 'fixed'"
+							[class.btn-outline-secondary]="groupMode(activeGroup()) !== 'fixed'"
+							[disabled]="fixGroupsBlocker() !== null"
+							tooltip="Every plan inside uses it and cannot change it" placement="bottom"
+							(click)="setGroupMode(activeGroup(), 'fixed')"
+						>Fixed</button>
+						@if (activeGroup() === 'resources') {
+							<button
+								type="button"
+								class="btn"
+								[class.btn-secondary]="groupMode('resources') === 'pool'"
+								[class.btn-outline-secondary]="groupMode('resources') !== 'pool'"
+								[disabled]="fixGroupsBlocker() !== null"
+								tooltip="Fixed. All plans inside share the raw resource limits." placement="bottom"
+								(click)="setGroupMode('resources', 'pool')"
+							>Shared pool</button>
+						}
+					</div>
+					@if (fixGroupsBlocker(); as blocker) {
+						<span class="pp-warn">{{ blocker }}</span>
+					}
+				</div>
+			}
+		</div>
+
+	}
+
+	<planner-plans/>
+
+</div>
+
+@if (loadFromSave(); as target) {
+	<load-from-save-dialog [targetName]="target.name" (apply)="onLoadFromSaveApply($event)" (close)="closeLoadFromSave()"></load-from-save-dialog>
+}

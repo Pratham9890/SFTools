@@ -53,61 +53,58 @@ const TYPE_LABELS: Record<string, string> = {
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [FormsModule, FaIconComponent, AppTooltipDirective, GameIconComponent, InfoNoteComponent, ClockSpeedInputComponent, GoToNodeButtonComponent, NodeBeltsComponent],
 	styles: [`
-		.extractors-table {
-			display: flex;
-			flex-direction: column;
-			gap: 0.5rem;
-		}
+		:host { display: block; }
+		.node-block { align-items: flex-start; }
+		.node-main { flex: 1 1 560px; min-width: 0; gap: 14px; }
+		.node-side { flex: 1 1 320px; min-width: 0; }
+		.node-title { gap: 10px; }
+		.node-title .pp-title { font-size: 18px; }
+		.node-values { gap: 12px 18px; align-items: flex-end; }
+		.node-values .pp-field { min-width: 130px; }
+		.power-value { gap: 8px; }
+
+		/* Resource nodes: one compact grid, a header row then one row per setup. */
+		.extractors-table { display: grid; gap: 4px; width: 100%; }
 		.extractor-row {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: flex-end;
-			gap: 0.4rem 0.5rem;
-			padding-bottom: 0.5rem;
-			border-bottom: 1px solid var(--bs-table-border-color);
+			display: grid;
+			grid-template-columns: 70px minmax(96px, 1fr) minmax(120px, 1.2fr) minmax(150px, 1.4fr) auto 32px;
+			align-items: center;
+			gap: 8px;
+			padding: 4px 6px;
+			border-radius: 8px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
 		}
-		.extractor-row:last-child {
-			padding-bottom: 0;
-			border-bottom: 0;
+		.extractor-head {
+			background: none;
+			border-color: transparent;
+			padding: 0 6px;
+			color: var(--dim);
+			font-size: 12px;
+			font-weight: 700;
 		}
-		.extractor-field {
-			display: flex;
-			flex-direction: column;
-			gap: 0.1rem;
-			min-width: 0;
-		}
-		.extractor-label {
-			color: #9fb0c0;
-			font-size: 0.72rem;
-			line-height: 1.1;
-			white-space: nowrap;
-		}
-		.field-count { flex: 1 1 4.5rem; min-width: 4.5rem; }
-		.field-purity { flex: 1 1 6.5rem; min-width: 6.5rem; }
-		.field-satellites { flex: 1 1 10rem; min-width: 10rem; }
-		.field-extractor { flex: 1 1 9.5rem; min-width: 9.5rem; }
-		.field-clock { flex: 1 1 15.5rem; min-width: 15.5rem; }
-		.field-rate { flex: 0 1 auto; }
-		/* Under 300px the clock input stacks its value over its presets, so it needs only a small width. */
-		@container panel (max-width: 300px) {
-			.field-clock { flex: 1 1 7rem; min-width: 7rem; }
-		}
-		.field-actions {
-			flex: 0 0 auto;
-			margin-left: auto;
-		}
+		.extractor-head > span { white-space: nowrap; }
+		.extractor-field { display: flex; flex-direction: column; min-width: 0; }
+		/* A row may omit purity, so each field keeps its own column. */
+		.field-count { grid-column: 1; }
+		.field-purity, .field-satellites { grid-column: 2; }
+		.field-extractor { grid-column: 3; }
+		.field-clock { grid-column: 4; }
+		.field-rate { grid-column: 5; color: var(--ink); white-space: nowrap; }
+		.field-actions { grid-column: 6; display: flex; justify-content: flex-end; }
 		.satellite-grid {
 			display: grid;
 			grid-template-columns: repeat(3, minmax(0, 1fr));
-			gap: 0.25rem;
+			gap: 6px;
 		}
 		.satellite-cell {
 			display: flex;
 			flex-direction: column;
-			gap: 0.1rem;
+			gap: 2px;
 			min-width: 0;
-			color: #9fb0c0;
-			font-size: 0.68rem;
+			color: var(--dim);
+			font-size: 11px;
+			font-weight: 600;
 			line-height: 1.1;
 		}
 		.satellite-cell > span {
@@ -115,8 +112,33 @@ const TYPE_LABELS: Record<string, string> = {
 			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
-		.btn-add { flex: 1 1 8rem; }
+		.satellite-cell .form-control { min-width: 0; }
+
+		/* Capacity against need, with a bar and the shortfall text. */
+		.capacity { gap: 6px; }
+		.capacity-bar {
+			flex: 1 1 200px;
+			height: 10px;
+			background: var(--surface-2);
+			border: 1px solid var(--rule);
+			border-radius: 6px;
+			overflow: hidden;
+		}
+		.capacity-bar > span { display: block; height: 100%; background: var(--good); }
+		.capacity-bar.short > span { background: var(--warn); }
+
+		.extractor-actions { gap: 10px; }
+		.btn-add { flex: 0 1 auto; }
 		.btn-remove { flex: 0 1 auto; }
+
+		@container panel (max-width: 720px) {
+			.extractor-row {
+				grid-template-columns: 70px minmax(90px, 1fr) minmax(110px, 1fr) minmax(140px, 1.2fr) 32px;
+			}
+			.extractor-row .field-rate { display: none; }
+			.extractor-head > span:last-of-type { display: none; }
+			.field-actions { grid-column: 5; }
+		}
 	`],
 })
 export class AmountNodeEditorComponent implements OnChanges, OnDestroy

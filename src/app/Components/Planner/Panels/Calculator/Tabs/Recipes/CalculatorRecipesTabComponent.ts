@@ -22,14 +22,24 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 	templateUrl: './CalculatorRecipesTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
 	styles: [`
-		.recipe-columns {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: 0.5rem;
-			align-items: start;
+		.pp-search {
+			flex: 1 1 240px;
+			max-width: 420px;
 		}
-		@container panel (max-width: 900px) {
-			.recipe-columns { grid-template-columns: 1fr; }
+		.pp-cols {
+			grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+		}
+		.pp-lrow label {
+			cursor: pointer;
+			min-width: 0;
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.recipe-io {
+			color: var(--dim);
+			justify-content: flex-end;
 		}
 	`],
 	imports: [FaIconComponent, FormsModule, GameIconComponent, AppTooltipDirective, InfoNoteComponent, CollapsibleCardComponent],

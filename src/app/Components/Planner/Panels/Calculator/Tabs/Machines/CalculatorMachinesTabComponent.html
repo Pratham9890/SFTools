@@ -1,29 +1,28 @@
-<div class="p-2 d-flex flex-column gap-2">
-	<div class="card">
-		<div class="card-header d-flex align-items-center gap-1 py-1 px-2">
-			<span class="fw-semibold flex-grow-1">Production machines</span>
-			<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(true)">All</button>
-			<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(false)">None</button>
-		</div>
-		<div class="card-body p-2">
-			@for (machine of machines; track machine.className) {
-				<div class="form-check">
-					<input
-						class="form-check-input"
-						type="checkbox"
-						[id]="'machine-' + machine.className"
-						[checked]="isEnabled(machine)"
-						(change)="toggle(machine)"
-					/>
-					<label class="form-check-label d-flex align-items-center gap-2 w-100" [for]="'machine-' + machine.className">
-						<game-icon [hash]="machine.icon" [size]="18" [alt]="machine.name"></game-icon>
-						<span class="text-truncate">{{ machine.name }}</span>
-						<span class="small text-secondary ms-auto">{{ recipeCount(machine) }} recipe{{ recipeCount(machine) === 1 ? '' : 's' }}</span>
-					</label>
-				</div>
-			} @empty {
-				<div class="text-secondary fst-italic">This version has no production machines.</div>
-			}
-		</div>
+<div class="p-2 pp-stack">
+
+	<div class="pp-row">
+		<span class="pp-title flex-grow-1 text-nowrap">Production machines</span>
+		<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(true)">All</button>
+		<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(false)">None</button>
 	</div>
+
+	<div class="pp-cols">
+		@for (machine of machines; track machine.className) {
+			<div class="pp-lrow">
+				<input
+					class="form-check-input m-0"
+					type="checkbox"
+					[id]="'machine-' + machine.className"
+					[checked]="isEnabled(machine)"
+					(change)="toggle(machine)"
+				/>
+				<game-icon [hash]="machine.icon" [size]="18" [alt]="machine.name"></game-icon>
+				<label class="text-truncate" [for]="'machine-' + machine.className">{{ machine.name }}</label>
+				<span class="pp-note text-nowrap">{{ recipeCount(machine) }} recipe{{ recipeCount(machine) === 1 ? '' : 's' }}</span>
+			</div>
+		} @empty {
+			<div class="text-secondary fst-italic pp-note">This version has no production machines.</div>
+		}
+	</div>
+
 </div>

@@ -1,113 +1,93 @@
-<div class="p-2 d-flex flex-column gap-2">
+<div class="pp-columns p-2">
 
-	<info-note>The calculation keeps the total cost of the enabled goals as low as possible.</info-note>
+	<div class="pp-section goals">
+		<h3 class="pp-title">Goals</h3>
 
-	@if (noneEnabled) {
-		<info-note kind="warning">
-			Enable at least one goal. Otherwise nothing can be calculated.
-			@if (inputsEnabled && !hasInputs) {
-				Input weights only matter when the plan has inputs.
-			}
-		</info-note>
-	}
+		<div class="goal">
+			<div class="form-check mb-0">
+				<input
+					class="form-check-input"
+					type="checkbox"
+					id="opt-resources"
+					[checked]="resourcesEnabled"
+					(change)="toggleResources()"
+				/>
+				<label class="form-check-label fw-semibold" for="opt-resources">Raw resources</label>
+			</div>
+			<div class="pp-note">Cost of each unit mined. Set for each resource in the Resources tab.</div>
+		</div>
 
-	<div class="card">
-		<div class="card-header py-1 px-2 fw-semibold">Goals</div>
-		<table class="table table-dark table-sm align-middle mb-0 table-stack">
-			<tbody>
-				<tr>
-					<td class="stack-full" style="width: 170px;">
-						<div class="form-check mb-0">
-							<input
-								class="form-check-input"
-								type="checkbox"
-								id="opt-resources"
-								[checked]="resourcesEnabled"
-								(change)="toggleResources()"
-							/>
-							<label class="form-check-label fw-semibold" for="opt-resources">Raw resources</label>
-						</div>
-					</td>
-					<td class="text-secondary stack-grow">Cost of each unit mined. Set for each resource in the Resources tab.</td>
-					<td style="width: 100px;"></td>
-				</tr>
-				<tr>
-					<td class="stack-full">
-						<div class="form-check mb-0">
-							<input
-								class="form-check-input"
-								type="checkbox"
-								id="opt-inputs"
-								[checked]="inputsEnabled"
-								(change)="toggleInputs()"
-							/>
-							<label class="form-check-label fw-semibold" for="opt-inputs">Input weights</label>
-						</div>
-					</td>
-					<td class="text-secondary stack-grow">Cost of each unit taken from an input. Set for each input in the Input tab. When off, every input is free.</td>
-					<td></td>
-				</tr>
-				<tr>
-					<td class="stack-full">
-						<div class="form-check mb-0">
-							<input
-								class="form-check-input"
-								type="checkbox"
-								id="opt-power"
-								[checked]="powerEnabled"
-								(change)="togglePower()"
-							/>
-							<label class="form-check-label fw-semibold" for="opt-power">Power</label>
-						</div>
-					</td>
-					<td class="text-secondary stack-grow">Cost of 1 MW</td>
-					<td>
-						<input
-							type="number"
-							class="form-control form-control-sm bg-dark text-light border-secondary"
-							style="width: 90px;"
-							min="0"
-							step="any"
-							[disabled]="!powerEnabled"
-							[value]="powerWeight"
-							(change)="setPowerWeight(+$any($event.target).value)"
-						/>
-					</td>
-				</tr>
-				<tr>
-					<td class="stack-full">
-						<div class="form-check mb-0">
-							<input
-								class="form-check-input"
-								type="checkbox"
-								id="opt-machines"
-								[checked]="machinesEnabled"
-								(change)="toggleMachines()"
-							/>
-							<label class="form-check-label fw-semibold" for="opt-machines">Machine count</label>
-						</div>
-					</td>
-					<td class="text-secondary stack-grow">Cost of 1 machine. Machines listed below use their own cost.</td>
-					<td>
-						<input
-							type="number"
-							class="form-control form-control-sm bg-dark text-light border-secondary"
-							style="width: 90px;"
-							min="0"
-							step="any"
-							[disabled]="!machinesEnabled"
-							[value]="machinesWeight"
-							(change)="setMachinesWeight(+$any($event.target).value)"
-						/>
-					</td>
-				</tr>
-			</tbody>
-		</table>
+		<div class="goal">
+			<div class="form-check mb-0">
+				<input
+					class="form-check-input"
+					type="checkbox"
+					id="opt-inputs"
+					[checked]="inputsEnabled"
+					(change)="toggleInputs()"
+				/>
+				<label class="form-check-label fw-semibold" for="opt-inputs">Input weights</label>
+			</div>
+			<div class="pp-note">Cost of each unit taken from an input. Set for each input in the Input tab. When off, every input is free.</div>
+		</div>
+
+		<div class="goal">
+			<div class="form-check mb-0">
+				<input
+					class="form-check-input"
+					type="checkbox"
+					id="opt-power"
+					[checked]="powerEnabled"
+					(change)="togglePower()"
+				/>
+				<label class="form-check-label fw-semibold" for="opt-power">Power</label>
+			</div>
+			<div class="pp-row">
+				<span class="pp-note">Cost of 1 MW</span>
+				<input
+					type="number"
+					class="form-control form-control-sm"
+					style="width: 90px; flex: none;"
+					min="0"
+					step="any"
+					[disabled]="!powerEnabled"
+					[value]="powerWeight"
+					(change)="setPowerWeight(+$any($event.target).value)"
+				/>
+			</div>
+		</div>
 	</div>
 
-	<div class="card" [class.opacity-50]="!machinesEnabled">
-		<div class="card-header py-1 px-2 fw-semibold">Machine count</div>
-		<div class="card-body p-2">
+	<div class="pp-section" [class.opacity-50]="!machinesEnabled">
+		<h3 class="pp-title">Machine count</h3>
+
+		<div class="goal">
+			<div class="form-check mb-0">
+				<input
+					class="form-check-input"
+					type="checkbox"
+					id="opt-machines"
+					[checked]="machinesEnabled"
+					(change)="toggleMachines()"
+				/>
+				<label class="form-check-label fw-semibold" for="opt-machines">Machine count</label>
+			</div>
+			<div class="pp-row">
+				<span class="pp-note">Cost of 1 machine. Machines listed below use their own cost.</span>
+				<input
+					type="number"
+					class="form-control form-control-sm"
+					style="width: 90px; flex: none;"
+					min="0"
+					step="any"
+					[disabled]="!machinesEnabled"
+					[value]="machinesWeight"
+					(change)="setMachinesWeight(+$any($event.target).value)"
+				/>
+			</div>
+		</div>
+
+		<div class="pp-stack">
 			@for (option of machineCountingOptions; track option.value) {
 				<div class="form-check">
 					<input
@@ -121,67 +101,64 @@
 					/>
 					<label class="form-check-label" [for]="'machine-counting-' + option.value">
 						{{ option.label }}
-						<span class="text-secondary">- {{ option.description }}</span>
+						<span class="pp-note">{{ option.description }}</span>
 					</label>
 				</div>
 			}
 		</div>
-		<div class="border-top border-secondary px-2 pt-2 pb-1">
-			<div class="fw-semibold">Custom cost per machine <span class="fw-normal text-secondary">(optional)</span></div>
-			<div class="text-secondary">Add a machine to make it cost more or less than the rest, for example to prefer blenders over refineries.</div>
-		</div>
-		<table class="table table-dark table-sm align-middle mb-0 table-stack">
-			<thead>
-				<tr>
-					<th>Machine</th>
-					<th style="width: 100px;">Cost</th>
-					<th style="width: 36px;"></th>
-				</tr>
-			</thead>
-			<tbody>
-				@for (row of machineWeightRows; track $index; let i = $index) {
-					<tr>
-						<td class="stack-full">
-							<item-picker
-								[options]="machineWeightOptions"
-								[value]="row.machineClassName"
-								placeholder="- select machine -"
-								(valueChange)="onMachineWeightMachineChange(row, $event)"
-							></item-picker>
-						</td>
-						<td class="stack-grow">
-							<input
-								type="number"
-								class="form-control form-control-sm bg-dark text-light border-secondary"
-								style="width: 90px;"
-								min="0"
-								step="any"
-								[disabled]="!machinesEnabled"
-								[value]="row.weight"
-								(change)="onMachineWeightChange(row, +$any($event.target).value)"
-							/>
-						</td>
-						<td>
-							<button
-								class="btn btn-sm btn-outline-danger px-2"
-								type="button"
-								[disabled]="!machinesEnabled"
-								(click)="removeMachineWeightRow(i)"
-							><fa-icon [icon]="faXmark"></fa-icon></button>
-						</td>
-					</tr>
-				}
-			</tbody>
-		</table>
-		<div class="card-footer p-2">
-			<button class="btn btn-sm btn-outline-success w-100" type="button" [disabled]="!machinesEnabled" (click)="addMachineWeightRow()">
-				+ Add machine
-			</button>
-		</div>
 	</div>
 
-	@if (machinesEnabled && machineCounting === 'whole') {
-		<info-note kind="warning">Counting whole machines can make the calculation much slower on larger plans.</info-note>
-	}
+	<div class="pp-section list">
+		<h3 class="pp-title">Custom cost per machine <span class="pp-note fw-normal">(optional)</span></h3>
+		<div class="pp-note">Add a machine to make it cost more or less than the rest, for example to prefer blenders over refineries.</div>
+		<div class="rows">
+			@for (row of machineWeightRows; track $index; let i = $index) {
+				<div class="pp-row">
+					<item-picker
+						[options]="machineWeightOptions"
+						[value]="row.machineClassName"
+						placeholder="- select machine -"
+						(valueChange)="onMachineWeightMachineChange(row, $event)"
+					></item-picker>
+					<input
+						type="number"
+						class="form-control form-control-sm"
+						style="width: 90px; flex: none;"
+						min="0"
+						step="any"
+						[disabled]="!machinesEnabled"
+						[value]="row.weight"
+						(change)="onMachineWeightChange(row, +$any($event.target).value)"
+					/>
+					<button
+						class="btn btn-sm btn-outline-danger px-2"
+						type="button"
+						[disabled]="!machinesEnabled"
+						(click)="removeMachineWeightRow(i)"
+					><fa-icon [icon]="faXmark"></fa-icon></button>
+				</div>
+			}
+		</div>
+		<button class="btn btn-sm btn-outline-success add" type="button" [disabled]="!machinesEnabled" (click)="addMachineWeightRow()">
+			+ Add machine
+		</button>
+	</div>
+
+	<div class="pp-note span">
+		<info-note>The calculation keeps the total cost of the enabled goals as low as possible.</info-note>
+
+		@if (noneEnabled) {
+			<info-note kind="warning">
+				Enable at least one goal. Otherwise nothing can be calculated.
+				@if (inputsEnabled && !hasInputs) {
+					Input weights only matter when the plan has inputs.
+				}
+			</info-note>
+		}
+
+		@if (machinesEnabled && machineCounting === 'whole') {
+			<info-note kind="warning">Counting whole machines can make the calculation much slower on larger plans.</info-note>
+		}
+	</div>
 
 </div>

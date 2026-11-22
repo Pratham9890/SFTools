@@ -1,9 +1,10 @@
-<div class="p-2 d-flex flex-column gap-2">
+<div class="pp-columns node-block">
 
-	<div class="card">
-		<div class="card-header d-flex align-items-center gap-2 py-1 px-2">
+	<div class="pp-section node-main">
+
+		<div class="pp-row node-title">
 			<game-icon [hash]="iconHash" [size]="20" [alt]="node.getDisplayName()"></game-icon>
-			<span class="fw-semibold flex-grow-1 text-truncate" [title]="node.getDisplayName()">{{ node.getDisplayName() }}</span>
+			<span class="pp-title flex-grow-1 text-truncate" [title]="node.getDisplayName()">{{ node.getDisplayName() }}</span>
 			<span class="badge text-bg-secondary">{{ typeLabel }}</span>
 			<go-to-node [nodeIds]="[node.id]" placement="left"></go-to-node>
 			<button
@@ -15,96 +16,105 @@
 				(click)="toggleLock()"
 			><fa-icon [icon]="node.locked ? faLock : faLockOpen" [fixedWidth]="true"></fa-icon></button>
 		</div>
-		<div class="card-body p-2 d-flex flex-column gap-2">
 
-			@if (generator; as generatorNode) {
-				<div class="d-flex align-items-center gap-2">
-					<span class="text-secondary">Fuel</span>
-					<span class="d-inline-flex align-items-center gap-1">
-						<game-icon [hash]="generatorNode.fuel.item.icon" [size]="18" [alt]="generatorNode.fuel.item.name"></game-icon>
-						{{ generatorNode.fuel.item.name }}
-					</span>
-				</div>
-			}
+		<div class="pp-row top node-values">
 
-			<div class="d-flex align-items-center gap-2">
-				<label class="form-label text-secondary mb-0 text-nowrap" for="amount-node-amount">{{ amountLabel }}</label>
+			<div class="pp-field">
+				<label class="pp-label" for="amount-node-amount">{{ amountLabel }}</label>
 				<div class="input-group input-group-sm">
 					<input
 						id="amount-node-amount"
 						type="number"
-						class="form-control form-control-sm bg-dark text-light border-secondary"
+						class="form-control form-control-sm"
 						[(ngModel)]="amount"
 						(ngModelChange)="onAmountChange()"
 						min="0"
 						step="any"
 					>
 					@if (unit; as unitLabel) {
-						<span class="input-group-text bg-dark text-secondary border-secondary">{{ unitLabel }}</span>
+						<span class="input-group-text">{{ unitLabel }}</span>
 					}
 				</div>
 			</div>
 
 			@if (canClock) {
-				<div class="d-flex align-items-center gap-2">
-					<label class="form-label text-secondary mb-0 text-nowrap" for="amount-node-clock">Clock speed</label>
+				<div class="pp-field">
+					<label class="pp-label" for="amount-node-clock">Clock speed</label>
 					<div class="input-group input-group-sm">
 						<input
 							id="amount-node-clock"
 							type="number"
-							class="form-control form-control-sm bg-dark text-light border-secondary"
+							class="form-control form-control-sm"
 							[(ngModel)]="clockSpeed"
 							(ngModelChange)="onClockChange()"
 							min="1"
 							max="250"
 							step="any"
 						>
-						<span class="input-group-text bg-dark text-secondary border-secondary">%</span>
+						<span class="input-group-text">%</span>
 					</div>
 				</div>
 			}
 
+			@if (generator; as generatorNode) {
+				<div class="pp-field">
+					<span class="pp-label">Fuel</span>
+					<span class="pp-item">
+						<game-icon [hash]="generatorNode.fuel.item.icon" [size]="18" [alt]="generatorNode.fuel.item.name"></game-icon>
+						<span>{{ generatorNode.fuel.item.name }}</span>
+					</span>
+				</div>
+			}
+
 			@if (draftPower !== null) {
-				<div class="d-flex align-items-center gap-2">
-					<span class="text-secondary">Power</span>
-					<span class="text-success">{{ rateFormatter.power(draftPower!) }}</span>
-					@if (draftShards > 0) {
-						<span class="text-secondary">· {{ draftShards }} power shard{{ draftShards === 1 ? '' : 's' }}</span>
-					}
+				<div class="pp-field">
+					<span class="pp-label">Power</span>
+					<span class="pp-row power-value">
+						<span class="pp-tag good">{{ rateFormatter.power(draftPower!) }}</span>
+						@if (draftShards > 0) {
+							<span class="pp-note">{{ draftShards }} power shard{{ draftShards === 1 ? '' : 's' }}</span>
+						}
+					</span>
 				</div>
 			}
 
 		</div>
-	</div>
 
-	@if (mine) {
-		<div class="card">
-			<div class="card-header d-flex align-items-center gap-2 py-1 px-2">
-				<span class="fw-semibold flex-grow-1 text-truncate">Extractors</span>
-			</div>
-			<div class="card-body p-2 d-flex flex-column gap-2">
+		@if (mine) {
+			<div class="pp-stack resource-setup">
+				<div class="pp-row">
+					<span class="pp-title">Extractors</span>
+				</div>
 
 				@if (extractorOptions.length === 0) {
-					<div class="fst-italic text-secondary small">No extractor in the data for this item</div>
+					<div class="fst-italic pp-note">No extractor in the data for this item</div>
 					@if (extractorRows.length > 0) {
-						<button class="btn btn-sm btn-outline-danger w-100" type="button" (click)="removeSetup()">
+						<button class="btn btn-sm btn-outline-danger align-self-start" type="button" (click)="removeSetup()">
 							Remove setup
 						</button>
 					}
 				} @else if (extractorRows.length === 0) {
-					<div class="text-secondary small">Set up the resource nodes these come from to check capacity.</div>
-					<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addExtractorRow()">
+					<div class="pp-note">Set up the resource nodes these come from to check capacity.</div>
+					<button class="btn btn-sm btn-outline-success align-self-start" type="button" (click)="addExtractorRow()">
 						Add resource nodes
 					</button>
 				} @else {
 					<div class="extractors-table">
+						<div class="extractor-row extractor-head">
+							<span>Count</span>
+							<span>Purity</span>
+							<span>Extractor</span>
+							<span>Clock speed</span>
+							<span>Rate</span>
+							<span></span>
+						</div>
 						@for (row of extractorRows; track $index) {
 							<div class="extractor-row">
 								<div class="extractor-field field-count">
-									<span class="extractor-label">Count</span>
 									<input
+										aria-label="Count"
 										type="number"
-										class="form-control form-control-sm bg-dark text-light border-secondary"
+										class="form-control form-control-sm"
 										[(ngModel)]="row.count"
 										(ngModelChange)="onExtractorsChange()"
 										min="1"
@@ -113,13 +123,12 @@
 								</div>
 								@if (isWellRow(row)) {
 									<div class="extractor-field field-satellites">
-										<span class="extractor-label">Satellites</span>
 										<div class="satellite-grid">
 											<label class="satellite-cell">
 												<span>Impure</span>
 												<input
 													type="number"
-													class="form-control form-control-sm bg-dark text-light border-secondary"
+													class="form-control form-control-sm"
 													[(ngModel)]="row.satellites.impure"
 													(ngModelChange)="onExtractorsChange()"
 													min="0"
@@ -130,7 +139,7 @@
 												<span>Normal</span>
 												<input
 													type="number"
-													class="form-control form-control-sm bg-dark text-light border-secondary"
+													class="form-control form-control-sm"
 													[(ngModel)]="row.satellites.normal"
 													(ngModelChange)="onExtractorsChange()"
 													min="0"
@@ -141,7 +150,7 @@
 												<span>Pure</span>
 												<input
 													type="number"
-													class="form-control form-control-sm bg-dark text-light border-secondary"
+													class="form-control form-control-sm"
 													[(ngModel)]="row.satellites.pure"
 													(ngModelChange)="onExtractorsChange()"
 													min="0"
@@ -152,9 +161,9 @@
 									</div>
 								} @else if (rowHasPurity(row)) {
 									<div class="extractor-field field-purity">
-										<span class="extractor-label">Purity</span>
 										<select
-											class="form-select form-select-sm bg-dark text-light border-secondary"
+											aria-label="Purity"
+											class="form-select form-select-sm"
 											[(ngModel)]="row.purity"
 											(ngModelChange)="onExtractorsChange()"
 										>
@@ -165,9 +174,9 @@
 									</div>
 								}
 								<div class="extractor-field field-extractor">
-									<span class="extractor-label">Extractor</span>
 									<select
-										class="form-select form-select-sm bg-dark text-light border-secondary"
+										aria-label="Extractor"
+										class="form-select form-select-sm"
 										[(ngModel)]="row.buildingClassName"
 										(ngModelChange)="onExtractorsChange()"
 										[title]="buildingTitle(row)"
@@ -178,14 +187,12 @@
 									</select>
 								</div>
 								<div class="extractor-field field-clock">
-									<span class="extractor-label">Clock %</span>
 									<clock-speed-input
 										[value]="row.clockSpeed"
 										(valueChange)="onRowClockChange(row, $event)"
 									></clock-speed-input>
 								</div>
 								<div class="extractor-field field-rate">
-									<span class="extractor-label">Rate</span>
 									<span class="text-nowrap">{{ rateFormatter.rate(rowRate(row), item) }}</span>
 								</div>
 								<div class="extractor-field field-actions">
@@ -201,20 +208,26 @@
 						}
 					</div>
 
-					<div class="d-flex flex-column gap-1">
+					<div class="pp-stack capacity">
+						<div class="pp-row">
+							<span class="pp-label">Capacity</span>
+							<div class="capacity-bar" [class.short]="extractorShortfall !== null">
+								<span [style.width.%]="extractorNeeded > 0 ? (extractorCapacity >= extractorNeeded ? 100 : extractorCapacity / extractorNeeded * 100) : 0"></span>
+							</div>
+						</div>
 						@if (extractorShortfall; as shortfall) {
 							<info-note kind="warning">
-								Capacity {{ rateFormatter.rate(extractorCapacity, item) }} · needs {{ rateFormatter.rate(extractorNeeded, item) }}: {{ rateFormatter.rate(shortfall, item) }} short
+								Capacity {{ rateFormatter.rate(extractorCapacity, item) }}, needs {{ rateFormatter.rate(extractorNeeded, item) }}: {{ rateFormatter.rate(shortfall, item) }} short
 							</info-note>
 						} @else {
-							<div class="small text-success">
-								Capacity {{ rateFormatter.rate(extractorCapacity, item) }} · needs {{ rateFormatter.rate(extractorNeeded, item) }}
+							<div class="pp-tag good">
+								Capacity {{ rateFormatter.rate(extractorCapacity, item) }}, needs {{ rateFormatter.rate(extractorNeeded, item) }}
 							</div>
 						}
-						<div class="small text-secondary">{{ extractorSummary }}</div>
+						<div class="pp-note">{{ extractorSummary }}</div>
 					</div>
 
-					<div class="extractor-actions d-flex flex-wrap align-items-center gap-2">
+					<div class="pp-row extractor-actions">
 						<button class="btn btn-sm btn-outline-success btn-add" type="button" (click)="addExtractorRow()">
 							+ Add row
 						</button>
@@ -225,9 +238,12 @@
 				}
 
 			</div>
-		</div>
-	}
+		}
 
-	<node-belts [node]="node"></node-belts>
+	</div>
+
+	<div class="pp-section node-side">
+		<node-belts [node]="node"></node-belts>
+	</div>
 
 </div>

@@ -19,6 +19,29 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 	templateUrl: './CalculatorOptimisationTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [FaIconComponent, InfoNoteComponent, ItemPickerComponent],
+	styles: [`
+		.pp-columns { padding-top: 0; }
+		.pp-section { flex: 1 1 300px; min-width: 300px; }
+		.pp-section.list { flex: 1 1 340px; }
+		.goal {
+			display: grid;
+			gap: 4px;
+			padding: 8px 10px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 8px;
+		}
+		.rows { display: grid; gap: 6px; }
+		.rows .pp-row {
+			padding: 6px 8px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 8px;
+		}
+		.rows item-picker { flex: 1 1 160px; min-width: 140px; }
+		.add { justify-self: start; }
+		.span { display: grid; gap: 8px; }
+	`],
 })
 export class CalculatorOptimisationTabComponent implements OnDestroy
 {

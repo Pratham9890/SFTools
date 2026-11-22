@@ -11,6 +11,19 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 	selector: 'calculator-byproducts-tab',
 	templateUrl: './CalculatorByproductsTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
+	styles: [`
+		.pp-search {
+			flex: 0 1 240px;
+		}
+		.pp-lrow label {
+			cursor: pointer;
+			min-width: 0;
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+	`],
 	imports: [FormsModule, GameIconComponent, InfoNoteComponent],
 })
 export class CalculatorByproductsTabComponent

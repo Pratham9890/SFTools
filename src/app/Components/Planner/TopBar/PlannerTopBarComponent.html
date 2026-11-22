@@ -1,0 +1,171 @@
+<a class="pl-logo" routerLink="/" aria-label="Satisfactory Tools home" tooltip="Satisfactory Tools home" placement="bottom">
+	<img src="assets/logo-mark.png" alt="Satisfactory Tools" width="28" height="28">
+</a>
+
+<div class="pl-plan">
+	<button class="pl-plan-btn" type="button" [class.active]="dock.isOpen('plans')" tooltip="Plans" placement="bottom" (click)="openPlans()">
+		<span class="pl-plan-name">{{ planLabel() }}</span>
+		<fa-icon [icon]="faChevronDown" class="pl-chevron"></fa-icon>
+	</button>
+</div>
+
+<nav class="pl-tabs" aria-label="Plan panels">
+	@for (tab of tabs; track tab.id) {
+		<button
+			class="pl-tab"
+			type="button"
+			[class.active]="dock.isOpen(tab.id)"
+			[tooltip]="tabTooltip(tab.label, tab.id)"
+			placement="bottom"
+			(click)="toggleTab(tab.id)"
+		>
+			{{ tab.label }}
+			@if (tab.id === 'belts') {
+				<span class="pl-tab-state" [class.on]="beltView()">{{ beltView() ? 'On' : 'Off' }}</span>
+			}
+		</button>
+	}
+	<div class="pl-tab-menu" dropdown container="body" placement="bottom left">
+		<button class="pl-tab" type="button" dropdownToggle [class.active]="moreOpen()">
+			More <fa-icon [icon]="faChevronDown" class="pl-chevron"></fa-icon>
+		</button>
+		<div *dropdownMenu class="dropdown-menu pl-menu">
+			@for (entry of dock.moreEntries; track entry.id) {
+				<button
+					class="dropdown-item pl-menu-item"
+					type="button"
+					[class.active]="dock.isOpen(entry.id)"
+					(click)="openTab(entry.id)"
+				>{{ entry.label }}</button>
+			}
+			<div class="dropdown-divider"></div>
+			@for (entry of dock.moreViewEntries; track entry.id) {
+				<button
+					class="dropdown-item pl-menu-item"
+					type="button"
+					[class.active]="dock.isOpen(entry.id)"
+					(click)="openTab(entry.id)"
+				>{{ entry.label }}</button>
+			}
+		</div>
+	</div>
+</nav>
+
+<div class="pl-right">
+	<button
+		class="pl-ghost pl-preview"
+		type="button"
+		tooltip="Preview what Calculate would change, and lock blocks you want to keep"
+		placement="bottom"
+		[disabled]="run.busy()"
+		(click)="preview()"
+	>
+		<fa-icon [icon]="faEye"></fa-icon>
+		<span class="pl-label">Preview</span>
+	</button>
+
+	<div class="pl-split">
+		@if (run.calculating()) {
+			<button class="pl-primary pl-cancel" type="button" tooltip="Cancel calculation" placement="bottom" (click)="run.cancel()">
+				<span class="spinner-border spinner-border-sm" role="status"></span>
+				<span class="pl-label">Cancel</span>
+				<fa-icon [icon]="faXmark"></fa-icon>
+			</button>
+		} @else {
+			<button
+				class="pl-primary"
+				type="button"
+				[tooltip]="run.calculateHint() + hotkeys.suffix('planner.calculate')"
+				placement="bottom"
+				[disabled]="run.calculateDisabled()"
+				(click)="run.calculate()"
+			>
+				<fa-icon [icon]="faPlay"></fa-icon>
+				<span class="pl-label">{{ run.buttonLabel() }}</span>
+			</button>
+			<div class="pl-mode" dropdown container="body" placement="bottom right">
+				<button
+					class="pl-primary pl-chev"
+					type="button"
+					dropdownToggle
+					tooltip="Calculation mode"
+					placement="bottom"
+					[disabled]="run.busy()"
+				><span class="visually-hidden">Calculation mode</span><fa-icon [icon]="faChevronDown"></fa-icon></button>
+				<div *dropdownMenu class="dropdown-menu dropdown-menu-end pl-menu pl-mode-menu">
+					<h6 class="dropdown-header">Calculation mode</h6>
+					@for (option of run.modeOptions; track option.mode) {
+						<button
+							class="dropdown-item pl-menu-item"
+							[class.active]="isMode(option.mode)"
+							type="button"
+							(click)="run.setMode(option.mode)"
+						>
+							<span class="pl-menu-title">
+								{{ option.label }}
+								@if (isMode(option.mode)) {
+									<fa-icon [icon]="faCheck" class="pl-check"></fa-icon>
+								}
+							</span>
+							<span class="pl-menu-hint">{{ option.description }}</span>
+						</button>
+					}
+				</div>
+			</div>
+		}
+	</div>
+
+	<div class="pl-coop-menu" dropdown container="body" placement="bottom right" [insideClick]="true" #coopMenu="bs-dropdown">
+		<button
+			class="pl-coop"
+			[class.on]="coop.active()"
+			type="button"
+			dropdownToggle
+			tooltip="Co-op: start a space, or see who is in yours"
+			placement="bottom"
+		>
+			@if (!coop.active()) {
+				<fa-icon [icon]="faUser" class="pl-person"></fa-icon>
+			}
+			<span class="pl-dots">
+				@for (player of players(); track player.id) {
+					<i [style.background]="player.color" [class.off]="!player.online"></i>
+				}
+			</span>
+			<span class="pl-label">{{ coopLabel() }}</span>
+		</button>
+		<div *dropdownMenu class="dropdown-menu pl-coop-panel">
+			<planner-coop-box (close)="coopMenu.hide()"></planner-coop-box>
+		</div>
+	</div>
+
+	<div class="pl-share" dropdown container="body" placement="bottom right">
+		<button class="pl-ghost pl-icon-only" type="button" dropdownToggle tooltip="Share" placement="bottom">
+			<fa-icon [icon]="faShareNodes"></fa-icon>
+			<span class="pl-label">Share</span>
+		</button>
+		<div *dropdownMenu class="dropdown-menu dropdown-menu-end pl-menu pl-share-menu">
+			<button class="dropdown-item pl-menu-item" type="button" (click)="inviteFriend()">
+				<span class="pl-menu-title"><fa-icon [icon]="faUserPlus" [fixedWidth]="true"></fa-icon> Invite friend to edit</span>
+				<span class="pl-menu-hint">Copies the co-op invite link. Everyone with it edits the same plans live.</span>
+			</button>
+			<button class="dropdown-item pl-menu-item" type="button" [disabled]="!hasPlan()" (click)="downloadPlan()">
+				<span class="pl-menu-title"><fa-icon [icon]="faFileArrowDown" [fixedWidth]="true"></fa-icon> Download plan file</span>
+				<span class="pl-menu-hint">Save this plan as a file</span>
+			</button>
+			<button class="dropdown-item pl-menu-item" type="button" (click)="saveChartAsImage()">
+				<span class="pl-menu-title"><fa-icon [icon]="faImage" [fixedWidth]="true"></fa-icon> Save chart as image</span>
+				<span class="pl-menu-hint">Export the flow chart as SVG or PNG</span>
+			</button>
+		</div>
+	</div>
+
+	<button
+		class="pl-ghost pl-gear"
+		type="button"
+		tooltip="Planner settings"
+		placement="bottom"
+		[class.active]="dock.isOpen('settings')"
+		(click)="toggleSettings()"
+	><fa-icon [icon]="faGear"></fa-icon></button>
+</div>

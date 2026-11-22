@@ -24,6 +24,21 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [ClockSpeedInputComponent, FaIconComponent, ItemPickerComponent, InfoNoteComponent, ShardBudgetDialogComponent],
 	providers: [ShardFitService],
+	styles: [`
+		.pp-columns { padding-top: 0; }
+		.pp-section.clamp { max-width: 460px; }
+		.pp-section.list { flex: 1 1 300px; min-width: 300px; }
+		.rows { display: grid; gap: 6px; }
+		.rows .pp-row {
+			padding: 6px 8px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 8px;
+		}
+		.rows item-picker { flex: 1 1 160px; min-width: 140px; }
+		.add { justify-self: start; }
+		.span { padding-top: 2px; }
+	`],
 })
 export class CalculatorOverclockingTabComponent implements OnDestroy
 {

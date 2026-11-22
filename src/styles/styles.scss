@@ -2,8 +2,18 @@
 @import "@fontsource/lato/300.css";
 @import "@fontsource/lato/400.css";
 @import "@fontsource/lato/700.css";
+@import "@fontsource/archivo/400.css";
+@import "@fontsource/archivo/500.css";
+@import "@fontsource/archivo/600.css";
+@import "@fontsource/archivo/700.css";
+@import "@fontsource/archivo/800.css";
+@import "@fontsource/roboto-condensed/400.css";
+@import "@fontsource/roboto-condensed/500.css";
+@import "@fontsource/roboto-condensed/700.css";
 @import "theme/bootstrap";
 @import "leaflet/dist/leaflet.css";
+@import "planner-shell";
+@import "planner-panels";
 
 // Tooltips are non-interactive; without this a tooltip rendered next to its
 // trigger can steal the hover and flicker in a show/hide loop.

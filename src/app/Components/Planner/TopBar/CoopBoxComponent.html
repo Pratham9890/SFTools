@@ -1,0 +1,67 @@
+<div class="pl-coop-box">
+	@if (!configured()) {
+		<p class="pl-coop-title">Co-op</p>
+		<p class="pl-coop-line">No co-op server set. Add one in Settings to plan together with friends.</p>
+		<button class="pl-coop-action" type="button" (click)="openPanel('settings')">Open Settings</button>
+	} @else if (!active()) {
+		<p class="pl-coop-title">Playing solo</p>
+		<p class="pl-coop-line">Your plans are saved on this device. Start co-op to plan together with friends.</p>
+
+		@if (player() === null) {
+			<p class="pl-coop-label">Your name</p>
+			<p class="pl-coop-line">Shown to the other players next to what you claim. No account needed.</p>
+			<input class="pl-coop-field" type="text" maxlength="40" placeholder="Your name" [(ngModel)]="playerName" (keydown.enter)="savePlayer()"/>
+			<div class="pl-coop-swatches" role="radiogroup" aria-label="Colour">
+				@for (color of colors; track color) {
+					<button
+						class="pl-coop-swatch"
+						type="button"
+						[class.selected]="color === playerColor"
+						[style.background]="color"
+						[attr.aria-label]="'Colour ' + color"
+						(click)="playerColor = color"
+					></button>
+				}
+			</div>
+			<button class="pl-coop-action" type="button" [disabled]="playerName.trim() === ''" (click)="savePlayer()">Save my name and colour</button>
+		} @else {
+			<p class="pl-coop-label">Name for your co-op space</p>
+			<div class="pl-coop-row">
+				<input class="pl-coop-field" type="text" maxlength="100" placeholder="For example, our save's name" [(ngModel)]="spaceName" (keydown.enter)="create()"/>
+				<button class="pl-coop-primary" type="button" [disabled]="busy()" (click)="create()">Start co-op</button>
+			</div>
+
+			<p class="pl-coop-label">I have an invite link</p>
+			<div class="pl-coop-row">
+				<input class="pl-coop-field" type="text" placeholder="Paste the invite link" [(ngModel)]="inviteText" (keydown.enter)="join()"/>
+				<button class="pl-coop-action" type="button" [disabled]="busy() || inviteText.trim() === ''" (click)="join()">Join</button>
+			</div>
+
+			<p class="pl-coop-line">
+				Playing as <i class="pl-coop-dot" [style.background]="player()!.color"></i> {{ player()!.name }}
+				<button class="pl-coop-link" type="button" (click)="openPanel('coop')">Change my name and colour</button>
+			</p>
+		}
+
+		@if (error(); as message) {
+			<p class="pl-coop-error">{{ message }}</p>
+		}
+	} @else {
+		<p class="pl-coop-title">{{ title() }}</p>
+		<ul class="pl-coop-players">
+			@for (p of players(); track p.id) {
+				<li [class.off]="!p.online" [title]="p.online ? 'Online' : 'Offline'">
+					<i class="pl-coop-dot" [style.background]="p.color"></i>{{ p.name }}@if (p.me) {<span class="pl-coop-dim"> (you)</span>}<span class="pl-coop-dim">{{ p.online ? 'Online' : 'Offline' }}</span>
+				</li>
+			} @empty {
+				<li class="pl-coop-dim">No one else is here right now.</li>
+			}
+		</ul>
+		<div class="pl-coop-actions">
+			<button class="pl-coop-action" type="button" (click)="openPanel('coop')">Parts and claims</button>
+			<button class="pl-coop-action" type="button" (click)="copyInvite()">Copy invite link</button>
+			<button class="pl-coop-link" type="button" (click)="openPanel('coop')">Change my name and colour</button>
+			<button class="pl-coop-leave" type="button" (click)="leave()">Leave co-op</button>
+		</div>
+	}
+</div>

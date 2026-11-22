@@ -12,6 +12,22 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 	selector: 'calculator-sink-tab',
 	templateUrl: './CalculatorSinkTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
+	styles: [`
+		.pp-search {
+			flex: 0 1 240px;
+		}
+		.pp-sort {
+			flex: none;
+		}
+		.pp-lrow label {
+			cursor: pointer;
+			min-width: 0;
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+	`],
 	imports: [FormsModule, GameIconComponent, InfoNoteComponent],
 })
 export class CalculatorSinkTabComponent

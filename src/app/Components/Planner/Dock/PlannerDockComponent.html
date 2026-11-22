@@ -1,0 +1,51 @@
+<div #drop class="pl-drop">
+
+	@if (actions.solveErrorIsSettingsProblem()) {
+		<div class="pl-banner problem" role="status">
+			<span class="pl-banner-text">{{ actions.solveErrorDetail() }}</span>
+			<button class="pl-banner-close" type="button" aria-label="Dismiss" (click)="actions.setSolveError(null)"><fa-icon [icon]="faXmark"></fa-icon></button>
+		</div>
+	} @else if (actions.solveError()) {
+		<div class="pl-banner error" role="alert">
+			<span class="pl-banner-text">{{ actions.solveErrorDetail() ?? 'No solution was found.' }}</span>
+			<button class="pl-banner-close" type="button" aria-label="Dismiss" (click)="actions.setSolveError(null)"><fa-icon [icon]="faXmark"></fa-icon></button>
+		</div>
+	}
+
+	@if (dock.entry(); as entry) {
+		<aside class="pl-dock" [class.pl-dock-fill]="fill()">
+			<div class="pl-dock-head">
+				<h2 class="pl-title">{{ entry.label }}</h2>
+				@if (entry.help; as help) {
+					<p class="pl-help">{{ help }}</p>
+				}
+				<div class="pl-head-end">
+					@if (entry.helpTopic; as topic) {
+						<help-button [topic]="topic" placement="bottom"/>
+					}
+					<button class="pl-close" type="button" aria-label="Close panel" title="Close panel" (click)="dock.close()"><fa-icon [icon]="faXmark"></fa-icon></button>
+				</div>
+			</div>
+			<div class="pl-body" [class.pl-fill]="fill()">
+				@if (dock.folderFixed(); as folder) {
+					<div class="pl-fixed">
+						<info-note>
+							<div class="d-flex align-items-center flex-wrap gap-2">
+								<span class="flex-grow-1">
+									These settings are fixed by folder "{{ folder.name }}". Change them in the folder.
+								</span>
+								<button class="btn btn-sm btn-outline-secondary flex-shrink-0" type="button" (click)="openFolder()">Open folder</button>
+							</div>
+						</info-note>
+					</div>
+				}
+				@if (dock.component(); as component) {
+					<fieldset class="pl-fieldset" [disabled]="dock.folderFixed() !== null">
+						<ng-container [ngComponentOutlet]="component"></ng-container>
+					</fieldset>
+				}
+			</div>
+		</aside>
+	}
+
+</div>

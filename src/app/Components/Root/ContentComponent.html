@@ -1,10 +1,12 @@
-<navbar/>
+<!-- Hidden rather than removed on the planner: the navbar owns the app-wide hotkeys (search, settings, home, back).
+     display:none also makes its ResizeObserver publish 0px as --navbar-height, which is what the planner wants. -->
+<navbar [class.planner-site-bar-hidden]="siteChrome.fullScreen()"/>
 
 @if (notifications.message()) {
 	<!-- Drops below the root component's "server is not responding" banner while that is up. -->
 	<div
 		class="position-fixed top-0 start-50 translate-middle-x"
-		[style.margin-top]="serverStatus.retrying() ? 'calc(var(--navbar-height, 56px) + 52px)' : 'calc(var(--navbar-height, 56px) + 4px)'"
+		[style.margin-top]="notificationTop()"
 		style="z-index: 1055; min-width: 320px; max-width: 600px;"
 	>
 		<div
@@ -22,7 +24,7 @@
 }
 
 <!-- Padding, not margin: a margin would swallow the pages' own top margins (margin collapsing). -->
-<div class="container-fluid" style="padding-top: var(--navbar-height, 56px);">
+<div class="container-fluid" [style.padding-top]="siteChrome.fullScreen() ? '0' : 'var(--navbar-height, 56px)'">
 	<router-outlet/>
 </div>
 

@@ -1,0 +1,674 @@
+// Planner shell: the always-shown top bar and the drop-down dock. The tokens are the mock-up's Look C
+// (ui-mockups/style.css, body[data-look="c"]), scoped to the planner host so later tasks can restyle the
+// shell without touching the components and so no other page picks them up.
+.planner-ui {
+	--planner-top-bar: 54px;
+	--ground: #0f1012;
+	--chart: #121315;
+	--surface: #1a1c1f;
+	--surface-2: #24272b;
+	--rule: #2a2d31;
+	--rule-strong: #3b3f45;
+	--ink: #f4f2ee;
+	--ink-2: #c6c4bf;
+	--dim: #95938e;
+	--accent: #ffb347;
+	--accent-ink: #1e1305;
+	--accent-soft: rgba(255, 179, 71, 0.14);
+	--good: #79d39a;
+	--warn: #f0c24a;
+	--radius: 14px;
+	--font: Archivo, "Segoe UI", system-ui, sans-serif;
+	font-family: var(--font);
+	font-variant-numeric: tabular-nums;
+
+	planner-top-bar {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 0;
+		height: var(--planner-top-bar);
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 0 14px;
+		background: var(--ground);
+		border-bottom: 1px solid var(--rule);
+		color: var(--ink);
+		z-index: 40;
+		container-type: inline-size;
+		container-name: planner-top;
+	}
+
+	// ---- top bar: logo, plan name, tabs, actions -------------------------------------------------
+	.pl-logo {
+		display: flex;
+		flex: none;
+	}
+
+	.pl-logo img {
+		display: block;
+		width: 28px;
+		height: 28px;
+	}
+
+	.pl-plan {
+		min-width: 0;
+		flex: none;
+	}
+
+	.pl-plan-btn {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		max-width: 300px;
+		height: 34px;
+		padding: 0 10px;
+		border: none;
+		border-radius: 8px;
+		background: transparent;
+		color: var(--ink);
+		font-weight: 700;
+		font-size: 16px;
+	}
+
+	.pl-plan-btn:hover,
+	.pl-plan-btn.active {
+		background: var(--surface);
+	}
+
+	.pl-plan-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.pl-chevron {
+		flex: none;
+		font-size: 11px;
+		color: var(--dim);
+	}
+
+	// Scrolls rather than pushing the gear off screen when the window is very narrow; the gear never shrinks.
+	.pl-tabs {
+		display: flex;
+		align-items: stretch;
+		align-self: stretch;
+		gap: 2px;
+		margin-left: 4px;
+		min-width: 0;
+		flex: 0 1 auto;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.pl-tabs::-webkit-scrollbar {
+		display: none;
+	}
+
+	.pl-tab {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 0 13px;
+		border: none;
+		background: transparent;
+		color: var(--ink-2);
+		font-weight: 600;
+		font-size: 14px;
+		white-space: nowrap;
+		flex: none;
+	}
+
+	.pl-tab:hover {
+		background: var(--surface);
+		color: var(--ink);
+	}
+
+	.pl-tab.active {
+		background: var(--surface);
+		color: var(--ink);
+	}
+
+	.pl-tab.active::after {
+		content: "";
+		position: absolute;
+		left: 10px;
+		right: 10px;
+		bottom: 0;
+		height: 3px;
+		border-radius: 3px 3px 0 0;
+		background: var(--accent);
+	}
+
+	.pl-tab-state {
+		font-size: 11px;
+		font-weight: 700;
+		padding: 1px 6px;
+		border-radius: 9px;
+		background: var(--surface-2);
+		color: var(--dim);
+		letter-spacing: 0;
+	}
+
+	.pl-tab-state.on {
+		background: var(--good);
+		color: #0d1f14;
+	}
+
+	.pl-tab-menu {
+		display: flex;
+		align-items: stretch;
+		flex: none;
+	}
+
+	.pl-right {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex: none;
+	}
+
+	.pl-ghost {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 34px;
+		padding: 0 11px;
+		border: none;
+		border-radius: 8px;
+		background: transparent;
+		color: var(--ink-2);
+		font-weight: 600;
+		font-size: 14px;
+		white-space: nowrap;
+	}
+
+	.pl-ghost:hover:not(:disabled) {
+		background: var(--surface);
+		color: var(--ink);
+	}
+
+	.pl-ghost.active {
+		background: var(--surface-2);
+		color: var(--ink);
+	}
+
+	.pl-ghost:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+
+	.pl-gear {
+		font-size: 15px;
+	}
+
+	.pl-split {
+		display: flex;
+		flex: none;
+	}
+
+	.pl-primary {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 34px;
+		padding: 0 14px;
+		border: none;
+		border-radius: 8px 0 0 8px;
+		background: var(--accent);
+		color: var(--accent-ink);
+		font-weight: 700;
+		font-size: 14px;
+		white-space: nowrap;
+	}
+
+	.pl-primary:hover:not(:disabled) {
+		filter: brightness(1.08);
+	}
+
+	.pl-primary:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	.pl-chev {
+		padding: 0 8px;
+		border-radius: 0 8px 8px 0;
+		border-left: 1px solid rgba(0, 0, 0, 0.25);
+		font-size: 12px;
+	}
+
+	.pl-cancel {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		height: 34px;
+		padding: 0 14px;
+		border: none;
+		border-radius: 8px;
+		background: #b33a3a;
+		color: #fff;
+		font-weight: 700;
+		font-size: 14px;
+	}
+
+	.pl-cancel:hover {
+		filter: brightness(1.08);
+	}
+
+	.pl-mode {
+		display: flex;
+	}
+
+	.pl-coop {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		height: 34px;
+		padding: 0 12px;
+		border: 1px solid var(--rule-strong);
+		border-radius: 17px;
+		background: transparent;
+		color: var(--ink-2);
+		font-weight: 600;
+		font-size: 14px;
+		white-space: nowrap;
+		max-width: 260px;
+	}
+
+	.pl-coop:hover,
+	.pl-coop.active {
+		border-color: var(--dim);
+		color: var(--ink);
+	}
+
+	.pl-coop .pl-person {
+		color: var(--dim);
+		font-size: 13px;
+	}
+
+	.pl-coop .pl-label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.pl-dots {
+		display: flex;
+	}
+
+	.pl-dots:empty {
+		display: none;
+	}
+
+	.pl-dots i {
+		display: block;
+		width: 10px;
+		height: 10px;
+		margin-right: -2px;
+		border: 2px solid var(--ground);
+		border-radius: 50%;
+	}
+
+	.pl-dots i.off {
+		opacity: 0.35;
+	}
+
+	// ---- narrower PC windows --------------------------------------------------------------------
+	// The top bar is the full window width, so plain media queries match the mock-up's breakpoints exactly.
+	// Below 1480 px Preview and Share become icons; below 1180 px the logo and the co-op text go too,
+	// so the tabs and the gear stay reachable down to 1024 px.
+	@media (max-width: 1480px) {
+		.pl-preview .pl-label,
+		.pl-share .pl-label {
+			display: none;
+		}
+
+		.pl-preview,
+		.pl-share > button,
+		.pl-gear {
+			padding: 0 9px;
+		}
+	}
+
+	@media (max-width: 1180px) {
+		.pl-logo {
+			display: none;
+		}
+
+		.pl-coop .pl-label {
+			display: none;
+		}
+
+		.pl-plan-btn {
+			max-width: 140px;
+			font-size: 14px;
+		}
+
+		.pl-tab {
+			padding: 0 7px;
+			font-size: 12.5px;
+		}
+
+		.pl-right {
+			gap: 4px;
+		}
+
+		.pl-primary {
+			padding: 0 11px;
+		}
+	}
+}
+
+// The navbar stays mounted on the planner (it owns the app-wide hotkeys) but is not shown. visibility
+// rather than display keeps its real height, so --navbar-height stays right for the next page.
+navbar.planner-site-bar-hidden {
+	visibility: hidden;
+	pointer-events: none;
+}
+
+// ---- menus ------------------------------------------------------------------------------------
+// ngx-bootstrap moves these into <body>, so they cannot rely on the .planner-ui tokens above; the
+// Look C values are repeated here on purpose.
+.pl-menu {
+	--surface: #1a1c1f;
+	--surface-2: #24272b;
+	--rule-strong: #3b3f45;
+	--ink: #f4f2ee;
+	--dim: #95938e;
+	--accent: #ffb347;
+	min-width: 250px;
+	padding: 6px;
+	background: var(--surface-2);
+	border: 1px solid var(--rule-strong);
+	border-radius: 10px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.pl-menu .dropdown-header {
+	padding: 6px 10px 2px;
+	color: var(--dim);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.pl-menu-item {
+	display: block;
+	width: 100%;
+	padding: 8px 10px;
+	border-radius: 6px;
+	color: var(--ink);
+	white-space: normal;
+}
+
+.pl-menu-item:hover,
+.pl-menu-item.active {
+	background: var(--surface);
+	color: var(--ink);
+}
+
+.pl-menu-item.active {
+	color: var(--accent);
+}
+
+.pl-menu-item:disabled {
+	opacity: 0.45;
+}
+
+.pl-menu-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 600;
+}
+
+.pl-menu-hint {
+	display: block;
+	color: var(--dim);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.pl-check {
+	margin-left: auto;
+	color: var(--accent);
+}
+
+// ---- co-op box ---------------------------------------------------------------------------------
+// The box is a dropdown that ngx-bootstrap moves into <body>, so it carries the Look C tokens itself.
+.planner-ui .pl-coop-menu {
+	display: flex;
+}
+
+.planner-ui .pl-coop-menu.open .pl-coop {
+	border-color: var(--dim);
+	color: var(--ink);
+}
+
+.pl-coop-panel {
+	--ground: #0f1012;
+	--surface: #1a1c1f;
+	--surface-2: #24272b;
+	--rule: #2a2d31;
+	--rule-strong: #3b3f45;
+	--ink: #f4f2ee;
+	--ink-2: #c6c4bf;
+	--dim: #95938e;
+	--accent: #ffb347;
+	--accent-ink: #1e1305;
+	width: 340px;
+	max-width: calc(100vw - 16px);
+	padding: 12px;
+	background: var(--surface-2);
+	border: 1px solid var(--rule-strong);
+	border-radius: 10px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+	color: var(--ink);
+}
+
+.pl-coop-box {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	font-size: 14px;
+}
+
+.pl-coop-title {
+	margin: 0;
+	font-weight: 700;
+	font-size: 15px;
+	color: var(--ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pl-coop-label {
+	margin: 0;
+	font-weight: 600;
+	color: var(--ink-2);
+}
+
+.pl-coop-line {
+	margin: 0;
+	color: var(--dim);
+	font-size: 13px;
+}
+
+.pl-coop-dim {
+	margin-left: 4px;
+	color: var(--dim);
+	font-size: 12px;
+}
+
+.pl-coop-error {
+	margin: 0;
+	color: #e2557a;
+	font-size: 13px;
+}
+
+.pl-coop-row {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.pl-coop-field {
+	flex: 1 1 auto;
+	min-width: 0;
+	height: 30px;
+	padding: 0 8px;
+	border: 1px solid var(--rule-strong);
+	border-radius: 6px;
+	background: var(--ground);
+	color: var(--ink);
+	font: inherit;
+	font-size: 13px;
+}
+
+.pl-coop-field:focus {
+	outline: 2px solid var(--accent);
+	outline-offset: -1px;
+	border-color: var(--accent);
+}
+
+.pl-coop-field::placeholder {
+	color: var(--dim);
+}
+
+.pl-coop-primary,
+.pl-coop-action,
+.pl-coop-leave,
+.pl-coop-link {
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.pl-coop-primary {
+	flex: none;
+	height: 30px;
+	padding: 0 12px;
+	border: none;
+	border-radius: 6px;
+	background: var(--accent);
+	color: var(--accent-ink);
+}
+
+.pl-coop-action {
+	display: block;
+	width: 100%;
+	padding: 7px 10px;
+	border: 1px solid var(--rule-strong);
+	border-radius: 6px;
+	background: transparent;
+	color: var(--ink);
+	text-align: left;
+}
+
+.pl-coop-action:hover:not(:disabled) {
+	background: var(--surface);
+	border-color: var(--dim);
+}
+
+.pl-coop-primary:hover:not(:disabled) {
+	filter: brightness(1.08);
+}
+
+.pl-coop-primary:disabled,
+.pl-coop-action:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.pl-coop-link {
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: var(--dim);
+	font-size: 12px;
+	font-weight: 600;
+	text-align: left;
+}
+
+.pl-coop-link:hover {
+	color: var(--accent);
+}
+
+.pl-coop-leave {
+	display: block;
+	width: 100%;
+	padding: 7px 10px;
+	border: 1px solid var(--rule-strong);
+	border-radius: 6px;
+	background: transparent;
+	color: #e2557a;
+	text-align: left;
+}
+
+.pl-coop-leave:hover {
+	background: var(--surface);
+	border-color: #e2557a;
+}
+
+.pl-coop-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.pl-coop-players {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.pl-coop-players li {
+	display: flex;
+	align-items: center;
+	color: var(--ink-2);
+}
+
+.pl-coop-players li.off {
+	color: var(--dim);
+}
+
+.pl-coop-players li.off .pl-coop-dot {
+	opacity: 0.35;
+}
+
+.pl-coop-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-right: 7px;
+	border-radius: 50%;
+	flex: none;
+}
+
+.pl-coop-swatches {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.pl-coop-swatch {
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: 2px solid transparent;
+	border-radius: 50%;
+	cursor: pointer;
+}
+
+.pl-coop-swatch.selected {
+	border-color: var(--ink);
+	box-shadow: 0 0 0 2px var(--surface-2);
+}

@@ -25,35 +25,52 @@ const APPLY_DEBOUNCE_MS = 400;
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [FormsModule, FaIconComponent, AppTooltipDirective, GameIconComponent, GoToNodeButtonComponent],
 	styles: [`
+		:host { display: block; }
+		.subplan-panel { display: grid; gap: 14px; }
+		.subplan-title { gap: 10px; }
+		.subplan-title .pp-title { font-size: 18px; }
+		.subplan-build { gap: 10px; }
+
+		/* The contents sit side by side, each filling the width it can. */
+		.subplan-parts {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+			gap: 14px 24px;
+			align-items: start;
+		}
 		.io-tiles {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 0.5rem;
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+			gap: 8px;
 		}
 		.io-tile {
-			flex: 1 1 130px;
-			max-width: 220px;
 			min-width: 0;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
-			gap: 0.15rem;
-			padding: 0.4rem 0.4rem 0.5rem;
-			background: rgba(255, 255, 255, 0.04);
+			gap: 4px;
+			padding: 8px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 10px;
 			text-align: center;
 		}
 		.io-tile .io-name {
 			max-width: 100%;
+			color: var(--ink);
+			font-size: 13px;
+			font-weight: 600;
 		}
 		.io-tile .input-group {
-			margin-top: 0.2rem;
+			width: 100%;
+			margin-top: 2px;
 		}
 		.io-total {
-			font-size: 0.75rem;
-			margin-top: 0.15rem;
+			font-size: 12px;
+			color: var(--dim);
 		}
 		.build-count {
-			width: 6.5rem;
+			width: 7rem;
 		}
 	`],
 })

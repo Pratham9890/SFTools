@@ -1,53 +1,51 @@
-<div class="p-2 d-flex flex-column gap-2">
-	<info-note>Items that can go into the AWESOME Sink instead of being left over as byproducts.</info-note>
-	<div class="card">
-		<div class="card-header d-flex align-items-center flex-wrap gap-2 py-1 px-2">
-			<input
-				type="search"
-				class="form-control form-control-sm bg-dark text-light border-secondary flex-grow-1 w-auto"
-				style="min-width: 140px;"
-				name="sink-filter"
-				placeholder="Filter by item name…"
-				[(ngModel)]="filter"
-			/>
-			<div class="btn-group btn-group-sm" role="group">
-				<button
-					class="btn py-0"
-					[class.btn-secondary]="sortBy === 'name'"
-					[class.btn-outline-secondary]="sortBy !== 'name'"
-					type="button"
-					(click)="setSortBy('name')"
-				>Name</button>
-				<button
-					class="btn py-0"
-					[class.btn-secondary]="sortBy === 'points'"
-					[class.btn-outline-secondary]="sortBy !== 'points'"
-					type="button"
-					(click)="setSortBy('points')"
-				>Points</button>
-			</div>
-			<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(items, true)">All</button>
-			<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(items, false)">None</button>
+<div class="p-2 pp-stack">
+
+	<div class="pp-row top">
+		<input
+			type="search"
+			class="form-control form-control-sm bg-dark text-light border-secondary pp-search"
+			name="sink-filter"
+			placeholder="Filter by item name…"
+			[(ngModel)]="filter"
+		/>
+		<div class="btn-group btn-group-sm pp-sort" role="group">
+			<button
+				class="btn py-0"
+				[class.btn-secondary]="sortBy === 'name'"
+				[class.btn-outline-secondary]="sortBy !== 'name'"
+				type="button"
+				(click)="setSortBy('name')"
+			>Name</button>
+			<button
+				class="btn py-0"
+				[class.btn-secondary]="sortBy === 'points'"
+				[class.btn-outline-secondary]="sortBy !== 'points'"
+				type="button"
+				(click)="setSortBy('points')"
+			>Points</button>
 		</div>
-		<div class="card-body p-2">
-			@for (item of items; track item.className) {
-				<div class="form-check">
-					<input
-						class="form-check-input"
-						type="checkbox"
-						[id]="'sink-' + item.className"
-						[checked]="isEnabled(item)"
-						(change)="toggle(item)"
-					/>
-					<label class="form-check-label d-flex align-items-center gap-2 w-100" [for]="'sink-' + item.className">
-						<game-icon [hash]="item.icon" [size]="18" [alt]="item.name"></game-icon>
-						<span class="text-truncate">{{ item.name }}</span>
-						<span class="small text-secondary ms-auto text-nowrap">{{ rateFormatter.amount(item.sinkPoints) }} points</span>
-					</label>
-				</div>
-			} @empty {
-				<div class="text-secondary fst-italic">No sinkable items match the filter.</div>
-			}
-		</div>
+		<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(items, true)">All</button>
+		<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(items, false)">None</button>
 	</div>
+	<info-note>Items that can go into the AWESOME Sink instead of being left over as byproducts.</info-note>
+
+	<div class="pp-cols">
+		@for (item of items; track item.className) {
+			<div class="pp-lrow">
+				<input
+					class="form-check-input m-0"
+					type="checkbox"
+					[id]="'sink-' + item.className"
+					[checked]="isEnabled(item)"
+					(change)="toggle(item)"
+				/>
+				<game-icon [hash]="item.icon" [size]="18" [alt]="item.name"></game-icon>
+				<label class="text-truncate" [for]="'sink-' + item.className">{{ item.name }}</label>
+				<span class="pp-note text-nowrap">{{ rateFormatter.amount(item.sinkPoints) }} points</span>
+			</div>
+		} @empty {
+			<div class="text-secondary fst-italic pp-note">No sinkable items match the filter.</div>
+		}
+	</div>
+
 </div>

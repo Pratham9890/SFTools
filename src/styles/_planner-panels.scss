@@ -1,0 +1,59 @@
+// Contents of the planner's drop-down panels (tabs, More entries, Block details).
+// Uses the tokens from _planner-shell.scss (.planner-ui). Panels lay out across the full width.
+
+.planner-ui {
+	// Bootstrap primitives inside the planner, restyled to the planner look.
+	.form-control, .form-select {
+		background-color: var(--ground);
+		color: var(--ink);
+		border: 1px solid var(--rule-strong);
+		border-radius: 8px;
+		min-height: 36px;
+		&:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+		&:disabled { opacity: .5; }
+	}
+	.form-control-sm, .form-select-sm { min-height: 32px; }
+	.input-group-text { background: var(--surface-2); color: var(--dim); border-color: var(--rule-strong); }
+	.form-check-input {
+		background-color: var(--ground);
+		border: 1.5px solid var(--rule-strong);
+		&:checked { background-color: var(--accent); border-color: var(--accent); }
+		&:focus { box-shadow: 0 0 0 2px var(--accent-soft); }
+	}
+	.form-range::-webkit-slider-thumb { background: var(--accent); }
+	.form-range::-moz-range-thumb { background: var(--accent); }
+	.btn { border-radius: 8px; font-weight: 600; }
+	.btn-outline-secondary, .btn-outline-light { color: var(--ink-2); border-color: var(--rule-strong); &:hover, &.active { background: var(--surface-2); color: var(--ink); border-color: var(--rule-strong); } }
+	.btn-primary, .btn-success { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+	.table-dark { --bs-table-bg: transparent; --bs-table-border-color: var(--rule); color: var(--ink); }
+	.text-secondary { color: var(--dim) !important; }
+}
+
+// Layout helpers for panel templates.
+.pp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.pp-row.top { align-items: flex-start; }
+.pp-stack { display: grid; gap: 8px; align-content: start; }
+.pp-section { display: grid; gap: 8px; align-content: start; min-width: 240px; }
+.pp-section > h3, .pp-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
+.pp-field { display: grid; gap: 6px; }
+.pp-field > label, .pp-label { font-weight: 600; color: var(--ink); }
+.pp-note { color: var(--dim); font-size: 13px; }
+.pp-warn { color: var(--warn); font-size: 13px; }
+.pp-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; }
+.pp-cols.wide { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
+.pp-columns { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: flex-start; }
+.pp-item { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pp-item img, .pp-item game-icon { flex: none; }
+.pp-item > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-lrow { display: grid; grid-template-columns: 20px 24px 1fr auto; align-items: center; gap: 8px; min-height: 34px; padding: 3px 6px; border-radius: 6px; cursor: pointer; }
+.pp-lrow:hover { background: var(--surface-2); }
+.pp-tag { font-size: 11px; font-weight: 700; color: var(--accent); }
+.pp-tag.good { color: var(--good); }
+.pp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-chips > * { padding: 4px 10px; background: var(--ground); border: 1px solid var(--rule); border-radius: 14px; color: var(--ink-2); }
+.pp-switch { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--ground); border: 1px solid var(--rule-strong); border-radius: 10px; }
+.pp-switch small { display: block; color: var(--dim); }
+.pp-amount { position: relative; flex: none; }
+.pp-amount .form-control { padding-right: 46px; text-align: right; }
+.pp-amount .pp-unit { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--dim); font-size: 13px; pointer-events: none; }
+.pp-divider { height: 1px; background: var(--rule); margin: 6px 0; }

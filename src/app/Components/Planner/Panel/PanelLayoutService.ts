@@ -1,4 +1,4 @@
-import {computed, Injectable, OnDestroy, signal} from '@angular/core';
+import {computed, Inject, Injectable, OnDestroy, signal} from '@angular/core';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {Subscription} from 'rxjs';
 import {debounceTime, distinctUntilChanged, filter, skip} from 'rxjs/operators';
@@ -10,6 +10,7 @@ import {PanelRuntimeState} from '@src/Components/Planner/Panel/PanelRuntimeState
 import {PanelSide} from '@src/Components/Planner/Panel/PanelSide';
 import {RailMetrics} from '@src/Components/Planner/Panel/RailMetrics';
 import {RailSizes} from '@src/Components/Planner/Panel/RailSizes';
+import {PLANNER_DOCK, PlannerDockApi} from '@src/Components/Planner/Dock/PlannerDockApi';
 import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 
 const MIN_SIZE = 100;
@@ -71,6 +72,8 @@ export class PanelLayoutService implements OnDestroy
 	public readonly activeRight = computed(() => this.activeDockedPanel('right'));
 	public readonly activeTop = computed(() => this.activeDockedPanel('top'));
 
+	// Deliberately false until the panel container measures: on the phone that means no sheet opens on load,
+	// which is today's behaviour. The shell in PlannerComponent uses the same breakpoint for its own first render.
 	private readonly mobileSignal = signal(false);
 	public readonly isMobile = this.mobileSignal.asReadonly();
 
@@ -81,16 +84,24 @@ export class PanelLayoutService implements OnDestroy
 		if (this.mobileSignal()) {
 			return {left: 0, right: 0, top: 0, bottom: MOBILE_NAV_HEIGHT};
 		}
-		const sizes = this.sizes();
+		// The dock lies over the chart, so its height is the covered area; the chart itself starts below the top bar.
 		return {
-			left: this.railWidth() + (this.activeLeft() !== null ? sizes.left : 0),
-			right: this.activeRight() !== null ? sizes.right : 0,
-			top: this.activeTop() !== null ? sizes.top : 0,
+			left: 0,
+			right: 0,
+			top: this.dock.height(),
 			bottom: STATUS_BAR_HEIGHT,
 		};
 	});
 
-	public constructor(private readonly settings: SettingsManager)
+	/**
+	 * The dock height in CSS, for the overlays that must stay below it. The phone has no dock, so it stays 0 there.
+	 */
+	public readonly overlayTop = computed(() => this.mobileSignal() ? 0 : this.dock.height());
+
+	public constructor(
+		private readonly settings: SettingsManager,
+		@Inject(PLANNER_DOCK) private readonly dock: PlannerDockApi,
+	)
 	{
 		// The key dedupe skips no-op emissions; skip(1) drops the just-restored snapshot.
 		this.saveSubscription = toObservable(computed(() =>
@@ -177,18 +188,24 @@ export class PanelLayoutService implements OnDestroy
 			open: false,
 			floating: panel.defaultFloating ?? false,
 		});
-		if (panel.openByDefault) {
-			this.openPanel(panel.id);
-		}
+		// Nothing opens by itself: the desktop's panels all open from the top bar and its dock, and the phone's
+		// sheet only appears when its bottom bar picks a panel. (The phone never read these open states.)
 	}
 
 	public isOpen(id: string): boolean
 	{
+		if (!this.mobileSignal()) {
+			return this.dock.isOpen(this.dock.dockIdForPanel(id));
+		}
 		return this.statesSignal().get(id)?.open ?? false;
 	}
 
 	public toggleFromRail(id: string): void
 	{
+		if (!this.mobileSignal()) {
+			this.dock.toggle(this.dock.dockIdForPanel(id));
+			return;
+		}
 		if (this.isVisible(id)) {
 			this.closePanel(id);
 		} else {
@@ -198,6 +215,9 @@ export class PanelLayoutService implements OnDestroy
 
 	public isVisible(id: string): boolean
 	{
+		if (!this.mobileSignal()) {
+			return this.dock.isOpen(this.dock.dockIdForPanel(id));
+		}
 		const state = this.statesSignal().get(id);
 		if (!state?.open) {
 			return false;
@@ -212,8 +232,13 @@ export class PanelLayoutService implements OnDestroy
 
 	public focusPanel(id: string): void
 	{
-		if (this.mobileSignal() && id !== 'plans') {
-			this.setMobilePanel(id);
+		if (this.mobileSignal()) {
+			if (id !== 'plans') {
+				this.setMobilePanel(id);
+				return;
+			}
+		} else {
+			this.dock.open(this.dock.dockIdForPanel(id));
 			return;
 		}
 		const state = this.statesSignal().get(id);
@@ -235,8 +260,13 @@ export class PanelLayoutService implements OnDestroy
 
 	public openPanel(id: string): void
 	{
-		if (this.mobileSignal() && id !== 'plans') {
-			this.setMobilePanel(id);
+		if (this.mobileSignal()) {
+			if (id !== 'plans') {
+				this.setMobilePanel(id);
+				return;
+			}
+		} else {
+			this.dock.open(this.dock.dockIdForPanel(id));
 			return;
 		}
 		const state = this.statesSignal().get(id);
@@ -252,19 +282,14 @@ export class PanelLayoutService implements OnDestroy
 
 	public closePanel(id: string): void
 	{
-		if (this.mobileSignal()) {
-			if (this.mobileActivePanelIdSignal() === id) {
-				this.setMobilePanel(null);
+		if (!this.mobileSignal()) {
+			if (this.dock.openId() === this.dock.dockIdForPanel(id)) {
+				this.dock.close();
 			}
 			return;
 		}
-		const state = this.statesSignal().get(id);
-		if (!state || !state.open) return;
-		this.setState(id, {...state, open: false});
-		if (state.floating) {
-			this.removeFromGroup(id);
-		} else {
-			this.removeTab(state.side, id);
+		if (this.mobileActivePanelIdSignal() === id) {
+			this.setMobilePanel(null);
 		}
 	}
 

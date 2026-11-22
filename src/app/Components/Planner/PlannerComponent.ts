@@ -46,6 +46,11 @@ import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsServi
 import {PlannerGraphService} from '@src/Components/Planner/PlannerGraphService';
 import {PlannerPanelContainerComponent} from '@src/Components/Planner/Panel/PlannerPanelContainerComponent';
 import {PanelLayoutService} from '@src/Components/Planner/Panel/PanelLayoutService';
+import {CALCULATOR_DOCK_IDS, PLANNER_DOCK} from '@src/Components/Planner/Dock/PlannerDockApi';
+import {PlannerDockService} from '@src/Components/Planner/Dock/PlannerDockService';
+import {PlannerDockComponent} from '@src/Components/Planner/Dock/PlannerDockComponent';
+import {PlannerTopBarComponent} from '@src/Components/Planner/TopBar/PlannerTopBarComponent';
+import {SiteChrome} from '@src/Model/SiteChrome';
 import {CalculatorComponent} from '@src/Components/Planner/Panels/Calculator/CalculatorComponent';
 import {PlannerCodexComponent} from '@src/Components/Planner/Panels/Codex/PlannerCodexComponent';
 import {PlannerHelpComponent} from '@src/Components/Planner/Panels/Help/PlannerHelpComponent';
@@ -103,6 +108,7 @@ import {Plan} from '@src/Model/Planner/Plan';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {ProductionRequest} from '@src/Model/Planner/ProductionRequest';
 import {PlannerLocationService} from '@src/Model/Planner/PlannerLocationService';
+import {LastPlanRestorer} from '@src/Model/Planner/LastPlanRestorer';
 import {PlanSerializer} from '@src/Model/Planner/PlanSerializer';
 import {SubplanIOResolver} from '@src/Model/Planner/SubplanIOResolver';
 import {SubplanInliner} from '@src/Model/Planner/SubplanInliner';
@@ -134,7 +140,7 @@ const RATIO_TOLERANCE = 1e-4;
 
 @Component({
 	templateUrl: './PlannerComponent.html',
-	imports: [PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, CalculatePreviewDialogComponent, OverclockDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
+	imports: [PlannerTopBarComponent, PlannerDockComponent, PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, CalculatePreviewDialogComponent, OverclockDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
 	providers: [
 		FolderRecalculationService,
 		PlannerGraphService,
@@ -142,16 +148,25 @@ const RATIO_TOLERANCE = 1e-4;
 		OldPlanImporter,
 		OldToolsAutoImportService,
 		PanelLayoutService,
+		PlannerDockService,
+		{provide: PLANNER_DOCK, useExisting: PlannerDockService},
 		PlannerActionsService,
 		PlannerContextMenuService,
 		PlannerNodeTooltipService,
 		GraphHistoryService,
+		// Reopens the plan this device used last when the URL names none.
+		LastPlanRestorer,
 		{provide: CodexNavigation, useClass: PanelCodexNavigation},
 		// Lets the calculator ask the map panel to draw or show something.
 		MapPanelRequests,
 	],
 	changeDetection: ChangeDetectionStrategy.Eager,
-	host: {style: 'position: fixed; top: var(--navbar-height, 56px); left: 0; right: 0; bottom: 0; overflow: hidden;'},
+	host: {
+		class: 'planner-ui',
+		style: 'position: fixed; left: 0; right: 0; bottom: 0; overflow: hidden;',
+		// The site bar is hidden while the planner's own top bar is up; the phone layout keeps the site bar.
+		'[style.top]': "isMobileLayout() ? 'var(--navbar-height, 56px)' : '0'",
+	},
 })
 export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSource
 {
@@ -172,6 +187,33 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 	private readonly addNodePositionSignal = signal<GraphPoint | null>(null);
 	public readonly addNodeOpen = computed(() => this.addNodePositionSignal() !== null);
+
+	/** The phone keeps the old site bar, its bottom bar and its sheet; only the desktop gets the planner top bar and dock. */
+	private readonly phoneSignal = signal(PlannerComponent.isPhoneWidth());
+	public readonly isMobileLayout = this.phoneSignal.asReadonly();
+
+	/**
+	 * The panel container measures the same breakpoint, but only after its view exists. This one is read from the
+	 * window so the very first render already picks the right shell and the site bar never flashes on the phone.
+	 * `PanelLayoutService.isMobile` is deliberately not consulted: it starts false on both layouts, so a phone would
+	 * briefly look like a desktop here and draw the top bar before the container had measured.
+	 */
+	private static isPhoneWidth(): boolean
+	{
+		return typeof window !== 'undefined' && window.innerWidth < 768;
+	}
+
+	/** Keeps the shell in step when the window is dragged across the phone breakpoint. */
+	@HostListener('window:resize')
+	public onWindowResize(): void
+	{
+		const phone = PlannerComponent.isPhoneWidth();
+		if (phone === this.phoneSignal()) {
+			return;
+		}
+		this.phoneSignal.set(phone);
+		this.siteChrome.fullScreen.set(!phone);
+	}
 
 	private readonly pendingConnectSignal = signal<GraphConnectToBlankRequest | null>(null);
 	public readonly addNodeFilter = computed<AddNodeFilter | null>(() => {
@@ -225,6 +267,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		private readonly rateFormatter: RateFormatter,
 		private readonly settings: SettingsManager,
 		private readonly plannerLocation: PlannerLocationService,
+		private readonly lastPlanRestorer: LastPlanRestorer,
 		private readonly activeShare: ActiveShareManager,
 		public readonly planLink: ActivePlanLinkManager,
 		public readonly shareDialog: ShareDialogService,
@@ -240,14 +283,23 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		private readonly planMeta: PlanMetaResolver,
 		private readonly route: ActivatedRoute,
 		private readonly router: Router,
+		private readonly dock: PlannerDockService,
+		private readonly siteChrome: SiteChrome,
 	)
 	{
+		// The planner draws its own top bar and takes the whole window; the site bar comes back when it is destroyed.
+		// The phone keeps the old site bar and its own bottom sheet. Set here rather than in an effect, so the first
+		// paint already has the right chrome; the resize listener below follows a window dragged across the breakpoint.
+		this.siteChrome.fullScreen.set(!this.isMobileLayout());
+
 		// A plan id that isn't the user's own may be someone else's plan link; the URL → state sync prompts if it turns out to be theirs.
 		const planIdParam = route.snapshot.paramMap.get('planId');
 		const ownPlan = planIdParam === null || planManager.plans().some(p => p.id === planIdParam);
 		if (route.snapshot.paramMap.get('shareId') === null && ownPlan) {
 			signInPrompt.maybePrompt();
 		}
+
+		this.lastPlanRestorer.start();
 
 		panelLayout.register({
 			id: 'plans',
@@ -665,9 +717,12 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 		this.subscription.add(
 			this.route.paramMap.subscribe(params => {
+				// A bare planner URL is a reload of whatever was open, not a reason to forget it.
+				const planId = params.get('planId');
+				if (planId === null) return;
 				const version = this.versionManager.activeVersion();
 				if (!version) return;
-				this.plannerLocation.remember(this.versionManager.urlSlug(version), params.get('planId'));
+				this.plannerLocation.remember(this.versionManager.urlSlug(version), planId);
 			}),
 		);
 
@@ -827,6 +882,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 	public ngOnDestroy(): void
 	{
+		this.siteChrome.fullScreen.set(false);
 		this.cancelCalculation();
 		this.subscription.unsubscribe();
 		this.hotkeyRegistrations.forEach(registration => registration.unregister());
@@ -868,8 +924,14 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		);
 		CalculatorTabHotkeys.ENTRIES.forEach(entry => {
 			this.hotkeyRegistrations.push(this.hotkeys.register(entry.action, () => {
-				this.panelLayout.focusPanel('calculator');
+				if (this.panelLayout.isMobile()) {
+					this.panelLayout.focusPanel('calculator');
+					this.calculatorTabs.setActiveTab(entry.tab);
+					return;
+				}
+				// Each tab is its own dock entry now; the shared tab state still tracks it for the old calculator.
 				this.calculatorTabs.setActiveTab(entry.tab);
+				this.dock.open(CALCULATOR_DOCK_IDS[entry.tab]);
 			}));
 		});
 		this.panelLayout.registered().forEach(panel => {
