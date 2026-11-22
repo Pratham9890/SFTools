@@ -165,6 +165,7 @@ const RATIO_TOLERANCE = 1e-4;
 	changeDetection: ChangeDetectionStrategy.Eager,
 	host: {
 		class: 'planner-ui',
+		'[attr.data-look]': 'look()',
 		style: 'position: fixed; left: 0; right: 0; top: 0; bottom: 0; overflow: hidden;',
 	},
 })
@@ -172,6 +173,9 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 {
 
 	@ViewChild('graphContainer') private graphContainerRef!: ElementRef<HTMLElement>;
+
+	/** Drives the host's data-look attribute: the shell and panel styles switch to Look B (Game style) on 'game'. */
+	public readonly look = computed(() => this.settings.graph().look);
 
 	private hotkeyRegistrations: HotkeyRegistration[] = [];
 

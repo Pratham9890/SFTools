@@ -108,3 +108,21 @@ body:has(.planner-ui) {
 	.popover-header { background: var(--surface-2); color: var(--ink); border-color: var(--rule); }
 	.popover-body { color: var(--ink); }
 }
+
+// The same menus in Look B (Game style): neutral greys, radius 2, Roboto Condensed, an orange rule on top.
+body:has(.planner-ui[data-look="game"]) {
+	--ground: #161616; --surface: #242424; --surface-2: #2e2e2e; --rule: #333; --rule-strong: #474747;
+	--ink: #f2f0ec; --ink-2: #c4c1bb; --dim: #9a968f; --accent: #fa9549; --accent-ink: #1a0f04;
+	--accent-soft: rgba(250, 149, 73, 0.16);
+
+	.dropdown-menu {
+		border-radius: 2px;
+		border-top: 2px solid var(--accent);
+		font-family: "Roboto Condensed", "Arial Narrow", sans-serif;
+	}
+	.dropdown-item { border-radius: 2px; }
+	.tooltip { font-family: "Roboto Condensed", "Arial Narrow", sans-serif; }
+	.tooltip-inner { border-radius: 2px; }
+	.popover { border-radius: 2px; }
+	.popover-header { border-radius: 0; }
+}

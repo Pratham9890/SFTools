@@ -519,6 +519,116 @@
 	}
 }
 
+// ---- Look B ("Game style") ----------------------------------------------------------------------
+// The same shell with the mock-up's body[data-look="b"] tokens and shell rules, switched by the
+// Planner's Settings > Appearance > Look, which sets data-look on the .planner-ui host.
+.planner-ui[data-look="game"] {
+	--ground: #161616;
+	--chart: #1c1c1c;
+	--surface: #242424;
+	--surface-2: #2e2e2e;
+	--rule: #333;
+	--rule-strong: #474747;
+	--ink: #f2f0ec;
+	--ink-2: #c4c1bb;
+	--dim: #9a968f;
+	--accent: #fa9549;
+	--accent-ink: #1a0f04;
+	--accent-soft: rgba(250, 149, 73, 0.16);
+	--good: #7ccf8e;
+	--warn: #f3c04f;
+	--radius: 2px;
+	--font: "Roboto Condensed", "Arial Narrow", sans-serif;
+
+	// Top bar: flat near-black with the orange rule under it.
+	planner-top-bar {
+		background: #111;
+		border-bottom: 2px solid var(--accent);
+	}
+
+	// Tabs: uppercase, and the active tab is a filled orange block instead of an underline.
+	.pl-tab {
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		font-size: 13px;
+	}
+
+	.pl-tab.active {
+		background: var(--accent);
+		color: var(--accent-ink);
+	}
+
+	.pl-tab.active::after {
+		display: none;
+	}
+
+	// Square primary button and chevron, as in the mock-up.
+	.pl-primary {
+		border-radius: 2px 0 0 2px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.pl-chev {
+		border-radius: 0 2px 2px 0;
+	}
+
+	// The co-op pill loses its rounding.
+	.pl-coop {
+		border-radius: 2px;
+	}
+
+	// Dock header: uppercase, orange title. The dock's own :host styles are more specific, so name the head.
+	planner-dock .pl-dock-head .pl-title {
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-size: 15px;
+		color: var(--accent);
+	}
+
+	// Zoom controls take the chart-tools corner.
+	planner-zoom-controls {
+		border-radius: 2px;
+	}
+
+	@media (max-width: 1180px) {
+		.pl-tab {
+			font-size: 11.5px;
+			letter-spacing: 0.02em;
+		}
+	}
+
+	// The phone's seven bottom tabs keep their tight sizes.
+	@media (max-width: 767.98px) {
+		.pl-tab {
+			font-size: 10px;
+			letter-spacing: 0;
+		}
+	}
+}
+
+// Menus opened on <body> in Look B: these classes carry their own Look C tokens above, so they need the Look B
+// values here. The Bootstrap dropdown, tooltip and popover tokens are in _planner-panels.scss.
+body:has(.planner-ui[data-look="game"]) {
+	.pl-menu,
+	.pl-coop-panel {
+		--ground: #161616;
+		--surface: #242424;
+		--surface-2: #2e2e2e;
+		--rule: #333;
+		--rule-strong: #474747;
+		--ink: #f2f0ec;
+		--ink-2: #c4c1bb;
+		--dim: #9a968f;
+		--accent: #fa9549;
+		--accent-ink: #1a0f04;
+		--accent-soft: rgba(250, 149, 73, 0.16);
+		border-radius: 2px;
+		border-top: 2px solid var(--accent);
+		font-family: "Roboto Condensed", "Arial Narrow", sans-serif;
+	}
+}
+
 // The navbar stays mounted on the planner (it owns the app-wide hotkeys) but is not shown. visibility
 // rather than display keeps its real height, so --navbar-height stays right for the next page.
 navbar.planner-site-bar-hidden {
