@@ -1,4 +1,5 @@
 import {Component, OnDestroy, ChangeDetectionStrategy, Signal, computed} from '@angular/core';
+import {InputNode} from '@src/Model/Planner/Solver/Response/InputNode';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {Subscription} from 'rxjs';
 import {FormsModule} from '@angular/forms';
@@ -64,6 +65,22 @@ export class CalculatorInputTabComponent implements OnDestroy
 
 	private loadedPlanId: string | null = null;
 	private loadedInputs: string | null = null;
+	/** What the last calculation takes from this supply, or null before anything was calculated. */
+	public usedFor(itemClassName: string | null): number | null
+	{
+		const graph = this.planManager.activePlan()?.graph ?? null;
+		if (graph === null || itemClassName === null) {
+			return null;
+		}
+		let used = 0;
+		for (const node of graph.nodes) {
+			if (node instanceof InputNode && node.item.className === itemClassName) {
+				used += node.amount;
+			}
+		}
+		return Math.round(used * 100) / 100;
+	}
+
 	private readonly subscription = new Subscription();
 
 	public constructor(

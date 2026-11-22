@@ -47,7 +47,8 @@
 					>
 				</div>
 
-				<span class="pp-note used">Using up to {{ row.amount }}/min</span>
+				@let used = usedFor(row.itemClassName);
+				<span class="pp-note used">@if (used === null) {Up to {{ row.amount }}/min} @else {Using {{ used }} of {{ row.amount }}/min}</span>
 
 				<button
 					class="btn btn-sm btn-outline-danger px-2 remove"
