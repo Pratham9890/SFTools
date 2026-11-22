@@ -97,12 +97,16 @@ const LOOK_C_ALT_HEIGHT = 16;
 const LOOK_C_ALT_WIDTH = 26;
 const LOOK_C_ALT_RADIUS = 4;
 const LOOK_C_ALT_GAP = 6;
-const LOOK_C_LINE_HEIGHT = 17;
-// Text centres, measured from the block's top: a recipe block reads count, name, clocks, makes.
+const LOOK_C_LINE_HEIGHT = 20;
+// Text centres, measured from the block's top: a recipe block reads count, name, clocks, makes. Each line sits at
+// least its font size plus 4 px below the one above, so a 19 px count and 14 px lines never touch.
 const LOOK_C_COUNT_Y = 24;
-const LOOK_C_NAME_Y = 45;
-const LOOK_C_CLOCK_Y = 63;
-const LOOK_C_MAKES_Y = 84;
+const LOOK_C_NAME_Y = 48;
+const LOOK_C_CLOCK_Y = 68;
+const LOOK_C_CLOCK_STEP = 20;
+const LOOK_C_MAKES_Y = 88;
+/** The gap each recipe line keeps from the line above it, once the line's own font is accounted for. */
+const LOOK_C_LINE_GAP = 20;
 // Other blocks read name, amount, kind.
 const LOOK_C_ITEM_NAME_Y = 24;
 const LOOK_C_AMOUNT_Y = 48;
@@ -117,8 +121,8 @@ const LOOK_C_DIM = '#95938e';
 const LOOK_C_ACCENT = '#ffb347';
 const LOOK_C_GOOD = '#79d39a';
 const LOOK_C_WARN = '#d4663f';
-/** The fill setting tints the card toward its type colour; even at its strongest the card stays dark. */
-const LOOK_C_TINT_MAX = 0.14;
+/** The fill setting tints the card toward its type colour; capped at 5%, so the card always reads as dark grey. */
+const LOOK_C_TINT_MAX = 0.05;
 const CHART_COLOUR = '#121315';
 const SLOOP_GLOW_COLOR = '#c56cf0';
 const LOCK_ICON_SIZE = 18;
@@ -1779,7 +1783,7 @@ export class PlannerGraphService implements OnDestroy
 		const textX = this.cardTextX(content);
 		const recipe = node instanceof RecipeNode;
 		const clockLines = content.dimLine === '' ? 0 : content.dimLine.split('\n').length;
-		const makesY = (LOOK_C_MAKES_Y + Math.max(0, clockLines - 1) * LOOK_C_LINE_HEIGHT) * scale;
+		const makesY = this.recipeMakesY(clockLines) * scale;
 		const nameY = (recipe ? LOOK_C_NAME_Y : LOOK_C_ITEM_NAME_Y) * scale;
 		const nameWidth = measureTextWidth(content.name, LOOK_C_NAME_FONT * scale, true);
 		const altX = textX + nameWidth + LOOK_C_ALT_GAP * scale;
@@ -1822,7 +1826,8 @@ export class PlannerGraphService implements OnDestroy
 					text: content.dimLine,
 					display: content.dimLine === '' ? 'none' : 'inline',
 					x: textX,
-					y: (recipe ? LOOK_C_CLOCK_Y : LOOK_C_KIND_Y) * scale,
+					// A multi-line text block is centred on y, so lift it to keep its first line on the clock row.
+					y: (recipe ? LOOK_C_CLOCK_Y + (clockLines - 1) * LOOK_C_CLOCK_STEP / 2 : LOOK_C_KIND_Y) * scale,
 					lineHeight: LOOK_C_LINE_HEIGHT * scale,
 					fontSize: (recipe ? LOOK_C_DIM_FONT : LOOK_C_KIND_FONT) * scale,
 					...fade,
@@ -3446,7 +3451,7 @@ export class PlannerGraphService implements OnDestroy
 		const width = Math.max(LOOK_C_WIDTH, Math.ceil((textInset + textWidth + LOOK_C_TEXT_PAD_RIGHT) / LOOK_C_WIDTH_STEP) * LOOK_C_WIDTH_STEP);
 		// Height to the last line the card draws, plus its padding; the flow layout may still make it taller for ports.
 		const lastY = recipe
-			? LOOK_C_MAKES_Y + Math.max(0, dimLines - 1) * LOOK_C_LINE_HEIGHT
+			? this.recipeMakesY(dimLines)
 			: extraLines > 0 ? LOOK_C_EXTRA_Y + (extraLines - 1) * LOOK_C_LINE_HEIGHT : LOOK_C_KIND_Y;
 		const height = Math.max(
 			recipe ? LOOK_C_MIN_HEIGHT : LOOK_C_OTHER_MIN_HEIGHT,
@@ -3785,17 +3790,60 @@ export class PlannerGraphService implements OnDestroy
 			?? 100;
 	}
 
+	/** Where "Makes …" sits: just under the last clock line, or the plain row when the clocks are hidden. */
+	private recipeMakesY(dimLines: number): number
+	{
+		return dimLines === 0
+			? LOOK_C_MAKES_Y
+			: LOOK_C_CLOCK_Y + (dimLines - 1) * LOOK_C_CLOCK_STEP + LOOK_C_LINE_GAP;
+	}
+
 	private recipeStats(node: RecipeNode): string
 	{
-		const lines = this.singleLineMachines() ? [] : node.groups.map(group => this.groupStatLine(group));
-		return lines.join('\n');
+		if (this.singleLineMachines()) {
+			return '';
+		}
+		const oneLine = node.groups.map(group => this.groupStatLine(group)).join(' + ');
+		// Only a line longer than the card's default text column wraps, onto at most one more row.
+		const available = LOOK_C_WIDTH - LOOK_C_TEXT_INSET - LOOK_C_TEXT_PAD_RIGHT;
+		if (node.groups.length < 2 || measureTextWidth(oneLine, LOOK_C_DIM_FONT, false) <= available) {
+			return oneLine;
+		}
+		let first = this.groupStatLine(node.groups[0]);
+		let index = 1;
+		while (index < node.groups.length) {
+			const next = `${first} + ${this.groupStatLine(node.groups[index])}`;
+			if (measureTextWidth(next, LOOK_C_DIM_FONT, false) > available) {
+				break;
+			}
+			first = next;
+			index++;
+		}
+		return index >= node.groups.length ? oneLine : `${first}\n${node.groups.slice(index).map(group => this.groupStatLine(group)).join(' + ')}`;
 	}
 
 	/** The somersloop icon is drawn separately (recipeSloopBadges). */
 	private groupStatLine(group: MachineGroup): string
 	{
 		const sloops = group.sloops > 0 ? ` +${group.sloops}` : '';
-		return `${group.machines} @ ${this.rateFormatter.clock(group.clockSpeed)}%${sloops}`;
+		return `${this.rateFormatter.machineCount(group.machines)} at ${this.cardClock(group.clockSpeed)}%${sloops}`;
+	}
+
+	/** The card's clock wording: at most 2 decimals, trailing zeros dropped. Local to the block, not shared. */
+	private cardClock(clockSpeed: number): string
+	{
+		const text = clockSpeed.toFixed(2);
+		if (!text.includes('.')) {
+			return text;
+		}
+		let end = text.length;
+		while (text[end - 1] === '0') {
+			end--;
+		}
+		if (text[end - 1] === '.') {
+			end--;
+		}
+		return text.slice(0, end);
 	}
 
 	private sinkPointsLine(node: SinkNode): string
