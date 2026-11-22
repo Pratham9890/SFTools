@@ -153,6 +153,12 @@ export class PlannerTopBarComponent
 		return label + this.hotkeys.suffix(this.hotkeyOf(dockId));
 	}
 
+	/** Same shortcut as the tooltip hint, for screens that read aria-keyshortcuts instead of a hover card. */
+	public shortcutOf(dockId: string): string
+	{
+		return this.hotkeys.label(this.hotkeyOf(dockId));
+	}
+
 	public isMode(mode: string): boolean
 	{
 		return this.run.mode() === mode;

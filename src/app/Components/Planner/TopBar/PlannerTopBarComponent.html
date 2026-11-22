@@ -3,7 +3,12 @@
 </a>
 
 <div class="pl-plan">
-	<button class="pl-plan-btn" type="button" [class.active]="dock.isOpen('plans')" tooltip="Plans" placement="bottom" (click)="openPlans()">
+	<button
+		class="pl-plan-btn"
+		type="button"
+		[class.active]="dock.isOpen('plans')"
+		(click)="openPlans()"
+	>
 		<span class="pl-plan-name">{{ planLabel() }}</span>
 		<fa-icon [icon]="faChevronDown" class="pl-chevron"></fa-icon>
 	</button>
@@ -14,9 +19,15 @@
 		<button
 			class="pl-tab"
 			type="button"
+			#tabTip="bs-tooltip"
 			[class.active]="dock.isOpen(tab.id)"
 			[tooltip]="tabTooltip(tab.label, tab.id)"
 			placement="bottom"
+			container="body"
+			[delay]="600"
+			[isDisabled]="dock.isOpen(tab.id)"
+			[attr.aria-keyshortcuts]="shortcutOf(tab.id)"
+			(mousedown)="tabTip.hide()"
 			(click)="toggleTab(tab.id)"
 		>
 			{{ tab.label }}
@@ -58,6 +69,8 @@
 		type="button"
 		tooltip="Preview what Calculate would change, and lock blocks you want to keep"
 		placement="bottom"
+		container="body"
+		[delay]="600"
 		[disabled]="run.busy()"
 		(click)="preview()"
 	>
@@ -67,7 +80,7 @@
 
 	<div class="pl-split">
 		@if (run.calculating()) {
-			<button class="pl-primary pl-cancel" type="button" tooltip="Cancel calculation" placement="bottom" (click)="run.cancel()">
+			<button class="pl-primary pl-cancel" type="button" tooltip="Cancel calculation" placement="bottom" container="body" [delay]="600" (click)="run.cancel()">
 				<span class="spinner-border spinner-border-sm" role="status"></span>
 				<span class="pl-label">Cancel</span>
 				<fa-icon [icon]="faXmark"></fa-icon>
@@ -78,19 +91,27 @@
 				type="button"
 				[tooltip]="run.calculateHint() + hotkeys.suffix('planner.calculate')"
 				placement="bottom"
+				container="body"
+				[delay]="600"
+				[attr.aria-keyshortcuts]="hotkeys.label('planner.calculate')"
 				[disabled]="run.calculateDisabled()"
 				(click)="run.calculate()"
 			>
 				<fa-icon [icon]="faPlay"></fa-icon>
 				<span class="pl-label">{{ run.buttonLabel() }}</span>
 			</button>
-			<div class="pl-mode" dropdown container="body" placement="bottom right">
+			<div class="pl-mode" dropdown container="body" placement="bottom right" #modeMenu="bs-dropdown">
 				<button
 					class="pl-primary pl-chev"
 					type="button"
 					dropdownToggle
+					#modeTip="bs-tooltip"
 					tooltip="Calculation mode"
 					placement="bottom"
+					container="body"
+					[delay]="400"
+					[isDisabled]="modeMenu.isOpen"
+					(mousedown)="modeTip.hide()"
 					[disabled]="run.busy()"
 				><span class="visually-hidden">Calculation mode</span><fa-icon [icon]="faChevronDown"></fa-icon></button>
 				<div *dropdownMenu class="dropdown-menu dropdown-menu-end pl-menu pl-mode-menu">
@@ -122,8 +143,13 @@
 			[class.on]="coop.active()"
 			type="button"
 			dropdownToggle
+			#coopTip="bs-tooltip"
 			tooltip="Co-op: start a space, or see who is in yours"
 			placement="bottom"
+			container="body"
+			[delay]="400"
+			[isDisabled]="coopMenu.isOpen"
+			(mousedown)="coopTip.hide()"
 		>
 			@if (!coop.active()) {
 				<fa-icon [icon]="faUser" class="pl-person"></fa-icon>
@@ -140,8 +166,19 @@
 		</div>
 	</div>
 
-	<div class="pl-share" dropdown container="body" placement="bottom right">
-		<button class="pl-ghost pl-icon-only" type="button" dropdownToggle tooltip="Share" placement="bottom">
+	<div class="pl-share" dropdown container="body" placement="bottom right" #shareMenu="bs-dropdown">
+		<button
+			class="pl-ghost pl-icon-only"
+			type="button"
+			dropdownToggle
+			#shareTip="bs-tooltip"
+			tooltip="Share"
+			placement="bottom"
+			container="body"
+			[delay]="400"
+			[isDisabled]="shareMenu.isOpen"
+			(mousedown)="shareTip.hide()"
+		>
 			<fa-icon [icon]="faShareNodes"></fa-icon>
 			<span class="pl-label">Share</span>
 		</button>
@@ -164,9 +201,14 @@
 	<button
 		class="pl-ghost pl-gear"
 		type="button"
+		#gearTip="bs-tooltip"
 		tooltip="Settings"
 		placement="bottom"
+		container="body"
+		[delay]="400"
+		[isDisabled]="sheet.isOpen()"
 		[class.active]="sheet.isOpen()"
+		(mousedown)="gearTip.hide()"
 		(click)="toggleSettings()"
 	><fa-icon [icon]="faGear"></fa-icon></button>
 </div>
