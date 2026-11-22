@@ -19,6 +19,8 @@ export interface GraphSettings
 
 	/** One colour per item across the chart; off gives one neutral colour, fluids stay blue. */
 	readonly colourLinesByItem: boolean;
+	/** The planner's look: 'large' (default) or 'game' (game style). */
+	readonly look: 'large' | 'game';
 
 	/** "100/3" instead of "33.3334" for clock speeds that are really thirds, sixths and so on. */
 	readonly showClockFractions: boolean;

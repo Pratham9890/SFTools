@@ -42,6 +42,7 @@ export class SettingsDefaults
 			addBendPointsByClick: false,
 			layoutMode: 'free',
 			colourLinesByItem: true,
+			look: 'large',
 			showClockFractions: false,
 			showNodeItemIcons: true,
 			showNodeBuildingIcons: true,

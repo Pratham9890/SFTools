@@ -43,6 +43,7 @@ const GRAPH_LABELS: Record<Exclude<keyof GraphSettings, 'nodeAccentColors'>, Set
 	addBendPointsByClick: {label: 'Add bend points by clicking connection lines', format: YES_NO},
 	layoutMode: {label: 'Flow chart layout', format: CHOICE({free: 'Free', grid: 'Grid'})},
 	colourLinesByItem: {label: 'Colour lines by item', format: YES_NO},
+	look: {label: 'Look', format: CHOICE({large: 'Large', game: 'Game style'})},
 	showClockFractions: {label: 'Show clock speeds as fractions', format: YES_NO},
 	showNodeItemIcons: {label: 'Item icons on nodes', format: YES_NO},
 	showNodeBuildingIcons: {label: 'Building icons on nodes', format: YES_NO},
