@@ -843,6 +843,10 @@ export class PlannerGraphService implements OnDestroy
 	private readonly movedNodeIds = new Set<string>();
 	/** Where each node of the current drag started, so its connections can follow it by the same distance. */
 	private readonly dragStartPositions = new Map<string, GraphPoint>();
+	/** Every line's corners when a drag began: x6 shifts all corners of a line touching any moved block, even when its other end stays. */
+	private readonly dragStartVertices = new Map<GraphEdge, GraphPoint[]>();
+	/** A block is pressed: position changes now come from a drag, not from a layout or a remote update. */
+	private nodePressed = false;
 	private readonly nodeById = new Map<string, Node>();
 	private doneNodeIds = new Set<string>();
 	private claimMarkers: ReadonlyMap<string, {color: string; label: string}> = new Map();
@@ -1343,7 +1347,8 @@ export class PlannerGraphService implements OnDestroy
 			return;
 		}
 		const active = edges.size > 0;
-		const nodeIds = new Set<string>();
+		// A selected block stays clear even when it has no connections.
+		const nodeIds = new Set<string>(this.hoveredEdgeIds.size > 0 ? [] : this.focusedNodeIds);
 		edges.forEach(edge => {
 			nodeIds.add(edge.sourceId);
 			nodeIds.add(edge.targetId);
@@ -1750,8 +1755,13 @@ export class PlannerGraphService implements OnDestroy
 			const cellId = body.closest('[data-cell-id]')?.getAttribute('data-cell-id') ?? '';
 			const modelNode = this.nodeById.get(cellId);
 			if (body.tagName.toLowerCase() === 'path') {
-				// Look B cards have no border; their selection is the warmer card fill.
-				body.setAttribute('fill', GAME_CARD_SELECTED);
+				// Look B: the selection is a warmer fill and an outline; put the plain card back.
+				if (modelNode) {
+					const stroke = this.styleFor(modelNode).bodyStroke;
+					body.setAttribute('fill', modelNode.done ? GAME_CARD_BUILT : this.baseStyleFor(modelNode).bodyFill);
+					body.setAttribute('stroke', stroke);
+					body.setAttribute('stroke-width', stroke === 'none' ? '0' : String(NODE_STROKE_WIDTH));
+				}
 				return;
 			}
 			body.setAttribute('stroke', modelNode ? this.styleFor(modelNode).bodyStroke : NODE_FALLBACK_STROKE);
@@ -3191,9 +3201,10 @@ export class PlannerGraphService implements OnDestroy
 			if (selectedIds.has(cell.id)) {
 				if (game) {
 					// Look B has no border: the selected card itself lifts to a warm #33281f (mock-up .node.sel .card).
+					// Warm card plus an orange outline: the fill alone was too close to the other cards to see.
 					cell.attr('body/fill', GAME_CARD_SELECTED);
-					cell.attr('body/stroke', 'none');
-					cell.attr('body/strokeWidth', 0);
+					cell.attr('body/stroke', SELECTED_STROKE);
+					cell.attr('body/strokeWidth', 2);
 				} else {
 					cell.attr('body/stroke', SELECTED_STROKE);
 					cell.attr('body/strokeWidth', SELECTED_STROKE_WIDTH);
@@ -3213,6 +3224,9 @@ export class PlannerGraphService implements OnDestroy
 			}
 		});
 
+		// The selected blocks' connections light up and the rest of the chart fades, as when hovering a line.
+		this.focusedNodeIds = selectedIds;
+		this.refreshConnectionFocus();
 		x6Graph.getEdges().forEach(edge => this.applyEdgeStyle(edge));
 
 		this.vertexDragAnchorId = selected.find(cell => cell.isNode())?.id ?? null;
@@ -3239,6 +3253,10 @@ export class PlannerGraphService implements OnDestroy
 
 		this.selectedVertexMap.clear();
 		this.x6Graph.getEdges().forEach(edge => {
+			// Layout-routed lines re-route when their blocks move; only bend points placed by hand are picked up.
+			if (this.edgeById.get(edge.id)?.autoRouted === true) {
+				return;
+			}
 			const indices = edge.getVertices()
 				.map((vertex, index) => vertex.x >= minX && vertex.x <= maxX && vertex.y >= minY && vertex.y <= maxY ? index : -1)
 				.filter(index => index >= 0);
@@ -3667,6 +3685,11 @@ export class PlannerGraphService implements OnDestroy
 
 		// Not node:moved: that misses nodes dragged as part of a multi-selection.
 		x6Graph.on('node:change:position', ({node, current, previous}) => {
+			// Undo snapshot before the model takes the first new position, so undo puts every block back.
+			if (this.nodePressed && this.movedNodeIds.size === 0 && !this.readOnly && !this.vertexGestureActive) {
+				this.vertexGestureActive = true;
+				this.graphEditStartSubject.next();
+			}
 			this.movedNodeIds.add(node.id);
 			if (previous && !this.dragStartPositions.has(node.id)) {
 				this.dragStartPositions.set(node.id, {x: previous.x, y: previous.y});
@@ -3683,8 +3706,22 @@ export class PlannerGraphService implements OnDestroy
 				this.applySelectionDragToVertices(current.x - previous.x, current.y - previous.y);
 			}
 		});
+		// Pressing a block may start a drag: keep the corners as they are now (a drag also starts from a touch press).
+		x6Graph.on('node:mousedown', () => {
+			this.nodePressed = true;
+			this.movedNodeIds.clear();
+			this.dragStartPositions.clear();
+			this.dragStartVertices.clear();
+			new Set(this.edgeById.values()).forEach(edge => {
+				this.dragStartVertices.set(edge, (edge.vertices ?? []).map(point => ({x: point.x, y: point.y})));
+			});
+		});
 		// x6 notifies every selected node once the drag ends, so the first call sees them all.
+		x6Graph.on('node:mouseup', () => {
+			this.nodePressed = false;
+		});
 		x6Graph.on('node:moved', () => {
+			this.nodePressed = false;
 			this.endNodeDrag();
 			this.drawFlowJunctions();
 		});
@@ -3703,8 +3740,10 @@ export class PlannerGraphService implements OnDestroy
 	{
 		const movedIds = new Set(this.movedNodeIds);
 		const starts = new Map(this.dragStartPositions);
+		const startVertices = new Map(this.dragStartVertices);
 		this.movedNodeIds.clear();
 		this.dragStartPositions.clear();
+		this.dragStartVertices.clear();
 		const x6Graph = this.x6Graph;
 		if (this.readOnly || movedIds.size === 0 || x6Graph === null) {
 			return;
@@ -3729,6 +3768,11 @@ export class PlannerGraphService implements OnDestroy
 			this.graphEditStartSubject.next();
 		}
 		followed.forEach(edge => {
+			// From the corners before the drag: x6 moved them all with the block, which bent the far end diagonally.
+			const before = startVertices.get(edge);
+			if (before !== undefined) {
+				edge.vertices = before.map(point => ({x: point.x, y: point.y}));
+			}
 			const vertices = this.followMovedEnd(x6Graph, edge, movedIds.has(edge.sourceId), starts);
 			edge.vertices = vertices;
 			// Still the layout's route, so a later move adjusts it again; an empty route has nothing left to adjust.
@@ -3755,7 +3799,7 @@ export class PlannerGraphService implements OnDestroy
 		const moved = x6Graph.getCellById(movedId);
 		const other = x6Graph.getCellById(sourceMoved ? edge.targetId : edge.sourceId);
 		const start = starts.get(movedId);
-		if (vertices.length === 0 || !(moved instanceof X6Node) || !(other instanceof X6Node) || start === undefined) {
+		if (!(moved instanceof X6Node) || !(other instanceof X6Node) || start === undefined) {
 			return [];
 		}
 
@@ -3772,37 +3816,43 @@ export class PlannerGraphService implements OnDestroy
 		const movedPoint = vertical
 			? {x: movedBox.x + portX, y: sourceMoved ? movedBox.y + movedBox.height : movedBox.y}
 			: {x: sourceMoved ? movedBox.x + movedBox.width : movedBox.x, y: movedBox.y + portY};
-		const index = sourceMoved ? 0 : vertices.length - 1;
-		const corner = vertices[index];
-		const margin = 10;
+		// A straight line has no corner to move; it gets the even split below, so it does not turn diagonal.
+		if (vertices.length > 0) {
+			const index = sourceMoved ? 0 : vertices.length - 1;
+			const corner = vertices[index];
+			const margin = 10;
 
-		if (vertical) {
-			corner.x = movedPoint.x;
-		} else {
-			corner.y = movedPoint.y;
-		}
-		// The corner must stay outside the block, on the side it was on, or the line would double back.
-		const center = movedBox.getCenter();
-		const before = {x: center.x - dx, y: center.y - dy};
-		const clear = vertical
-			? Math.sign(corner.y - center.y) === Math.sign(corner.y - before.y)
-				&& Math.abs(corner.y - center.y) > movedBox.height / 2 + margin
-			: Math.sign(corner.x - center.x) === Math.sign(corner.x - before.x)
-				&& Math.abs(corner.x - center.x) > movedBox.width / 2 + margin;
-		if (clear) {
-			return vertices;
+			if (vertical) {
+				corner.x = movedPoint.x;
+			} else {
+				corner.y = movedPoint.y;
+			}
+			// The corner must stay outside the block, on the side it was on, or the line would double back.
+			const center = movedBox.getCenter();
+			const before = {x: center.x - dx, y: center.y - dy};
+			const clear = vertical
+				? Math.sign(corner.y - center.y) === Math.sign(corner.y - before.y)
+					&& Math.abs(corner.y - center.y) > movedBox.height / 2 + margin
+				: Math.sign(corner.x - center.x) === Math.sign(corner.x - before.x)
+					&& Math.abs(corner.x - center.x) > movedBox.width / 2 + margin;
+			if (clear) {
+				return vertices;
+			}
 		}
 
 		// Even split between the blocks: the mid line crosses the gap, so the route stays right-angled.
-		const otherPort = sourceMoved
-			? {x: otherBox.x, y: otherBox.y + (edge.targetPortDy ?? otherBox.height / 2)}
-			: {x: otherBox.x + otherBox.width, y: otherBox.y + (edge.sourcePortDy ?? otherBox.height / 2)};
+		const otherOffset = sourceMoved ? edge.targetPortDy : edge.sourcePortDy;
+		const otherPort = vertical
+			? {x: otherBox.x + (otherOffset ?? otherBox.width / 2), y: sourceMoved ? otherBox.y : otherBox.y + otherBox.height}
+			: {x: sourceMoved ? otherBox.x : otherBox.x + otherBox.width, y: otherBox.y + (otherOffset ?? otherBox.height / 2)};
+		// Corners run from the line's start: the moved block's corner first only when it is the source.
+		const order = (near: GraphPoint, far: GraphPoint): GraphPoint[] => sourceMoved ? [near, far] : [far, near];
 		if (vertical) {
 			const middle = (movedPoint.y + otherPort.y) / 2;
-			return [{x: movedPoint.x, y: middle}, {x: otherPort.x, y: middle}];
+			return order({x: movedPoint.x, y: middle}, {x: otherPort.x, y: middle});
 		}
 		const middle = (movedPoint.x + otherPort.x) / 2;
-		return [{x: middle, y: movedPoint.y}, {x: middle, y: otherPort.y}];
+		return order({x: middle, y: movedPoint.y}, {x: middle, y: otherPort.y});
 	}
 
 	private styleFor(node: Node): NodeStyle
