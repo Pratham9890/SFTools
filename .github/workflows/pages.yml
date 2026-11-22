@@ -39,7 +39,7 @@ jobs:
                     COOP_URL: ${{ vars.COOP_URL }}
                     COOP_KEY: ${{ vars.COOP_KEY }}
                 run: |
-                    node -e "const fs=require('fs');const f='src/env/env.ts';let s=fs.readFileSync(f,'utf8');s=s.replace(/url: '',/,'url: '+JSON.stringify(process.env.COOP_URL||'')+',').replace(/key: '',/,'key: '+JSON.stringify(process.env.COOP_KEY||'')+',');fs.writeFileSync(f,s);"
+                    node -e "const fs=require('fs');const f='src/env/env.prod.ts';let s=fs.readFileSync(f,'utf8');s=s.replace(/url: '',/,'url: '+JSON.stringify(process.env.COOP_URL||'')+',').replace(/key: '',/,'key: '+JSON.stringify(process.env.COOP_KEY||'')+',');fs.writeFileSync(f,s);"
 
             -   name: Build the web app
                 run: npx ng build --base-href /SFTools/
