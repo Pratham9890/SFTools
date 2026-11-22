@@ -72,30 +72,32 @@ export class PanelLayoutService implements OnDestroy
 	public readonly activeRight = computed(() => this.activeDockedPanel('right'));
 	public readonly activeTop = computed(() => this.activeDockedPanel('top'));
 
-	// Deliberately false until the panel container measures: on the phone that means no sheet opens on load,
-	// which is today's behaviour. The shell in PlannerComponent uses the same breakpoint for its own first render.
+	// Deliberately false until the panel container measures, so a phone never draws a PC-sized overlay first.
 	private readonly mobileSignal = signal(false);
 	public readonly isMobile = this.mobileSignal.asReadonly();
 
 	public readonly rail = computed<RailMetrics>(() => RailSizes.of(this.settings.planner().railSize));
 	public readonly railWidth = computed(() => this.rail().width);
 
+	/**
+	 * What the overlays leave at the bottom: the status bar on a PC, the phone's bottom bar plus whatever the
+	 * dock's sheet covers. The dock measures itself, so both follow it without a second source of truth.
+	 */
+	public readonly bottomInset = computed(() => this.mobileSignal() ? MOBILE_NAV_HEIGHT + this.dock.height() : STATUS_BAR_HEIGHT);
+
 	public readonly canvasInsets = computed<CanvasInsets>(() => {
-		if (this.mobileSignal()) {
-			return {left: 0, right: 0, top: 0, bottom: MOBILE_NAV_HEIGHT};
-		}
-		// The dock lies over the chart, so its height is the covered area; the chart itself starts below the top bar.
+		// The dock (the phone's sheet) lies over the chart, so its height is the covered area. On the phone the sheet
+		// and the bottom bar cover the bottom, and the top bar sits above the chart rather than over it.
+		const dock = this.dock.height();
 		return {
 			left: 0,
 			right: 0,
-			top: this.dock.height(),
-			bottom: STATUS_BAR_HEIGHT,
+			top: this.mobileSignal() ? 0 : dock,
+			bottom: this.bottomInset(),
 		};
 	});
 
-	/**
-	 * The dock height in CSS, for the overlays that must stay below it. The phone has no dock, so it stays 0 there.
-	 */
+	/** The dock height in CSS, for the overlays that must stay below it. The phone's sheet hangs at the bottom. */
 	public readonly overlayTop = computed(() => this.mobileSignal() ? 0 : this.dock.height());
 
 	public constructor(
@@ -188,108 +190,34 @@ export class PanelLayoutService implements OnDestroy
 			open: false,
 			floating: panel.defaultFloating ?? false,
 		});
-		// Nothing opens by itself: the desktop's panels all open from the top bar and its dock, and the phone's
-		// sheet only appears when its bottom bar picks a panel. (The phone never read these open states.)
+		// Nothing opens by itself: every panel opens from the top bar, its bottom bar of tabs on the phone, or its dock
+		// (which the phone shows as a sheet), and hotkeys route through PanelLayoutService to the same dock.
 	}
 
 	public isOpen(id: string): boolean
 	{
-		if (!this.mobileSignal()) {
-			return this.dock.isOpen(this.dock.dockIdForPanel(id));
-		}
-		return this.statesSignal().get(id)?.open ?? false;
+		return this.dock.isOpen(this.dock.dockIdForPanel(id));
 	}
 
 	public toggleFromRail(id: string): void
 	{
-		if (!this.mobileSignal()) {
-			this.dock.toggle(this.dock.dockIdForPanel(id));
-			return;
-		}
-		if (this.isVisible(id)) {
-			this.closePanel(id);
-		} else {
-			this.focusPanel(id);
-		}
-	}
-
-	public isVisible(id: string): boolean
-	{
-		if (!this.mobileSignal()) {
-			return this.dock.isOpen(this.dock.dockIdForPanel(id));
-		}
-		const state = this.statesSignal().get(id);
-		if (!state?.open) {
-			return false;
-		}
-		if (!state.floating) {
-			return this.activeTabIdsSignal()[state.side] === id;
-		}
-		const groups = this.floatingGroupsSignal();
-		const group = groups.find(g => g.tabIds.includes(id));
-		return group !== undefined && group.activeTabId === id && groups[groups.length - 1] === group;
+		this.dock.toggle(this.dock.dockIdForPanel(id));
 	}
 
 	public focusPanel(id: string): void
 	{
-		if (this.mobileSignal()) {
-			if (id !== 'plans') {
-				this.setMobilePanel(id);
-				return;
-			}
-		} else {
-			this.dock.open(this.dock.dockIdForPanel(id));
-			return;
-		}
-		const state = this.statesSignal().get(id);
-		if (!state) return;
-		if (!state.open) {
-			this.openPanel(id);
-			return;
-		}
-		if (state.floating) {
-			const groupId = this.groupIdOf(id);
-			if (groupId) {
-				this.selectFloatingTab(groupId, id);
-				this.bringToFront(groupId);
-			}
-		} else {
-			this.selectTab(state.side, id);
-		}
+		this.dock.open(this.dock.dockIdForPanel(id));
 	}
 
 	public openPanel(id: string): void
 	{
-		if (this.mobileSignal()) {
-			if (id !== 'plans') {
-				this.setMobilePanel(id);
-				return;
-			}
-		} else {
-			this.dock.open(this.dock.dockIdForPanel(id));
-			return;
-		}
-		const state = this.statesSignal().get(id);
-		if (!state || state.open) return;
-		this.setState(id, {...state, open: true});
-		if (state.floating) {
-			this.createGroupWith(id, this.cascadePosition());
-		} else {
-			this.addTab(state.side, id);
-			this.clampCombinedWidth();
-		}
+		this.dock.open(this.dock.dockIdForPanel(id));
 	}
 
 	public closePanel(id: string): void
 	{
-		if (!this.mobileSignal()) {
-			if (this.dock.openId() === this.dock.dockIdForPanel(id)) {
-				this.dock.close();
-			}
-			return;
-		}
-		if (this.mobileActivePanelIdSignal() === id) {
-			this.setMobilePanel(null);
+		if (this.dock.openId() === this.dock.dockIdForPanel(id)) {
+			this.dock.close();
 		}
 	}
 
@@ -519,18 +447,6 @@ export class PanelLayoutService implements OnDestroy
 
 			return {...sizes, [side]: Math.max(MIN_SIZE, Math.min(size, maxForSide))};
 		});
-	}
-
-	private readonly mobileActivePanelIdSignal = signal<string | null>(null);
-	public readonly mobileActivePanel = computed(() => {
-		const id = this.mobileActivePanelIdSignal();
-		if (!id) return null;
-		return this.registeredSignal().find(p => p.id === id) ?? null;
-	});
-
-	public setMobilePanel(id: string | null): void
-	{
-		this.mobileActivePanelIdSignal.set(id);
 	}
 
 	public panelById(id: string): PanelDefinition | null

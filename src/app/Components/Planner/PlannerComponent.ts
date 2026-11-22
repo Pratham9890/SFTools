@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, computed, effect, ElementRef, HostListener, OnDestroy, signal, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {AfterViewInit, Component, computed, effect, ElementRef, OnDestroy, signal, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {ActivatedRoute, Router} from '@angular/router';
 import {faBolt, faBook, faChartPie, faCircleQuestion, faCoins, faCrosshairs, faCubes, faFolderTree, faGear, faListCheck, faMap, faUsers} from '@fortawesome/free-solid-svg-icons';
@@ -163,9 +163,7 @@ const RATIO_TOLERANCE = 1e-4;
 	changeDetection: ChangeDetectionStrategy.Eager,
 	host: {
 		class: 'planner-ui',
-		style: 'position: fixed; left: 0; right: 0; bottom: 0; overflow: hidden;',
-		// The site bar is hidden while the planner's own top bar is up; the phone layout keeps the site bar.
-		'[style.top]': "isMobileLayout() ? 'var(--navbar-height, 56px)' : '0'",
+		style: 'position: fixed; left: 0; right: 0; top: 0; bottom: 0; overflow: hidden;',
 	},
 })
 export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSource
@@ -187,33 +185,6 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 
 	private readonly addNodePositionSignal = signal<GraphPoint | null>(null);
 	public readonly addNodeOpen = computed(() => this.addNodePositionSignal() !== null);
-
-	/** The phone keeps the old site bar, its bottom bar and its sheet; only the desktop gets the planner top bar and dock. */
-	private readonly phoneSignal = signal(PlannerComponent.isPhoneWidth());
-	public readonly isMobileLayout = this.phoneSignal.asReadonly();
-
-	/**
-	 * The panel container measures the same breakpoint, but only after its view exists. This one is read from the
-	 * window so the very first render already picks the right shell and the site bar never flashes on the phone.
-	 * `PanelLayoutService.isMobile` is deliberately not consulted: it starts false on both layouts, so a phone would
-	 * briefly look like a desktop here and draw the top bar before the container had measured.
-	 */
-	private static isPhoneWidth(): boolean
-	{
-		return typeof window !== 'undefined' && window.innerWidth < 768;
-	}
-
-	/** Keeps the shell in step when the window is dragged across the phone breakpoint. */
-	@HostListener('window:resize')
-	public onWindowResize(): void
-	{
-		const phone = PlannerComponent.isPhoneWidth();
-		if (phone === this.phoneSignal()) {
-			return;
-		}
-		this.phoneSignal.set(phone);
-		this.siteChrome.fullScreen.set(!phone);
-	}
 
 	private readonly pendingConnectSignal = signal<GraphConnectToBlankRequest | null>(null);
 	public readonly addNodeFilter = computed<AddNodeFilter | null>(() => {
@@ -287,10 +258,9 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		private readonly siteChrome: SiteChrome,
 	)
 	{
-		// The planner draws its own top bar and takes the whole window; the site bar comes back when it is destroyed.
-		// The phone keeps the old site bar and its own bottom sheet. Set here rather than in an effect, so the first
-		// paint already has the right chrome; the resize listener below follows a window dragged across the breakpoint.
-		this.siteChrome.fullScreen.set(!this.isMobileLayout());
+		// The planner draws its own top bar on the PC and on the phone, so the site bar always steps aside.
+		// Set here rather than in an effect, so the first paint already has the right chrome.
+		this.siteChrome.fullScreen.set(true);
 
 		// A plan id that isn't the user's own may be someone else's plan link; the URL → state sync prompts if it turns out to be theirs.
 		const planIdParam = route.snapshot.paramMap.get('planId');
@@ -924,12 +894,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		);
 		CalculatorTabHotkeys.ENTRIES.forEach(entry => {
 			this.hotkeyRegistrations.push(this.hotkeys.register(entry.action, () => {
-				if (this.panelLayout.isMobile()) {
-					this.panelLayout.focusPanel('calculator');
-					this.calculatorTabs.setActiveTab(entry.tab);
-					return;
-				}
-				// Each tab is its own dock entry now; the shared tab state still tracks it for the old calculator.
+				// Each tab is its own dock entry on the PC and on the phone; the shared tab state follows it for the old calculator.
 				this.calculatorTabs.setActiveTab(entry.tab);
 				this.dock.open(CALCULATOR_DOCK_IDS[entry.tab]);
 			}));

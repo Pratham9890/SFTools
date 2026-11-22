@@ -9,6 +9,7 @@ import {CalculatorTabHotkeys} from '@src/Components/Planner/Panels/Calculator/Ca
 import {CALCULATOR_DOCK_IDS} from '@src/Components/Planner/Dock/PlannerDockApi';
 import {PlannerDockService} from '@src/Components/Planner/Dock/PlannerDockService';
 import {GraphExportDialogService} from '@src/Components/Planner/Export/GraphExportDialogService';
+import {PanelLayoutService} from '@src/Components/Planner/Panel/PanelLayoutService';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
 import {CoopPlayer} from '@src/Model/Coop/CoopApi';
 import {CoopSession} from '@src/Model/Coop/CoopSession';
@@ -74,6 +75,7 @@ export class PlannerTopBarComponent
 
 	public constructor(
 		public readonly dock: PlannerDockService,
+		public readonly layout: PanelLayoutService,
 		private readonly planManager: PlanManager,
 		private readonly planNames: PlanNameResolver,
 		public readonly coop: CoopSession,

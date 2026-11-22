@@ -1,15 +1,11 @@
-@if (!isMobileLayout()) {
-	<planner-top-bar></planner-top-bar>
-	<planner-dock></planner-dock>
-}
-
+<planner-top-bar></planner-top-bar>
+<planner-dock></planner-dock>
 <!-- user-select/dragstart: a shift+rubberband over the SVG labels would otherwise start a text selection, and the next drag would move that instead of the nodes. -->
 <!-- The always-shown top bar takes the first 54 px on the desktop; the dock then lies over the chart without
      resizing it, so opening or closing it never moves the chart on screen. -->
 <div
 	#graphContainer
-	style="position: absolute; left: 0; right: 0; bottom: 0; user-select: none;"
-	[style.top]="isMobileLayout() ? '0' : 'var(--planner-top-bar, 54px)'"
+	style="position: absolute; left: 0; right: 0; bottom: 0; top: var(--planner-top-bar, 54px); user-select: none;"
 	(contextmenu)="$event.preventDefault()"
 	(dragstart)="$event.preventDefault()"
 ></div>

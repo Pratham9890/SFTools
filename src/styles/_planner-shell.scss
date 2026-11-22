@@ -36,8 +36,6 @@
 		border-bottom: 1px solid var(--rule);
 		color: var(--ink);
 		z-index: 40;
-		container-type: inline-size;
-		container-name: planner-top;
 	}
 
 	// ---- top bar: logo, plan name, tabs, actions -------------------------------------------------
@@ -360,6 +358,158 @@
 
 		.pl-primary {
 			padding: 0 11px;
+		}
+	}
+
+	// ---- phone (under 768 px) -------------------------------------------------------------------
+	// The same top bar and dock as the PC: the plan name and the actions stay on one line, the seven tabs move
+	// into a fixed bottom bar, and the dock opens as a sheet above that bar (see PlannerDockComponent).
+	@media (max-width: 767.98px) {
+		--planner-bottom-bar: 56px;
+
+		planner-top-bar {
+			gap: 4px;
+			padding: 0 8px;
+		}
+
+		// The logo goes and the co-op indicator keeps only its icon/dots. Preview, Share and Calculate
+		// already lost their text at 1480/1180 px, so the spec's phone row (name, Calculate + ▾, co-op, Share, gear)
+		// fits on one line; Preview stays as its icon-only button.
+		.pl-logo,
+		.pl-coop .pl-label {
+			display: none;
+		}
+
+		// The name takes what the four action buttons leave and truncates; it never pushes them off screen.
+		.pl-plan {
+			flex: 1 1 auto;
+			min-width: 0;
+			margin-right: auto;
+		}
+
+		.pl-plan-btn {
+			max-width: 100%;
+			width: 100%;
+			height: 38px;
+			padding: 0 6px;
+			font-size: 15px;
+		}
+
+		.pl-right {
+			gap: 2px;
+		}
+
+		.pl-primary,
+		.pl-cancel,
+		.pl-ghost,
+		.pl-coop {
+			height: 38px;
+		}
+
+		// Calculate is an icon plus its mode chevron; the mode menu still opens from the chevron.
+		.pl-primary {
+			padding: 0 10px;
+		}
+
+		.pl-primary .pl-label {
+			display: none;
+		}
+
+		.pl-cancel .pl-label {
+			display: none;
+		}
+
+		.pl-chev {
+			padding: 0 7px;
+		}
+
+		.pl-coop {
+			padding: 0 9px;
+			max-width: none;
+		}
+
+		// The dots are the whole co-op indicator in a space, so they need to be readable at a glance.
+		.pl-dots i {
+			width: 11px;
+			height: 11px;
+		}
+
+		.pl-share > button,
+		.pl-gear {
+			padding: 0 8px;
+		}
+
+		// The seven tabs: Produce, Recipes, Resources, Supply, Belts, Materials and More.
+		.pl-tabs {
+			position: fixed;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			height: var(--planner-bottom-bar);
+			margin: 0;
+			display: flex;
+			align-items: stretch;
+			gap: 0;
+			background: var(--ground);
+			border-top: 1px solid var(--rule);
+			overflow: visible;
+			z-index: 45;
+		}
+
+		.pl-tab {
+			flex: 1 1 0;
+			min-width: 0;
+			justify-content: center;
+			padding: 0 1px;
+			font-size: 10px;
+			font-weight: 600;
+			letter-spacing: -0.02em;
+			line-height: 1.1;
+			white-space: nowrap;
+			text-align: center;
+			overflow: hidden;
+		}
+
+		.pl-tab-menu {
+			flex: 1 1 0;
+			min-width: 0;
+		}
+
+		.pl-tab-menu .pl-tab {
+			width: 100%;
+			gap: 2px;
+			padding: 0 1px;
+		}
+
+		.pl-tab-menu .pl-chevron {
+			font-size: 8px;
+			transform: rotate(180deg);
+		}
+
+		.pl-tab.active::after {
+			left: 20%;
+			right: 20%;
+			top: 0;
+			bottom: auto;
+			border-radius: 0 0 3px 3px;
+		}
+
+		// The Belts On/Off badge becomes a dot: the word would not fit a 56 px tab, the state still shows.
+		.pl-tab-state {
+			position: absolute;
+			top: 8px;
+			right: 6px;
+			width: 6px;
+			height: 6px;
+			min-width: 0;
+			padding: 0;
+			border-radius: 50%;
+			font-size: 0;
+			background: var(--rule-strong);
+		}
+
+		.pl-tab-state.on {
+			background: var(--good);
 		}
 	}
 }

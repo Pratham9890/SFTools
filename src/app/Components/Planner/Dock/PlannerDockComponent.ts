@@ -155,6 +155,52 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 		.pl-fieldset:disabled {
 			opacity: 0.6;
 		}
+		/* The phone opens the same dock as a sheet above its bottom bar: full width, at most 66% of the height,
+		   rounded at the top, and scrolling on its own. Its measured height is what zoom, fit and focus keep clear of. */
+		@media (max-width: 767.98px) {
+			:host {
+				top: auto;
+				bottom: var(--planner-bottom-bar, 56px);
+			}
+			.pl-drop {
+				display: flex;
+				flex-direction: column;
+				max-height: 66vh;
+			}
+			.pl-banner {
+				flex: none;
+				padding: 6px 12px;
+			}
+			.pl-dock {
+				flex: 0 1 auto;
+				min-height: 0;
+				max-height: none;
+				border-top: 1px solid var(--rule-strong);
+				border-bottom: none;
+				border-radius: 14px 14px 0 0;
+				box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.45);
+			}
+			.pl-dock-head {
+				padding: 10px 12px 8px;
+				gap: 8px;
+			}
+			.pl-title {
+				font-size: 15px;
+			}
+			.pl-help {
+				font-size: 12px;
+			}
+			.pl-body {
+				padding: 2px 12px 12px;
+				overscroll-behavior: contain;
+			}
+			/* The map needs a definite height for its own layout; the sheet caps it at 66vh. */
+			.pl-body.pl-fill {
+				height: calc(66vh - 56px);
+				min-height: 200px;
+				overflow: hidden;
+			}
+		}
 	`],
 })
 export class PlannerDockComponent implements AfterViewInit, OnDestroy

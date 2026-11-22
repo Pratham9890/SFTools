@@ -25,7 +25,8 @@
 			}
 		</button>
 	}
-	<div class="pl-tab-menu" dropdown container="body" placement="bottom left">
+	<!-- On the phone the tabs sit in a fixed bottom bar, so More has to open upwards (right-aligned, it is the last tab). -->
+	<div class="pl-tab-menu" dropdown container="body" [placement]="layout.isMobile() ? 'top right' : 'bottom left'" [dropup]="layout.isMobile()">
 		<button class="pl-tab" type="button" dropdownToggle [class.active]="moreOpen()">
 			More <fa-icon [icon]="faChevronDown" class="pl-chevron"></fa-icon>
 		</button>
