@@ -15,7 +15,7 @@
 				<fieldset class="card-body p-2 d-flex flex-column gap-2" [disabled]="readOnly()">
 
 					<div>
-						<label class="form-label text-secondary mb-1">Direction</label>
+						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: direction' : 'Direction' }}</label>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
 							[ngModel]="graphSettings().direction"
@@ -29,7 +29,7 @@
 					</div>
 
 					<div>
-						<label class="form-label text-secondary mb-1">Connection shape</label>
+						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: connection shape' : 'Connection shape' }}</label>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
 							[ngModel]="graphSettings().edgeShape"
@@ -42,7 +42,7 @@
 
 					<div>
 						<label class="form-label text-secondary mb-1 d-flex justify-content-between">
-							<span>Node spacing</span>
+							<span>{{ inSheet ? 'This plan: node spacing' : 'Node spacing' }}</span>
 							<span class="text-light">{{ graphSettings().nodeSpacing }}</span>
 						</label>
 						<input
@@ -58,7 +58,7 @@
 
 					<div>
 						<label class="form-label text-secondary mb-1 d-flex justify-content-between">
-							<span>Layer spacing</span>
+							<span>{{ inSheet ? 'This plan: layer spacing' : 'Layer spacing' }}</span>
 							<span class="text-light">{{ graphSettings().layerSpacing }}</span>
 						</label>
 						<input
@@ -85,7 +85,7 @@
 				<fieldset class="card-body p-2 d-flex flex-column gap-2" [disabled]="readOnly()">
 
 					<div>
-						<label class="form-label text-secondary mb-1">Default machine grouping for new nodes</label>
+						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: default machine grouping for new nodes' : 'Default machine grouping for new nodes' }}</label>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
 							[ngModel]="defaultGroupingMode"

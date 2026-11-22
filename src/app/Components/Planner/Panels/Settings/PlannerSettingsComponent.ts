@@ -1,4 +1,4 @@
-import {Component, ChangeDetectionStrategy, Signal, computed} from '@angular/core';
+import {Component, ChangeDetectionStrategy, Input, Signal, computed} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {CollapsedSectionsService} from '@src/Components/Common/CollapsedSectionsService';
 import {CollapsibleSections} from '@src/Components/Common/CollapsibleSections';
@@ -20,6 +20,28 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {PlanSettings} from '@src/Model/Planner/PlanSettings';
 import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 
+/**
+ * Sheet-only folding: in the sheet only "Graph layout" starts open, and the sheet keeps its memory at a
+ * separate namespace, so folding a card there never changes the planner's own settings panel (which still
+ * starts with everything open). The template keeps its plain foldState.isOpen('...') bindings; only the
+ * default differs by host.
+ */
+class SheetFoldState extends CollapsibleSections
+{
+
+	/** The template's optional second argument is ignored: in the sheet the host decides the default. */
+	public override isOpen(section: string, _defaultOpen?: boolean): boolean
+	{
+		return super.isOpen(section, section === 'graph');
+	}
+
+	public override toggle(section: string, _defaultOpen?: boolean): void
+	{
+		super.toggle(section, section === 'graph');
+	}
+
+}
+
 @Component({
 	selector: 'planner-settings',
 	changeDetection: ChangeDetectionStrategy.Eager,
@@ -28,6 +50,13 @@ import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 })
 export class PlannerSettingsComponent
 {
+
+	/**
+	 * Set while the component is embedded in the planner's Settings sheet: there the per-plan cards fold on
+	 * their own (only "Graph layout" open), and labels that repeat an app-wide default get a "This plan: "
+	 * prefix. The app's Settings page and the planner's own panel leave it false and behave as before.
+	 */
+	@Input() public inSheet = false;
 
 	public readonly activePlan: Signal<Plan | null>;
 
@@ -44,7 +73,16 @@ export class PlannerSettingsComponent
 	public readonly readOnly: Signal<boolean>;
 	public readonly readOnlyNote: Signal<string>;
 
-	public readonly foldState: CollapsibleSections;
+	/** In the sheet the per-plan cards fold on their own, starting with only "Graph layout" open. */
+	private readonly sheetFoldState: CollapsibleSections;
+
+	private readonly panelFoldState: CollapsibleSections;
+
+	/** Whichever folding the current host uses: the panel's memory, or the sheet's own. */
+	public get foldState(): CollapsibleSections
+	{
+		return this.inSheet ? this.sheetFoldState : this.panelFoldState;
+	}
 
 	public constructor(
 		private readonly planManager: PlanManager,
@@ -55,7 +93,8 @@ export class PlannerSettingsComponent
 		collapsedSections: CollapsedSectionsService,
 	)
 	{
-		this.foldState = new CollapsibleSections(collapsedSections, 'planner-settings');
+		this.panelFoldState = new CollapsibleSections(collapsedSections, 'planner-settings');
+		this.sheetFoldState = new SheetFoldState(collapsedSections, 'planner-settings-sheet');
 		this.activePlan = planManager.activePlan;
 		this.activeFolder = planManager.activeFolder;
 		this.editedSettings = planManager.activeSettings;

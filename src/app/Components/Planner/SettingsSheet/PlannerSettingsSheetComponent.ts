@@ -105,6 +105,20 @@ import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 			gap: 10px;
 			align-content: start;
 		}
+		// Subheadings inside a section: smaller than the section's own .pp-title, so the three groups read
+		// as parts of Flow chart rather than as more sections.
+		.pl-subtitle {
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: .06em;
+			text-transform: uppercase;
+			color: var(--dim);
+			margin: 4px 0 0;
+		}
+		// The embedded settings components bring their own cards; in the sheet they sit flush and short.
+		.pl-sheet-section collapsible-card {
+			display: block;
+		}
 		.pl-sheet-section + .pl-sheet-section {
 			border-top: 1px solid var(--rule);
 			padding-top: 16px;
@@ -143,6 +157,8 @@ import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 			:host {
 				width: 100%;
 				border-left: none;
+				// The phone keeps a fixed 56 px bottom tab bar; the sheet's last control must not sit under it.
+				bottom: var(--planner-bottom-bar, 56px);
 			}
 			.pl-sheet-body {
 				padding: 12px 12px 20px;

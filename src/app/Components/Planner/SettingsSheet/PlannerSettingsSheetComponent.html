@@ -32,6 +32,8 @@
 
 	<section class="pl-sheet-section" data-settings-section="flow-chart">
 		<h3 class="pp-title">Flow chart</h3>
+
+		<h4 class="pp-title pl-subtitle">Chart layout</h4>
 		<div class="pp-field">
 			<span class="pp-label">Layout</span>
 			<div class="pl-choice-row" role="radiogroup" aria-label="Layout">
@@ -63,8 +65,12 @@
 			/>
 			<label class="form-check-label" for="sheet-colour-lines-by-item">Colour lines by item</label>
 		</div>
-		<planner-settings></planner-settings>
-		<settings-graph></settings-graph>
+
+		<h4 class="pp-title pl-subtitle">This plan</h4>
+		<planner-settings [inSheet]="true"></planner-settings>
+
+		<h4 class="pp-title pl-subtitle">Chart display</h4>
+		<settings-graph [inSheet]="true"></settings-graph>
 	</section>
 
 	<section class="pl-sheet-section" data-settings-section="planner">

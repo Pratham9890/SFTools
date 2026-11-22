@@ -1,5 +1,65 @@
 <settings-section [resetCategories]="['graph']" helpTopic="settings.graph" title="Graph" [icon]="sectionIcon">
+	@if (inSheet) {
+		<!-- In the sheet the groups are cards, so the Flow chart section stays short; the first one is open. -->
+		<collapsible-card title="Icons" [open]="foldState.isOpen('icons', true)" (toggle)="foldState.toggle('icons', true)">
+			@if (foldState.isOpen('icons', true)) {
+				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="iconsGroup"/></div>
+			}
+		</collapsible-card>
+		<collapsible-card title="Connections" [open]="foldState.isOpen('connections', false)" (toggle)="foldState.toggle('connections', false)">
+			@if (foldState.isOpen('connections', false)) {
+				<div class="card-body p-2">
+					<ng-container [ngTemplateOutlet]="connectionsGroup"/>
+					<ng-container [ngTemplateOutlet]="clockSpeedsGroup"/>
+				</div>
+			}
+		</collapsible-card>
+		<collapsible-card title="Effects" [open]="foldState.isOpen('effects', false)" (toggle)="foldState.toggle('effects', false)">
+			@if (foldState.isOpen('effects', false)) {
+				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="effectsGroup"/></div>
+			}
+		</collapsible-card>
+		<collapsible-card title="Recipe nodes" [open]="foldState.isOpen('recipe-nodes', false)" (toggle)="foldState.toggle('recipe-nodes', false)">
+			@if (foldState.isOpen('recipe-nodes', false)) {
+				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="recipeNodesGroup"/></div>
+			}
+		</collapsible-card>
+		<collapsible-card title="Size" [open]="foldState.isOpen('size', false)" (toggle)="foldState.toggle('size', false)">
+			@if (foldState.isOpen('size', false)) {
+				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="sizeGroup"/></div>
+			}
+		</collapsible-card>
+		<collapsible-card title="Node colours" [open]="foldState.isOpen('node-colours', false)" (toggle)="foldState.toggle('node-colours', false)">
+			@if (foldState.isOpen('node-colours', false)) {
+				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="nodeColoursGroup"/></div>
+			}
+		</collapsible-card>
+	} @else {
+		<!-- The app's Settings page: every control at once, with its subsection headings, as before. -->
 		<div class="subsection-title">Icons</div>
+		<ng-container [ngTemplateOutlet]="iconsGroup"/>
+
+		<div class="subsection-title">Connections</div>
+		<ng-container [ngTemplateOutlet]="connectionsGroup"/>
+
+		<div class="subsection-title">Clock speeds</div>
+		<ng-container [ngTemplateOutlet]="clockSpeedsGroup"/>
+
+		<div class="subsection-title">Effects</div>
+		<ng-container [ngTemplateOutlet]="effectsGroup"/>
+
+		<div class="subsection-title">Recipe nodes</div>
+		<ng-container [ngTemplateOutlet]="recipeNodesGroup"/>
+
+		<div class="subsection-title">Size</div>
+		<ng-container [ngTemplateOutlet]="sizeGroup"/>
+
+		<div class="subsection-title">Node colours</div>
+		<ng-container [ngTemplateOutlet]="nodeColoursGroup"/>
+	}
+
+	<!-- Each group is written once, so the sheet and the Settings page cannot drift apart. -->
+	<ng-template #iconsGroup>
 		<div class="row g-2">
 			@for (item of iconToggles; track item.key) {
 				<div class="col-12 col-lg-6">
@@ -16,8 +76,9 @@
 				</div>
 			}
 		</div>
+	</ng-template>
 
-		<div class="subsection-title">Connections</div>
+	<ng-template #connectionsGroup>
 		<div class="form-check">
 			<input
 				id="showEdgeLabelBoxes"
@@ -39,8 +100,9 @@
 			<label class="form-check-label" for="addBendPointsByClick">Add bend points by clicking connection lines</label><setting-reset-button category="graph" field="addBendPointsByClick"/>
 			<div class="form-text">Off: lines can't be bent by accident; existing bend points still show and can be moved.</div>
 		</div>
+	</ng-template>
 
-		<div class="subsection-title">Clock speeds</div>
+	<ng-template #clockSpeedsGroup>
 		<div class="form-check">
 			<input
 				id="showClockFractions"
@@ -52,8 +114,9 @@
 			<label class="form-check-label" for="showClockFractions">Show clock speeds as fractions</label><setting-reset-button category="graph" field="showClockFractions"/>
 			<div class="form-text">Shows 100/3 instead of 33.3334 where it fits: type it into the game's clock field (PC) exactly as shown.</div>
 		</div>
+	</ng-template>
 
-		<div class="subsection-title">Effects</div>
+	<ng-template #effectsGroup>
 		<div class="form-check">
 			<input
 				id="sloopGlow"
@@ -75,8 +138,9 @@
 			<label class="form-check-label" for="simplifyWhenZoomedOut">Simplify the graph when zoomed out</label><setting-reset-button category="graph" field="simplifyWhenZoomedOut"/>
 			<div class="form-text">Bigger names and icons when the normal text gets too small to read.</div>
 		</div>
+	</ng-template>
 
-		<div class="subsection-title">Recipe nodes</div>
+	<ng-template #recipeNodesGroup>
 		<div class="row g-3">
 			<div class="col-12 col-lg-6">
 				<label class="form-label" for="machine-display">Machine count display</label><setting-reset-button category="graph" field="machineDisplay"/>
@@ -105,8 +169,9 @@
 				</div>
 			</div>
 		</div>
+	</ng-template>
 
-		<div class="subsection-title">Size</div>
+	<ng-template #sizeGroup>
 		<div class="row g-3 mb-2">
 			<div class="col-12 col-lg-6">
 				<label class="form-label" for="node-scale">Node scale</label><setting-reset-button category="graph" field="nodeScale"/>
@@ -137,8 +202,9 @@
 			</div>
 		</div>
 		<info-note>Existing graphs keep their layout until you press Rearrange in the planner. Until then, bigger nodes may overlap.</info-note>
+	</ng-template>
 
-		<div class="subsection-title">Node colours</div>
+	<ng-template #nodeColoursGroup>
 		<div class="small mb-2">Pick a preset, then change single colours if you want.</div>
 		<div class="preset-list mb-3">
 			@for (preset of presets; track preset.id) {
@@ -190,4 +256,5 @@
 			}
 		</div>
 		<info-note class="mt-3">Colours per machine are set for each plan in the Planner settings panel.</info-note>
+	</ng-template>
 </settings-section>

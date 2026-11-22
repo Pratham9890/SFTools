@@ -1,7 +1,10 @@
-import {Component, ChangeDetectionStrategy} from '@angular/core';
-import {DecimalPipe} from '@angular/common';
+import {Component, ChangeDetectionStrategy, Input} from '@angular/core';
+import {DecimalPipe, NgTemplateOutlet} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {AppTooltipDirective} from '@src/Components/Common/AppTooltipDirective';
+import {CollapsedSectionsService} from '@src/Components/Common/CollapsedSectionsService';
+import {CollapsibleCardComponent} from '@src/Components/Common/CollapsibleCardComponent';
+import {CollapsibleSections} from '@src/Components/Common/CollapsibleSections';
 import {GraphSettings} from '@src/Model/Settings/GraphSettings';
 import {MachineDisplayMode} from '@src/Model/Settings/MachineDisplayMode';
 import {NodeColorPreset} from '@src/Model/Settings/NodeColorPreset';
@@ -19,7 +22,7 @@ import {faDiagramProject} from '@fortawesome/free-solid-svg-icons';
 	selector: 'settings-graph',
 	templateUrl: './SettingsGraphComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
-	imports: [AppTooltipDirective, DecimalPipe, FormsModule, SettingResetButtonComponent, SettingsSectionComponent, InfoNoteComponent],
+	imports: [AppTooltipDirective, CollapsibleCardComponent, DecimalPipe, FormsModule, NgTemplateOutlet, SettingResetButtonComponent, SettingsSectionComponent, InfoNoteComponent],
 	styles: [`
 		.node-preview {
 			display: inline-flex;
@@ -74,6 +77,15 @@ import {faDiagramProject} from '@fortawesome/free-solid-svg-icons';
 })
 export class SettingsGraphComponent
 {
+
+	/**
+	 * Set while the component is embedded in the planner's Settings sheet: the seven subsections become
+	 * collapsible cards, all closed except the first, so the sheet's Flow chart section stays short.
+	 * The app's Settings page leaves it false and shows every control at once, as before.
+	 */
+	@Input() public inSheet = false;
+
+	public readonly foldState: CollapsibleSections;
 
 	public readonly sectionIcon = faDiagramProject;
 
@@ -132,8 +144,11 @@ export class SettingsGraphComponent
 	public constructor(
 		private readonly settings: SettingsManager,
 		private readonly rateFormatter: RateFormatter,
+		collapsedSections: CollapsedSectionsService,
 	)
 	{
+		// Its own namespace, so folding a group in the sheet leaves the Settings page alone.
+		this.foldState = new CollapsibleSections(collapsedSections, 'settings-graph-sheet', false);
 	}
 
 	public get graph(): GraphSettings
