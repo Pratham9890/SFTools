@@ -73,3 +73,38 @@
 	.list-group-item { background: transparent; color: var(--ink); border-color: var(--rule); }
 	.table { --bs-table-bg: transparent; --bs-table-color: var(--ink); --bs-table-border-color: var(--rule); --bs-table-striped-bg: var(--surface-2); --bs-table-hover-bg: var(--surface-2); }
 }
+
+// Menus, tooltips and popovers that open on <body> (container="body") sit outside .planner-ui, so they get the
+// tokens and the planner look here while the planner is on screen.
+body:has(.planner-ui) {
+	--ground: #0f1012; --surface: #1a1c1f; --surface-2: #24272b; --rule: #2a2d31; --rule-strong: #3b3f45;
+	--ink: #f4f2ee; --ink-2: #c6c4bf; --dim: #95938e; --accent: #ffb347; --accent-ink: #1e1305;
+	--accent-soft: rgba(255, 179, 71, 0.14);
+
+	.dropdown-menu {
+		background: var(--surface);
+		border: 1px solid var(--rule-strong);
+		border-radius: 10px;
+		box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+		padding: 6px;
+		color: var(--ink);
+		font-family: Archivo, "Segoe UI", system-ui, sans-serif;
+	}
+	.dropdown-item {
+		color: var(--ink);
+		border-radius: 6px;
+		padding: 8px 10px;
+		&:hover, &:focus { background: var(--surface-2); color: var(--ink); }
+		&.active, &:active { background: var(--accent-soft); color: var(--accent); }
+		.opacity-75, .small, small { color: var(--dim); opacity: 1; }
+		&.active .opacity-75, &.active small { color: var(--ink-2); }
+	}
+	.dropdown-header { color: var(--dim); }
+	.dropdown-divider { border-color: var(--rule); }
+	.tooltip { font-family: Archivo, "Segoe UI", system-ui, sans-serif; }
+	.tooltip-inner { background: var(--surface-2); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: 8px; padding: 6px 10px; }
+	.tooltip .tooltip-arrow::before { border-top-color: var(--rule-strong); border-bottom-color: var(--rule-strong); }
+	.popover { background: var(--surface); border-color: var(--rule-strong); color: var(--ink); border-radius: 10px; }
+	.popover-header { background: var(--surface-2); color: var(--ink); border-color: var(--rule); }
+	.popover-body { color: var(--ink); }
+}
