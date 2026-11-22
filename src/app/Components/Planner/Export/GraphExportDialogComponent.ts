@@ -239,8 +239,14 @@ export class GraphExportDialogComponent implements OnInit
 		return {width: Math.max(1, Math.round(box.width * scale)), height: Math.max(1, Math.round(box.height * scale))};
 	}
 
+	/** The chart's own colour: the blocks and the line casings are drawn for it, not the darker page ground. */
 	private pageBackground(): string
 	{
+		const host = document.querySelector('.planner-ui');
+		const chart = host === null ? '' : getComputedStyle(host).getPropertyValue('--chart').trim();
+		if (chart !== '') {
+			return chart;
+		}
 		const color = getComputedStyle(document.body).backgroundColor;
 		return color === '' || color === 'transparent' || color === 'rgba(0, 0, 0, 0)' ? FALLBACK_BACKGROUND : color;
 	}

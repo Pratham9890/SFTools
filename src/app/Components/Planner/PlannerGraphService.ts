@@ -41,7 +41,6 @@ import {GraphWarningEntry} from '@src/Model/Planner/Graph/GraphWarningEntry';
 import {GraphReconciler} from '@src/Model/Planner/Graph/GraphReconciler';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
 import {PlanNameResolver} from '@src/Model/Planner/PlanNameResolver';
-import {NodeFillResolver} from '@src/Model/Settings/NodeFillResolver';
 import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 import {SpecialClasses} from '@src/Model/Planner/SpecialClasses';
 import {AugmenterNode} from '@src/Model/Planner/Solver/Response/AugmenterNode';
@@ -61,24 +60,72 @@ import {SubplanNode} from '@src/Model/Planner/Solver/Response/SubplanNode';
 import {ZoomedOutNameLayout} from '@src/Components/Planner/ZoomedOutNameLayout';
 
 const NODE_WIDTH = GraphMetrics.NODE_WIDTH;
-const NODE_HEIGHT = GraphMetrics.NODE_HEIGHT;
+
+/**
+ * The flow layout's block geometry version. 3 = the Look C blocks: plans stamped 2 were laid out for the old flat
+ * sizes, so they are laid out once more when opened.
+ */
+const LAYOUT_VERSION = 3;
 
 
-const NODE_ICON_SIZE = 30;
-const LEFT_ICON_SIZE = 40;
-const LEFT_ICON_X = 12;
-const TEXT_LEFT_INSET = LEFT_ICON_X + LEFT_ICON_SIZE + 6;
-const TEXT_RIGHT_PAD = 16;
-const TEXT_SHIFT = (TEXT_LEFT_INSET - TEXT_RIGHT_PAD) / 2;
+// Look C ("Large"), from the mock-up: a dark card with a 52 px icon and a text column beside it, and the
+// block's type colour as a stripe on its left edge.
+const LOOK_C_WIDTH = 300;
+/** Blocks stay on a lattice, so a longer name takes the next whole step rather than a ragged width. */
+const LOOK_C_WIDTH_STEP = 30;
+const LOOK_C_HEIGHT_STEP = 10;
+const LOOK_C_MIN_HEIGHT = 108;
+const LOOK_C_OTHER_MIN_HEIGHT = 92;
+const LOOK_C_ICON = 52;
+const LOOK_C_ICON_X = 11;
+const LOOK_C_ICON_GAP = 12;
+const LOOK_C_TEXT_INSET = LOOK_C_ICON_X + LOOK_C_ICON + LOOK_C_ICON_GAP;
+const LOOK_C_TEXT_PAD_RIGHT = 16;
+const LOOK_C_PAD_Y = 11;
+const LOOK_C_RADIUS = 14;
+const LOOK_C_CORNER_INSET = 10;
+const LOOK_C_STRIPE = 4;
+const LOOK_C_COUNT_ICON = 17;
+const LOOK_C_COUNT_ICON_GAP = 5;
+const LOOK_C_COUNT_FONT = 19;
+const LOOK_C_NAME_FONT = 14;
+const LOOK_C_DIM_FONT = 14;
+const LOOK_C_KIND_FONT = 13;
+const LOOK_C_MAKES_RATE_FONT = 15;
+const LOOK_C_ALT_FONT = 10.5;
+const LOOK_C_ALT_HEIGHT = 16;
+const LOOK_C_ALT_WIDTH = 26;
+const LOOK_C_ALT_RADIUS = 4;
+const LOOK_C_ALT_GAP = 6;
+const LOOK_C_LINE_HEIGHT = 17;
+// Text centres, measured from the block's top: a recipe block reads count, name, clocks, makes.
+const LOOK_C_COUNT_Y = 24;
+const LOOK_C_NAME_Y = 45;
+const LOOK_C_CLOCK_Y = 63;
+const LOOK_C_MAKES_Y = 84;
+// Other blocks read name, amount, kind.
+const LOOK_C_ITEM_NAME_Y = 24;
+const LOOK_C_AMOUNT_Y = 48;
+const LOOK_C_KIND_Y = 69;
+/** The capacity line some blocks add under their kind word. */
+const LOOK_C_EXTRA_Y = 88;
+// Measured with a canvas rather than guessed; see measureTextWidth().
+const LOOK_C_FILL = '#1b1d21';
+const LOOK_C_BORDER = '#34383e';
+const LOOK_C_TEXT = '#f4f2ee';
+const LOOK_C_DIM = '#95938e';
+const LOOK_C_ACCENT = '#ffb347';
+const LOOK_C_GOOD = '#79d39a';
+const LOOK_C_WARN = '#d4663f';
+/** The fill setting tints the card toward its type colour; even at its strongest the card stays dark. */
+const LOOK_C_TINT_MAX = 0.14;
+const CHART_COLOUR = '#121315';
 const SLOOP_GLOW_COLOR = '#c56cf0';
 const LOCK_ICON_SIZE = 18;
 const SLOOP_ICON_SIZE = 20;
-const CORNER_INSET = 5;
+const LOCK_ROW2_Y = LOOK_C_CORNER_INSET + SLOOP_ICON_SIZE + 3;
 const DONE_OPACITY = 0.4;
 const DONE_ICON_SIZE = 20;
-const DONE_FILL = '#1b212a';
-const DONE_STROKE = '#525e6c';
-const LOCK_ROW2_Y = CORNER_INSET + SLOOP_ICON_SIZE + 3;
 const CLAIM_BAR_WIDTH = 6;
 const CLAIM_TITLE_SELECTORS = ['body', 'name', 'machines', 'stats', 'zoomedOutName'];
 
@@ -93,16 +140,6 @@ const NODE_STROKE_WIDTH = 1.5;
 const NODE_FALLBACK_FILL = '#1e2d3b';
 const NODE_FALLBACK_STROKE = '#5c718a';
 const NODE_FALLBACK_TEXT = '#f4f7fb';
-const NODE_NAME_TEXT = '#ffffff';
-const NODE_DETAIL_TEXT = '#eef2f8';
-const NODE_STATS_TEXT = '#d6dfea';
-// Swapped in on fills too light for white text, such as solid yellow.
-const NODE_DARK_NAME_TEXT = '#0b1520';
-const NODE_DARK_DETAIL_TEXT = '#142130';
-const NODE_DARK_STATS_TEXT = '#22303f';
-const NODE_FONT_SIZE = 13;
-const NODE_NAME_FONT_SIZE = 14;
-const NODE_NAME_CHAR_WIDTH = 8.75;
 const SUBPLAN_NAME_FONT_SIZE = 18;
 const SUBPLAN_NAME_CHAR_WIDTH = 9.8;
 const SUBPLAN_STATS_CHAR_WIDTH = 7.4;
@@ -119,16 +156,6 @@ const EDGE_DETAIL_CLASS = 'pg-edge-detail';
 const EDGE_ZOOMED_OUT_ICON_CLASS = 'pg-edge-zoomed-out-icon';
 const WARNING_ICON_SIZE = 14;
 
-const RECIPE_NAME_Y = 18;
-const RECIPE_NAME_FONT_SIZE = 16;
-const RECIPE_MACHINES_Y = 38;
-const RECIPE_STATS_Y = 50;
-const RECIPE_STATS_LINE_HEIGHT = 17;
-const RECIPE_BOTTOM_PADDING = 10;
-const RECIPE_MAX_WIDTH = 360;
-const RECIPE_NAME_CHAR_WIDTH = 9.8;
-const RECIPE_BOLD_CHAR_WIDTH = 8.1;
-const RECIPE_STATS_CHAR_WIDTH = 7.4;
 const RECIPE_TEXT_PADDING_X = 30;
 const STAT_SLOOP_SIZE = 12;
 // Negative: the somersloop icon has ~25% transparent padding per side.
@@ -142,7 +169,7 @@ const EDGE_STROKE = '#5c718a';
 const FLOW_LINE_WIDTH = 2.6;
 const FLOW_CASING_WIDTH = FLOW_LINE_WIDTH + 5;
 const FLOW_HIT_WIDTH = 14;
-const FLOW_CASING_COLOUR = '#121315';
+const FLOW_CASING_COLOUR = CHART_COLOUR;
 const FLOW_BEND_RADIUS = 8;
 const FLOW_JUNCTION_RADIUS = FLOW_LINE_WIDTH + 2;
 const FLOW_WARN_COLOUR = '#e0b56a';
@@ -165,7 +192,7 @@ const FLOW_LABEL_GAP = 12;
 // Belt view: one line per belt, spaced wide enough for each line's own rate label to fit between neighbours.
 // Perpendicular label offset: with the 14px name font the baseline then sits ~8px above the line.
 // Room beyond the outermost belt line, which itself sits (belts - 1) / 2 gaps from the node centre.
-const SELECTED_STROKE = '#f0ad4e';
+const SELECTED_STROKE = LOOK_C_ACCENT;
 const EXPORT_MARGIN = 40;
 // Fitting a plan with one or a few nodes would otherwise blow them up to fill the canvas.
 const FIT_MAX_SCALE = 1;
@@ -241,6 +268,49 @@ for (let i = 0; i < SUBPLAN_IO_MAX; i++) {
 }
 const SUBPLAN_MORE_Y = SUBPLAN_IO_TOP + (SUBPLAN_IO_MAX - 1) * SUBPLAN_IO_ROW_H + SUBPLAN_IO_ICON / 2;
 
+/** The left stripe of a Look C card: inset by its corner radius, so it never leaves the rounded body. */
+function stripeAttrs(inset: number, width: number): Record<string, string | number>
+{
+	return {
+		display: 'inline',
+		x: 0,
+		y: inset,
+		refHeight: -2 * inset,
+		width,
+		rx: width / 2,
+		ry: width / 2,
+		fill: LOOK_C_ACCENT,
+		stroke: 'none',
+		pointerEvents: 'none',
+	};
+}
+
+/** Mixes two #rrggbb colours; 0 keeps the first, 1 gives the second. */
+function mixColour(from: string, to: string, amount: number): string
+{
+	if (amount <= 0 || from === to) {
+		return from;
+	}
+	const channel = (colour: string, offset: number): number => parseInt(colour.replace('#', '').slice(offset, offset + 2), 16);
+	const blend = (offset: number): string => {
+		const value = Math.round(channel(from, offset) + (channel(to, offset) - channel(from, offset)) * Math.min(1, amount));
+		return Math.max(0, Math.min(255, value)).toString(16).padStart(2, '0');
+	};
+	return `#${blend(0)}${blend(2)}${blend(4)}`;
+}
+
+/** The width the block's text takes, so the "Alt" tag can sit right after the name instead of at a guessed offset. */
+const textMeasureContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+function measureTextWidth(text: string, fontSize: number, bold: boolean): number
+{
+	if (textMeasureContext === null) {
+		return text.length * fontSize * 0.6;
+	}
+	// x6's text preset renders in this font (it does not inherit the page's), so measure the same one.
+	textMeasureContext.font = `${bold ? 'bold ' : ''}${fontSize}px Arial, helvetica, sans-serif`;
+	return textMeasureContext.measureText(text).width;
+}
+
 function registerPlannerShapes(scale: number): void
 {
 	const px = (value: number): number => value * scale;
@@ -250,17 +320,29 @@ function registerPlannerShapes(scale: number): void
 		statSloopAttrs[`statSloop${i}`] = {refX: 0.5, refY: 0, width: px(STAT_SLOOP_SIZE), height: px(STAT_SLOOP_SIZE)};
 	}
 
+	// Look C: card, type-colour stripe, 52 px icon, then a text column (mock-up ui-mockups/style.css .node).
+	const textX = px(LOOK_C_TEXT_INSET);
+	const textAttrs = {x: textX, textAnchor: 'start', textVerticalAnchor: 'middle'};
 	X6Graph.registerNode('planner-node', {
 		inherit: 'rect',
 		markup: [
 			{tagName: 'rect', selector: 'body', className: 'pn-body'},
+			{tagName: 'rect', selector: 'stripe', className: 'pn-stripe'},
 			{tagName: 'rect', selector: 'claimBar', className: 'pn-claim'},
 			{tagName: 'text', selector: 'name', className: 'pn-detail'},
+			{tagName: 'rect', selector: 'altTag', className: 'pn-alt'},
+			{tagName: 'text', selector: 'altText', className: 'pn-alt-text'},
 			{tagName: 'text', selector: 'machines', className: 'pn-detail'},
 			{tagName: 'text', selector: 'stats', className: 'pn-detail'},
+			{tagName: 'text', selector: 'kind', className: 'pn-detail'},
+			{tagName: 'text', selector: 'extra', className: 'pn-detail'},
+			{tagName: 'text', selector: 'makesLabel', className: 'pn-detail'},
+			{tagName: 'text', selector: 'makesRate', className: 'pn-detail'},
+			{tagName: 'text', selector: 'makesUnit', className: 'pn-detail'},
 			{tagName: 'text', selector: 'zoomedOutName', className: 'pn-zoomed-out-name'},
 			...statSloopMarkup,
 			{tagName: 'image', selector: 'machineIcon', className: 'pn-machine'},
+			{tagName: 'image', selector: 'countIcon', className: 'pn-count'},
 			{tagName: 'image', selector: 'sloop', className: 'pn-sloop'},
 			{tagName: 'image', selector: 'lock', className: 'pn-lock'},
 			{tagName: 'image', selector: 'done', className: 'pn-done'},
@@ -270,45 +352,63 @@ function registerPlannerShapes(scale: number): void
 		],
 		attrs: {
 			// Restates x6's inherited rect defaults (white body, black text), which match by element name.
-			rect: {fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
-			text: {fill: NODE_FALLBACK_TEXT},
-			body: {refWidth: '100%', refHeight: '100%', fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
+			rect: {fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: px(LOOK_C_RADIUS), ry: px(LOOK_C_RADIUS)},
+			// The rect preset centres its text; every card line here is placed from the top-left instead.
+			text: {fill: NODE_FALLBACK_TEXT, refX: 0, refY: 0, x: 0, y: 0, textAnchor: 'start', textVerticalAnchor: 'middle', fontWeight: 'normal', fontSize: px(LOOK_C_NAME_FONT)},
+			body: {
+				refWidth: '100%',
+				refHeight: '100%',
+				fill: LOOK_C_FILL,
+				stroke: LOOK_C_BORDER,
+				strokeWidth: NODE_STROKE_WIDTH,
+				rx: px(LOOK_C_RADIUS),
+				ry: px(LOOK_C_RADIUS),
+			},
+			stripe: {...stripeAttrs(px(LOOK_C_RADIUS), px(LOOK_C_STRIPE)), display: 'none'},
 			claimBar: {x: 0, y: 0, refHeight: '100%', width: px(CLAIM_BAR_WIDTH), fill: '', display: 'none', rx: px(3), ry: px(3), pointerEvents: 'none'},
 			...statSloopAttrs,
 			machineIcon: {
 				refX: 0,
-				x: px(CORNER_INSET),
+				x: px(LOOK_C_ICON_X),
 				refY: 0,
-				y: px(CORNER_INSET),
-				width: px(NODE_ICON_SIZE),
-				height: px(NODE_ICON_SIZE),
+				y: px(LOOK_C_PAD_Y),
+				width: px(LOOK_C_ICON),
+				height: px(LOOK_C_ICON),
+			},
+			countIcon: {
+				refX: 0,
+				x: textX,
+				refY: 0,
+				y: px(LOOK_C_COUNT_Y - LOOK_C_COUNT_ICON / 2),
+				width: px(LOOK_C_COUNT_ICON),
+				height: px(LOOK_C_COUNT_ICON),
 			},
 			// refDx offsets from the right edge (refX: 1 would be an absolute 1px).
 			sloop: {
-				refDx: -px(SLOOP_ICON_SIZE + CORNER_INSET),
+				refDx: -px(SLOOP_ICON_SIZE + LOOK_C_CORNER_INSET),
 				refY: 0,
-				y: px(CORNER_INSET),
+				y: px(LOOK_C_CORNER_INSET),
 				width: px(SLOOP_ICON_SIZE),
 				height: px(SLOOP_ICON_SIZE),
 				cursor: 'help',
 			},
 			lock: {
-				refDx: -px(LOCK_ICON_SIZE + CORNER_INSET),
+				refDx: -px(LOCK_ICON_SIZE + LOOK_C_CORNER_INSET),
 				refY: 0,
-				y: px(CORNER_INSET),
+				y: px(LOOK_C_CORNER_INSET),
 				width: px(LOCK_ICON_SIZE),
 				height: px(LOCK_ICON_SIZE),
 				cursor: 'help',
 			},
 			done: {
-				refDx: -px(DONE_ICON_SIZE + CORNER_INSET),
-				refDy: -px(DONE_ICON_SIZE + CORNER_INSET),
+				refDx: -px(DONE_ICON_SIZE + LOOK_C_CORNER_INSET),
+				refDy: -px(DONE_ICON_SIZE + LOOK_C_CORNER_INSET),
 				width: px(DONE_ICON_SIZE),
 				height: px(DONE_ICON_SIZE),
 			},
 			inputWarning: {
 				refX: 0,
-				x: px(CORNER_INSET),
+				x: px(LOOK_C_CORNER_INSET),
 				refY: 0.5,
 				y: -px(WARNING_ICON_SIZE / 2),
 				width: px(WARNING_ICON_SIZE),
@@ -316,7 +416,7 @@ function registerPlannerShapes(scale: number): void
 				cursor: 'help',
 			},
 			outputWarning: {
-				refDx: -px(WARNING_ICON_SIZE + CORNER_INSET),
+				refDx: -px(WARNING_ICON_SIZE + LOOK_C_CORNER_INSET),
 				refY: 0.5,
 				y: -px(WARNING_ICON_SIZE / 2),
 				width: px(WARNING_ICON_SIZE),
@@ -324,39 +424,45 @@ function registerPlannerShapes(scale: number): void
 				cursor: 'help',
 			},
 			capacityWarning: {
-				refDx: -px(WARNING_ICON_SIZE + CORNER_INSET),
-				refDy: -px(WARNING_ICON_SIZE + CORNER_INSET),
+				refDx: -px(WARNING_ICON_SIZE + LOOK_C_CORNER_INSET),
+				refDy: -px(WARNING_ICON_SIZE + LOOK_C_CORNER_INSET),
 				width: px(WARNING_ICON_SIZE),
 				height: px(WARNING_ICON_SIZE),
 				cursor: 'help',
 			},
-			name: {
-				refX: 0.5,
-				refY: '38%',
-				textAnchor: 'middle',
+			name: {...textAttrs, y: px(LOOK_C_NAME_Y), fontWeight: 'bold', fontSize: px(LOOK_C_NAME_FONT), fill: LOOK_C_TEXT},
+			altTag: {
+				x: textX,
+				y: px(LOOK_C_NAME_Y - LOOK_C_ALT_HEIGHT / 2),
+				width: px(LOOK_C_ALT_WIDTH),
+				height: px(LOOK_C_ALT_HEIGHT),
+				fill: LOOK_C_FILL,
+				stroke: LOOK_C_ACCENT,
+				strokeWidth: 1,
+				rx: px(LOOK_C_ALT_RADIUS),
+				ry: px(LOOK_C_ALT_RADIUS),
+				display: 'none',
+			},
+			altText: {
+				refX: 0,
+				refY: 0,
+				x: 0,
+				y: 0,
+				textAnchor: 'start',
 				textVerticalAnchor: 'middle',
 				fontWeight: 'bold',
-				fontSize: px(NODE_NAME_FONT_SIZE),
-				fill: NODE_NAME_TEXT,
+				fontSize: px(LOOK_C_ALT_FONT),
+				fill: LOOK_C_ACCENT,
+				display: 'none',
 			},
-			machines: {
-				refX: 0.5,
-				refY: px(RECIPE_MACHINES_Y),
-				textAnchor: 'middle',
-				textVerticalAnchor: 'middle',
-				fontWeight: 'bold',
-				fontSize: px(NODE_FONT_SIZE),
-				fill: NODE_DETAIL_TEXT,
-			},
-			stats: {
-				refX: 0.5,
-				refY: '72%',
-				textAnchor: 'middle',
-				textVerticalAnchor: 'middle',
-				fontSize: px(NODE_FONT_SIZE),
-				fill: NODE_STATS_TEXT,
-			},
-			zoomedOutName: {refX: 0.5, refY: 0.5, textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fill: NODE_NAME_TEXT, display: 'none'},
+			machines: {...textAttrs, y: px(LOOK_C_COUNT_Y), fontWeight: 'bold', fontSize: px(LOOK_C_COUNT_FONT), fill: LOOK_C_TEXT},
+			stats: {...textAttrs, y: px(LOOK_C_CLOCK_Y), fontSize: px(LOOK_C_DIM_FONT), fill: LOOK_C_DIM},
+			kind: {...textAttrs, y: px(LOOK_C_KIND_Y), fontSize: px(LOOK_C_KIND_FONT), fill: LOOK_C_DIM},
+			extra: {...textAttrs, y: px(LOOK_C_EXTRA_Y), fontSize: px(LOOK_C_KIND_FONT), fill: LOOK_C_DIM},
+			makesLabel: {...textAttrs, y: px(LOOK_C_MAKES_Y), fontSize: px(LOOK_C_DIM_FONT), fill: LOOK_C_DIM},
+			makesRate: {...textAttrs, y: px(LOOK_C_MAKES_Y), fontWeight: 'bold', fontSize: px(LOOK_C_MAKES_RATE_FONT), fill: LOOK_C_TEXT},
+			makesUnit: {...textAttrs, y: px(LOOK_C_MAKES_Y), fontSize: px(LOOK_C_DIM_FONT), fill: LOOK_C_DIM},
+			zoomedOutName: {refX: 0.5, refY: 0.5, textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fill: LOOK_C_TEXT, display: 'none'},
 		},
 	}, true);
 
@@ -371,6 +477,7 @@ function registerPlannerShapes(scale: number): void
 		inherit: 'rect',
 		markup: [
 			{tagName: 'rect', selector: 'body', className: 'pn-body'},
+			{tagName: 'rect', selector: 'stripe', className: 'pn-stripe'},
 			{tagName: 'rect', selector: 'claimBar', className: 'pn-claim'},
 			{tagName: 'text', selector: 'name', className: 'pn-detail'},
 			{tagName: 'text', selector: 'stats', className: 'pn-detail'},
@@ -382,18 +489,27 @@ function registerPlannerShapes(scale: number): void
 			{tagName: 'image', selector: 'done', className: 'pn-done'},
 		],
 		attrs: {
-			rect: {fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
+			rect: {fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: px(LOOK_C_RADIUS), ry: px(LOOK_C_RADIUS)},
 			text: {fill: NODE_FALLBACK_TEXT},
-			body: {refWidth: '100%', refHeight: '100%', fill: NODE_FALLBACK_FILL, stroke: NODE_FALLBACK_STROKE, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
+			body: {
+				refWidth: '100%',
+				refHeight: '100%',
+				fill: LOOK_C_FILL,
+				stroke: LOOK_C_BORDER,
+				strokeWidth: NODE_STROKE_WIDTH,
+				rx: px(LOOK_C_RADIUS),
+				ry: px(LOOK_C_RADIUS),
+			},
+			stripe: {...stripeAttrs(px(LOOK_C_RADIUS), px(LOOK_C_STRIPE)), display: 'none'},
 			claimBar: {x: 0, y: 0, refHeight: '100%', width: px(CLAIM_BAR_WIDTH), fill: '', display: 'none', rx: px(3), ry: px(3), pointerEvents: 'none'},
-			name: {refX: 0.5, refY: 0.5, y: px(-10), textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fontSize: px(SUBPLAN_NAME_FONT_SIZE), fill: NODE_NAME_TEXT},
-			stats: {refX: 0.5, refY: 0.5, y: px(12), textAnchor: 'middle', textVerticalAnchor: 'middle', fontSize: px(13), fill: NODE_STATS_TEXT},
-			zoomedOutName: {refX: 0.5, refY: 0.5, textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fill: NODE_NAME_TEXT, display: 'none'},
+			name: {refX: 0.5, refY: 0.5, y: px(-10), textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fontSize: px(SUBPLAN_NAME_FONT_SIZE), fill: LOOK_C_TEXT},
+			stats: {refX: 0.5, refY: 0.5, y: px(12), textAnchor: 'middle', textVerticalAnchor: 'middle', fontSize: px(13), fill: LOOK_C_DIM},
+			zoomedOutName: {refX: 0.5, refY: 0.5, textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fill: LOOK_C_TEXT, display: 'none'},
 			...subplanIoAttrs,
-			inMore: {refX: 0, x: px(10), refY: 0, y: px(SUBPLAN_MORE_Y), textAnchor: 'start', textVerticalAnchor: 'middle', fontSize: px(11), fill: NODE_STATS_TEXT},
-			outMore: {refDx: px(-10), refY: 0, y: px(SUBPLAN_MORE_Y), textAnchor: 'end', textVerticalAnchor: 'middle', fontSize: px(11), fill: NODE_STATS_TEXT},
-			lock: {refDx: -px(LOCK_ICON_SIZE + CORNER_INSET), refY: 0, y: px(CORNER_INSET), width: px(LOCK_ICON_SIZE), height: px(LOCK_ICON_SIZE), cursor: 'help'},
-			done: {refDx: -px(DONE_ICON_SIZE + CORNER_INSET), refDy: -px(DONE_ICON_SIZE + CORNER_INSET), width: px(DONE_ICON_SIZE), height: px(DONE_ICON_SIZE)},
+			inMore: {refX: 0, x: px(10), refY: 0, y: px(SUBPLAN_MORE_Y), textAnchor: 'start', textVerticalAnchor: 'middle', fontSize: px(11), fill: LOOK_C_DIM},
+			outMore: {refDx: px(-10), refY: 0, y: px(SUBPLAN_MORE_Y), textAnchor: 'end', textVerticalAnchor: 'middle', fontSize: px(11), fill: LOOK_C_DIM},
+			lock: {refDx: -px(LOCK_ICON_SIZE + LOOK_C_CORNER_INSET), refY: 0, y: px(LOOK_C_CORNER_INSET), width: px(LOCK_ICON_SIZE), height: px(LOCK_ICON_SIZE), cursor: 'help'},
+			done: {refDx: -px(DONE_ICON_SIZE + LOOK_C_CORNER_INSET), refDy: -px(DONE_ICON_SIZE + LOOK_C_CORNER_INSET), width: px(DONE_ICON_SIZE), height: px(DONE_ICON_SIZE)},
 		},
 	}, true);
 }
@@ -404,7 +520,8 @@ registerPlannerShapes(1);
 interface NodeStyle {
 	bodyFill: string;
 	bodyStroke: string;
-	darkText: boolean;
+	/** The block's type colour: the left stripe, and the border of an output block. */
+	accent: string;
 	name: string;
 	machines: string;
 	stats: string;
@@ -413,6 +530,24 @@ interface NodeStyle {
 	inputWarning: string;
 	outputWarning: string;
 	capacityWarning: string;
+}
+
+/** The text a Look C card shows, top to bottom, already formatted. */
+interface NodeCardContent {
+	icon: string;
+	/** The machine icon that prefixes the count line on a recipe block. */
+	countIcon: string;
+	name: string;
+	alternate: boolean;
+	/** The block's bold line: recipe machine count, or an item's amount. */
+	bigLine: string;
+	/** The dim line under it: recipe clocks, or the kind word. */
+	dimLine: string;
+	/** A third dim line: a sink's points, a mine's extractors. */
+	extraLine: string;
+	/** A recipe block closes with "Makes <rate>". */
+	makes: string;
+	makesUnit: string;
 }
 
 @Injectable()
@@ -555,7 +690,7 @@ export class PlannerGraphService implements OnDestroy
 
 		const edges = this.edgeBuilder.build(response.nodes);
 		this.layoutFlowGraph(response.nodes, edges, settings);
-		const graph: Graph = {nodes: response.nodes, edges, layoutVersion: 2, layoutHeights: this.layoutHeightsOfEdges.get(edges)};
+		const graph: Graph = {nodes: response.nodes, edges, layoutVersion: LAYOUT_VERSION, layoutHeights: this.layoutHeightsOfEdges.get(edges)};
 		this.restore(container, graph);
 		return graph;
 	}
@@ -628,7 +763,7 @@ export class PlannerGraphService implements OnDestroy
 		nodes.forEach((node, i) => {
 			const placement = result.nodes.get(node.id);
 			if (!placement) {
-				node.x = i * (NODE_WIDTH + 60);
+				node.x = i * (LOOK_C_WIDTH + 60);
 				node.y = 0;
 				return;
 			}
@@ -728,11 +863,11 @@ export class PlannerGraphService implements OnDestroy
 		const fresh = this.laidOutEdges.has(graph.edges);
 		// A fresh layout (a calculation or Rearrange) brings new heights; the graph may still carry the old ones.
 		if (fresh && !modeChanged) {
-			graph.layoutVersion = 2;
+			graph.layoutVersion = LAYOUT_VERSION;
 			graph.layoutHeights = this.layoutHeightsOfEdges.get(graph.edges) ?? graph.layoutHeights;
 			return;
 		}
-		if (graph.layoutVersion === 2 && !modeChanged) {
+		if (graph.layoutVersion === LAYOUT_VERSION && !modeChanged) {
 			// Ports need the room the layout left for them; a graph rebuilt without the heights gets them back
 			// from its own routes instead of the layout running again.
 			if (graph.layoutHeights === undefined) {
@@ -741,7 +876,7 @@ export class PlannerGraphService implements OnDestroy
 			return;
 		}
 		this.layoutFlowGraph(graph.nodes, graph.edges, this.planManager.activePlan()?.settings.graph);
-		graph.layoutVersion = 2;
+		graph.layoutVersion = LAYOUT_VERSION;
 		graph.layoutHeights = this.layoutHeightsOfEdges.get(graph.edges);
 		const plan = this.planManager.activePlan();
 		if (plan !== null && !this.planManager.isReadOnlyPlan(plan.id)) {
@@ -1639,22 +1774,17 @@ export class PlannerGraphService implements OnDestroy
 		const sloopIcon = this.sloopIconFor(node);
 		const sloopGlow = sloopIcon !== '' && this.settings.graph().sloopGlow;
 		const cornerSloop = sloopIcon !== '' && this.settings.graph().showSloopCornerIcon ? sloopIcon : '';
-		const textShift = this.textShiftFor(node);
 		const scale = this.nodeScale();
-		const labelOffset = node instanceof RecipeNode || node instanceof SinkNode
-			? this.labelBlockOffset(style.stats, size.height)
-			: 0;
-		const recipeLabelAttrs = node instanceof RecipeNode || node instanceof SinkNode
-			? {
-				name: {refY: RECIPE_NAME_Y * scale + labelOffset, fontSize: RECIPE_NAME_FONT_SIZE * scale},
-				machines: {refY: RECIPE_MACHINES_Y * scale + labelOffset},
-				stats: {
-					refY: RECIPE_STATS_Y * scale + labelOffset,
-					textVerticalAnchor: 'top',
-					lineHeight: RECIPE_STATS_LINE_HEIGHT * scale,
-				},
-			}
-			: {name: {}, machines: {}, stats: {}};
+		const content = this.cardContentFor(node);
+		const textX = this.cardTextX(content);
+		const recipe = node instanceof RecipeNode;
+		const clockLines = content.dimLine === '' ? 0 : content.dimLine.split('\n').length;
+		const makesY = (LOOK_C_MAKES_Y + Math.max(0, clockLines - 1) * LOOK_C_LINE_HEIGHT) * scale;
+		const nameY = (recipe ? LOOK_C_NAME_Y : LOOK_C_ITEM_NAME_Y) * scale;
+		const nameWidth = measureTextWidth(content.name, LOOK_C_NAME_FONT * scale, true);
+		const altX = textX + nameWidth + LOOK_C_ALT_GAP * scale;
+		const countX = textX + (content.countIcon === '' ? 0 : (LOOK_C_COUNT_ICON + LOOK_C_COUNT_ICON_GAP) * scale);
+		const makesX = textX + measureTextWidth('Makes ', LOOK_C_DIM_FONT * scale, false);
 		// Faded per element so the `done` check stays opaque.
 		const fade = node.done ? {opacity: DONE_OPACITY} : {};
 		const cell = x6Graph.addNode({
@@ -1671,36 +1801,208 @@ export class PlannerGraphService implements OnDestroy
 					fill: style.bodyFill,
 					stroke: style.bodyStroke,
 					strokeWidth: NODE_STROKE_WIDTH,
-					rx: 5,
-					ry: 5,
+					rx: LOOK_C_RADIUS * scale,
+					ry: LOOK_C_RADIUS * scale,
 					...(sloopGlow
 						? {filter: {name: 'dropShadow', args: {dx: 0, dy: 0, blur: 9, color: SLOOP_GLOW_COLOR, opacity: 0.55}}}
 						: {}),
 					...fade,
 				},
-				name: {text: style.name, ...recipeLabelAttrs.name, x: textShift, ...this.textFill(style, NODE_DARK_NAME_TEXT), ...fade},
-				machines: {text: style.machines, ...recipeLabelAttrs.machines, x: textShift, ...this.textFill(style, NODE_DARK_DETAIL_TEXT), ...fade},
-				stats: {text: style.stats, ...recipeLabelAttrs.stats, x: textShift, ...this.textFill(style, NODE_DARK_STATS_TEXT), ...fade},
-				zoomedOutName: {
-					...this.zoomedOutNameAttrs(style.name, size, this.hasLeftIcon(node) ? TEXT_LEFT_INSET : ZOOMED_OUT_NAME_PAD_RIGHT, ZOOMED_OUT_NAME_PAD_RIGHT),
-					...this.textFill(style, NODE_DARK_NAME_TEXT),
+				stripe: {...stripeAttrs(LOOK_C_RADIUS * scale, LOOK_C_STRIPE * scale), fill: style.accent},
+				name: {text: content.name, x: textX, y: nameY, ...fade},
+				altTag: {...this.altTagAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
+				altText: {...this.altTextAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
+				machines: {
+					text: content.bigLine,
+					x: countX,
+					y: (recipe ? LOOK_C_COUNT_Y : LOOK_C_AMOUNT_Y) * scale,
 					...fade,
 				},
-				machineIcon: {...this.iconAttrs(this.nodeIconFor(node)), ...this.leftIconAttrs(node), ...fade},
-				...this.recipeSloopBadges(node, textShift, labelOffset, fade),
+				stats: {
+					text: content.dimLine,
+					display: content.dimLine === '' ? 'none' : 'inline',
+					x: textX,
+					y: (recipe ? LOOK_C_CLOCK_Y : LOOK_C_KIND_Y) * scale,
+					lineHeight: LOOK_C_LINE_HEIGHT * scale,
+					fontSize: (recipe ? LOOK_C_DIM_FONT : LOOK_C_KIND_FONT) * scale,
+					...fade,
+				},
+				extra: {
+					text: content.extraLine,
+					display: content.extraLine === '' ? 'none' : 'inline',
+					x: textX,
+					y: LOOK_C_EXTRA_Y * scale,
+					lineHeight: LOOK_C_LINE_HEIGHT * scale,
+					fontSize: LOOK_C_KIND_FONT * scale,
+					...fade,
+				},
+				makesLabel: {
+					text: content.makes === '' ? '' : 'Makes ',
+					display: content.makes === '' ? 'none' : 'inline',
+					x: textX,
+					y: makesY,
+					...fade,
+				},
+				makesRate: {
+					text: content.makes,
+					display: content.makes === '' ? 'none' : 'inline',
+					x: makesX,
+					y: makesY,
+					...fade,
+				},
+				makesUnit: {
+					text: content.makesUnit,
+					display: content.makesUnit === '' ? 'none' : 'inline',
+					x: makesX + measureTextWidth(content.makes, LOOK_C_MAKES_RATE_FONT * scale, true),
+					y: makesY,
+					...fade,
+				},
+				zoomedOutName: {
+					...this.zoomedOutNameAttrs(content.name, size, content.icon === '' ? ZOOMED_OUT_NAME_PAD_RIGHT : LOOK_C_TEXT_INSET, ZOOMED_OUT_NAME_PAD_RIGHT),
+					...fade,
+				},
+				machineIcon: {...this.iconAttrs(content.icon), ...this.cardIconAttrs(content.icon, scale), ...fade},
+				countIcon: {...this.iconAttrs(content.countIcon), y: (LOOK_C_COUNT_Y - LOOK_C_COUNT_ICON / 2) * scale, ...fade},
+				...this.recipeSloopBadges(node, textX, fade),
 				sloop: {...this.iconAttrs(cornerSloop), ...fade},
-				lock: {...this.iconAttrs(style.lock), y: (cornerSloop ? LOCK_ROW2_Y : CORNER_INSET) * scale, ...fade},
+				lock: {...this.iconAttrs(style.lock), y: (cornerSloop ? LOCK_ROW2_Y : LOOK_C_CORNER_INSET) * scale, ...fade},
 				done: this.iconAttrs(style.done),
 				inputWarning: {...this.iconAttrs(style.inputWarning), ...fade},
 				outputWarning: {...this.iconAttrs(style.outputWarning), ...fade},
 				capacityWarning: {
 					...this.iconAttrs(style.capacityWarning),
-					...(node.done ? {refDx: -(WARNING_ICON_SIZE + CORNER_INSET + DONE_ICON_SIZE + 4) * scale} : {}),
+					...(node.done ? {refDx: -(WARNING_ICON_SIZE + LOOK_C_CORNER_INSET + DONE_ICON_SIZE + 4) * scale} : {}),
 					...fade,
 				},
 			},
 		});
 		this.applyClaimMarker(cell, node.id);
+	}
+
+	/** A Look C card's text: the bold line, the dim lines under it, and the rate a recipe block makes. */
+	private cardContentFor(node: Node): NodeCardContent
+	{
+		const graph = this.settings.graph();
+		const itemIcon = (item: Item | null): string => graph.showNodeItemIcons && item !== null ? (this.iconUrls.url(item.icon, 64) ?? '') : '';
+		const empty = (): NodeCardContent => ({
+			icon: '', countIcon: '', name: node.getDisplayName(), alternate: false,
+			bigLine: '', dimLine: '', extraLine: '', makes: '', makesUnit: '',
+		});
+		if (node instanceof RecipeNode) {
+			const product = node.recipe.products[0]?.item ?? null;
+			const output = node.outputs.find(io => io.item.className === product?.className);
+			return {
+				...empty(),
+				icon: itemIcon(product),
+				countIcon: graph.showNodeBuildingIcons ? (this.iconUrls.url(node.machine.icon, 64) ?? '') : '',
+				// "Alternate: " moves into the tag beside the name.
+				name: node.recipe.name.replace(/^Alternate: /, ''),
+				alternate: node.recipe.alternate,
+				bigLine: this.machinesLine(node),
+				dimLine: this.recipeStats(node),
+				makes: this.rateFormatter.amount(output?.maxAmount ?? 0),
+				makesUnit: this.rateFormatter.unit(product),
+			};
+		}
+		if (node instanceof GeneratorNode) {
+			return {...empty(), icon: graph.showNodeBuildingIcons ? (this.iconUrls.url(node.generator.icon, 64) ?? '') : '', bigLine: this.rateFormatter.amount(node.amount), dimLine: 'Generator', extraLine: this.generatorStats(node)};
+		}
+		if (node instanceof AugmenterNode) {
+			return {...empty(), icon: graph.showNodeBuildingIcons ? (this.iconUrls.url(node.building.icon, 64) ?? '') : '', bigLine: this.rateFormatter.amount(node.amount), dimLine: 'Augmenter', extraLine: this.augmenterStats(node)};
+		}
+		if (node instanceof SinkNode) {
+			return {...empty(), icon: itemIcon(node.item), bigLine: this.rateFormatter.rate(node.amount, node.item), dimLine: 'Sink', extraLine: this.sinkPointsLine(node)};
+		}
+		if (node instanceof MineNode) {
+			const [amount, ...extra] = this.mineStats(node).split('\n');
+			return {...empty(), icon: itemIcon(node.item), bigLine: this.amountWithoutKind(amount), dimLine: 'Resource', extraLine: extra.join('\n')};
+		}
+		if (node instanceof InputNode) {
+			return {...empty(), icon: itemIcon(node.item), bigLine: this.inputAmountLine(node), dimLine: 'Supplied'};
+		}
+		if (node instanceof ProductNode) {
+			return {...empty(), icon: itemIcon(node.item), bigLine: this.rateFormatter.rate(node.amount, node.item), dimLine: 'Output'};
+		}
+		if (node instanceof ByproductNode) {
+			return {...empty(), icon: itemIcon(node.item), bigLine: this.rateFormatter.rate(node.amount, node.item), dimLine: 'Byproduct'};
+		}
+		if (node instanceof ItemAmountNode) {
+			return {...empty(), icon: itemIcon(node.item), bigLine: this.rateFormatter.rate(node.amount, node.item), dimLine: node.type};
+		}
+		return {...empty(), bigLine: this.rateFormatter.amount(node.amount), dimLine: node.type};
+	}
+
+	/** "Resource · 80.46/min" is split into an amount and a kind word of its own. */
+	private amountWithoutKind(line: string): string
+	{
+		return line.replace(/^[A-Za-z ]+ · /, '');
+	}
+
+	/** How much is supplied against what the plan asks for, like the mock-up's "80.46 of 180/min". */
+	private inputAmountLine(node: InputNode): string
+	{
+		const supplied = this.rateFormatter.rate(node.amount, node.item);
+		const input = this.planManager.activePlan()?.inputs.find(candidate => candidate.itemClassName === node.item.className);
+		if (input === undefined) {
+			return supplied;
+		}
+		const unit = this.rateFormatter.unit(node.item);
+		const limit = this.rateFormatter.amount(input.amount);
+		return unit.startsWith('/')
+			? `${this.rateFormatter.amount(node.amount)} of ${limit}${unit}`
+			: `${this.rateFormatter.amount(node.amount)} of ${limit} ${unit}`;
+	}
+
+	private cardTextX(content: NodeCardContent): number
+	{
+		return (content.icon === '' ? LOOK_C_TEXT_PAD_RIGHT : LOOK_C_TEXT_INSET) * this.nodeScale();
+	}
+
+	/** The 52 px item icon at the block's left, top-aligned with the text column. */
+	private cardIconAttrs(icon: string, scale: number): Record<string, number | string>
+	{
+		return icon === ''
+			? {display: 'none'}
+			: {
+				refX: 0,
+				x: LOOK_C_ICON_X * scale,
+				refY: 0,
+				y: LOOK_C_PAD_Y * scale,
+				width: LOOK_C_ICON * scale,
+				height: LOOK_C_ICON * scale,
+			};
+	}
+
+	/** The "Alt" tag, hidden unless the recipe is an alternate. */
+	private altTagAttrs(visible: boolean, x: number, y: number, scale: number): Record<string, string | number>
+	{
+		if (!visible) {
+			return {display: 'none'};
+		}
+		return {
+			display: 'inline',
+			x,
+			y: y - LOOK_C_ALT_HEIGHT * scale / 2,
+			width: LOOK_C_ALT_WIDTH * scale,
+			height: LOOK_C_ALT_HEIGHT * scale,
+			strokeWidth: scale,
+			rx: LOOK_C_ALT_RADIUS * scale,
+			ry: LOOK_C_ALT_RADIUS * scale,
+		};
+	}
+
+	private altTextAttrs(visible: boolean, x: number, y: number, scale: number): Record<string, string | number>
+	{
+		if (!visible) {
+			return {display: 'none'};
+		}
+		return {
+			display: 'inline',
+			text: 'Alt',
+			x: x + LOOK_C_ALT_WIDTH * scale / 2,
+			y,
+			fontSize: LOOK_C_ALT_FONT * scale,
+		};
 	}
 
 	private addSubplanNode(x6Graph: X6Graph, node: SubplanNode): void
@@ -1710,18 +2012,15 @@ export class PlannerGraphService implements OnDestroy
 		const baseSize = this.sizeFor(node);
 		const ioInset = this.settings.graph().showSubplanItemIcons ? SUBPLAN_IO_COLUMN_WIDTH + 4 : ZOOMED_OUT_NAME_PAD_RIGHT;
 		const attrs: Record<string, Record<string, string | number>> = {
-			body: {fill: style.bodyFill, stroke: style.bodyStroke, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
-			name: {text: this.subplanDisplayName(node), ...this.textFill(style, NODE_DARK_NAME_TEXT)},
-			stats: {text: this.subplanStats(node), ...this.textFill(style, NODE_DARK_STATS_TEXT)},
-			zoomedOutName: {...this.zoomedOutNameAttrs(this.subplanDisplayName(node), baseSize, ioInset, ioInset), ...this.textFill(style, NODE_DARK_NAME_TEXT)},
+			body: {fill: style.bodyFill, stroke: style.bodyStroke, strokeWidth: NODE_STROKE_WIDTH, rx: LOOK_C_RADIUS, ry: LOOK_C_RADIUS},
+			stripe: {...stripeAttrs(LOOK_C_RADIUS, LOOK_C_STRIPE), fill: style.accent},
+			name: {text: this.subplanDisplayName(node)},
+			stats: {text: this.subplanStats(node)},
+			zoomedOutName: this.zoomedOutNameAttrs(this.subplanDisplayName(node), baseSize, ioInset, ioInset),
 			lock: this.iconAttrs(this.lockIconUri),
 		};
 		this.applySubplanIoIcons(attrs, 'in', node.inputs);
 		this.applySubplanIoIcons(attrs, 'out', node.outputs);
-		if (style.darkText) {
-			attrs['inMore']['fill'] = NODE_DARK_STATS_TEXT;
-			attrs['outMore']['fill'] = NODE_DARK_STATS_TEXT;
-		}
 		if (node.done) {
 			Object.values(attrs).forEach(attr => attr['opacity'] = DONE_OPACITY);
 		}
@@ -3013,7 +3312,7 @@ export class PlannerGraphService implements OnDestroy
 		if (warnings) {
 			style = {
 				...style,
-				bodyStroke: '#d4663f',
+				bodyStroke: LOOK_C_WARN,
 				inputWarning: warnings.inputs.length > 0 ? this.warningIconUri : '',
 				outputWarning: warnings.outputs.length > 0 ? this.warningIconUri : '',
 				capacityWarning: warnings.capacity !== null || warnings.extractors ? this.warningIconUri : '',
@@ -3035,56 +3334,13 @@ export class PlannerGraphService implements OnDestroy
 		return {'xlink:href': uri, display: uri ? 'inline' : 'none'};
 	}
 
-	private nodeIconFor(node: Node): string
-	{
-		const graph = this.settings.graph();
-		let hash: string | null = null;
-		if (node instanceof RecipeNode) {
-			hash = graph.showNodeBuildingIcons ? node.machine.icon : null;
-		} else if (node instanceof GeneratorNode) {
-			hash = graph.showNodeBuildingIcons ? node.generator.icon : null;
-		} else if (node instanceof AugmenterNode) {
-			hash = graph.showNodeBuildingIcons ? node.building.icon : null;
-		} else if (node instanceof SinkNode) {
-			hash = null;
-		} else if (node instanceof ItemAmountNode) {
-			hash = graph.showNodeItemIcons ? node.item.icon : null;
-		}
-		return this.iconUrls.url(hash, 64) ?? '';
-	}
-
 	private subplanDisplayName(node: SubplanNode): string
 	{
 		const plan = this.planManager.plans().find(candidate => candidate.id === node.subplanId);
 		return plan ? this.planNames.displayName(plan) : node.getDisplayName();
 	}
 
-	private hasLeftIcon(node: Node): boolean
-	{
-		return this.nodeIconFor(node) !== '';
-	}
-
-	private textShiftFor(node: Node): number
-	{
-		return this.hasLeftIcon(node) ? TEXT_SHIFT * this.nodeScale() : 0;
-	}
-
-	private leftIconAttrs(node: Node): Record<string, number> | Record<string, never>
-	{
-		if (!this.hasLeftIcon(node)) {
-			return {};
-		}
-		const scale = this.nodeScale();
-		return {
-			refY: 0.5,
-			y: -LEFT_ICON_SIZE * scale / 2,
-			x: LEFT_ICON_X * scale,
-			width: LEFT_ICON_SIZE * scale,
-			height: LEFT_ICON_SIZE * scale,
-		};
-	}
-
-	private recipeSloopBadges(node: Node, textShift: number, labelOffset = 0, fade: {opacity?: number} = {}): Record<string, Record<string, string | number>>
+	private recipeSloopBadges(node: Node, textShift: number, fade: {opacity?: number} = {}): Record<string, Record<string, string | number>>
 	{
 		if (!(node instanceof RecipeNode) || this.singleLineMachines()) {
 			return {};
@@ -3099,12 +3355,12 @@ export class PlannerGraphService implements OnDestroy
 			if (group.sloops <= 0 || i >= STAT_SLOOP_MAX_LINES) {
 				return;
 			}
-			const lineWidth = this.groupStatLine(group).length * RECIPE_STATS_CHAR_WIDTH * scale;
+			const lineWidth = measureTextWidth(this.groupStatLine(group), LOOK_C_DIM_FONT * scale, false);
 			badges[`statSloop${i}`] = {
 				'xlink:href': url,
 				display: 'inline',
-				x: textShift + lineWidth / 2 + STAT_SLOOP_GAP * scale,
-				y: (RECIPE_STATS_Y + i * RECIPE_STATS_LINE_HEIGHT + STAT_SLOOP_CENTER_OFFSET - STAT_SLOOP_SIZE / 2) * scale + labelOffset,
+				x: textShift + lineWidth + STAT_SLOOP_GAP * scale,
+				y: (LOOK_C_CLOCK_Y + i * LOOK_C_LINE_HEIGHT + STAT_SLOOP_CENTER_OFFSET - STAT_SLOOP_SIZE / 2) * scale,
 				...fade,
 			};
 		});
@@ -3172,30 +3428,31 @@ export class PlannerGraphService implements OnDestroy
 		if (node instanceof SubplanNode) {
 			return this.subplanSize(node);
 		}
-		if (node instanceof RecipeNode) {
-			const stats = this.recipeStats(node);
-			const sloopExtra = stats !== '' && node.groups.some(group => group.sloops > 0) ? STAT_SLOOP_SIZE + STAT_SLOOP_GAP : 0;
-			return this.statLinesSize(node.getDisplayName(), this.machinesLine(node), stats, sloopExtra, this.horizontalPadding(node));
-		}
-		if (node instanceof SinkNode) {
-			return this.statLinesSize(node.getDisplayName(), this.sinkPointsLine(node), this.sinkStats(node));
-		}
-		if (node instanceof MineNode) {
-			const stats = this.mineStats(node);
-			if (this.extractorStats(node) !== null || stats.includes('\n')) {
-				return this.statLinesSize(node.getDisplayName(), '', stats, 0, this.horizontalPadding(node));
-			}
-		}
-		if (this.hasLeftIcon(node)) {
-			const style = this.baseStyleFor(node);
-			const textWidth = Math.max(
-				style.name.length * NODE_NAME_CHAR_WIDTH,
-				style.stats.length * RECIPE_STATS_CHAR_WIDTH,
-			);
-			const width = Math.min(RECIPE_MAX_WIDTH, Math.max(NODE_WIDTH, Math.ceil(TEXT_LEFT_INSET + textWidth + TEXT_RIGHT_PAD)));
-			return {width, height: NODE_HEIGHT};
-		}
-		return {width: NODE_WIDTH, height: NODE_HEIGHT};
+		const content = this.cardContentFor(node);
+		const recipe = node instanceof RecipeNode;
+		const dimLines = content.dimLine === '' ? 0 : content.dimLine.split('\n').length;
+		const extraLines = content.extraLine === '' ? 0 : content.extraLine.split('\n').length;
+		const textWidth = Math.max(
+			measureTextWidth(content.name, LOOK_C_NAME_FONT, true) + (content.alternate ? LOOK_C_ALT_GAP + LOOK_C_ALT_WIDTH : 0),
+			(content.countIcon === '' ? 0 : LOOK_C_COUNT_ICON + LOOK_C_COUNT_ICON_GAP) + measureTextWidth(content.bigLine, LOOK_C_COUNT_FONT, true),
+			...(recipe
+				? [measureTextWidth('Makes ', LOOK_C_DIM_FONT, false) + measureTextWidth(content.makes, LOOK_C_MAKES_RATE_FONT, true) + measureTextWidth(content.makesUnit, LOOK_C_DIM_FONT, false)]
+				: [measureTextWidth(content.bigLine, LOOK_C_COUNT_FONT, true)]),
+			...content.dimLine.split('\n').map(line => measureTextWidth(line, LOOK_C_DIM_FONT, false) + STAT_SLOOP_SIZE),
+			...content.extraLine.split('\n').map(line => measureTextWidth(line, LOOK_C_KIND_FONT, false)),
+		);
+		const textInset = content.icon === '' ? LOOK_C_TEXT_PAD_RIGHT : LOOK_C_TEXT_INSET;
+		// 300 px, grown in whole steps when a long name or rate would not fit.
+		const width = Math.max(LOOK_C_WIDTH, Math.ceil((textInset + textWidth + LOOK_C_TEXT_PAD_RIGHT) / LOOK_C_WIDTH_STEP) * LOOK_C_WIDTH_STEP);
+		// Height to the last line the card draws, plus its padding; the flow layout may still make it taller for ports.
+		const lastY = recipe
+			? LOOK_C_MAKES_Y + Math.max(0, dimLines - 1) * LOOK_C_LINE_HEIGHT
+			: extraLines > 0 ? LOOK_C_EXTRA_Y + (extraLines - 1) * LOOK_C_LINE_HEIGHT : LOOK_C_KIND_Y;
+		const height = Math.max(
+			recipe ? LOOK_C_MIN_HEIGHT : LOOK_C_OTHER_MIN_HEIGHT,
+			Math.ceil((lastY + LOOK_C_PAD_Y + 11) / LOOK_C_HEIGHT_STEP) * LOOK_C_HEIGHT_STEP,
+		);
+		return {width, height};
 	}
 
 	private subplanSize(node: SubplanNode): {width: number; height: number}
@@ -3212,61 +3469,17 @@ export class PlannerGraphService implements OnDestroy
 		};
 	}
 
-	private horizontalPadding(node: Node): number
-	{
-		return this.hasLeftIcon(node) ? TEXT_LEFT_INSET + TEXT_RIGHT_PAD : RECIPE_TEXT_PADDING_X;
-	}
-
-	private statLinesSize(name: string, boldLine: string, stats: string, statsExtra = 0, horizontalPadding = RECIPE_TEXT_PADDING_X): {width: number; height: number}
-	{
-		const lines = stats === '' ? [] : stats.split('\n');
-		const height = Math.max(NODE_HEIGHT, RECIPE_STATS_Y + RECIPE_STATS_LINE_HEIGHT * lines.length + RECIPE_BOTTOM_PADDING);
-		const textWidth = Math.max(
-			name.length * RECIPE_NAME_CHAR_WIDTH,
-			boldLine.length * RECIPE_BOLD_CHAR_WIDTH,
-			...lines.map(line => line.length * RECIPE_STATS_CHAR_WIDTH + statsExtra),
-		);
-		const width = Math.min(RECIPE_MAX_WIDTH, Math.max(NODE_WIDTH, Math.ceil(textWidth + horizontalPadding)));
-		return {width, height};
-	}
-
 	private baseStyleFor(node: Node): NodeStyle
 	{
 		const accent = this.accentColor(node);
-		const fill = NodeFillResolver.fill(accent, this.settings.graph().nodeFillAmount);
+		// The fill setting tints the dark card toward the block's type colour, so 0 leaves it plain.
+		const fill = mixColour(LOOK_C_FILL, accent, this.settings.graph().nodeFillAmount * LOOK_C_TINT_MAX);
+		const product = node instanceof ProductNode;
 		const colors = node.done
-			? {bodyFill: DONE_FILL, bodyStroke: DONE_STROKE, darkText: false}
-			: {bodyFill: fill, bodyStroke: accent, darkText: NodeFillResolver.needsDarkText(fill)};
+			? {bodyFill: fill, bodyStroke: LOOK_C_GOOD, accent}
+			: {bodyFill: fill, bodyStroke: product ? accent : LOOK_C_BORDER, accent};
 		const icons = {lock: '', done: node.done ? this.doneIconUri : '', inputWarning: '', outputWarning: '', capacityWarning: ''};
-
-		if (node instanceof SubplanNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.subplanStats(node), machines: '', ...icons};
-		}
-		if (node instanceof RecipeNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.recipeStats(node), machines: this.machinesLine(node), ...icons};
-		}
-		if (node instanceof GeneratorNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.generatorStats(node), machines: '', ...icons};
-		}
-		if (node instanceof AugmenterNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.augmenterStats(node), machines: '', ...icons};
-		}
-		if (node instanceof SinkNode) {
-			return {...colors, name: node.getDisplayName(), machines: this.sinkPointsLine(node), stats: this.sinkStats(node), ...icons};
-		}
-		if (node instanceof MineNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.mineStats(node), machines: '', ...icons};
-		}
-		if (node instanceof InputNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.ioStats('Input', node.amount, node.item), machines: '', ...icons};
-		}
-		if (node instanceof ProductNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.ioStats('Product', node.amount, node.item), machines: '', ...icons};
-		}
-		if (node instanceof ByproductNode) {
-			return {...colors, name: node.getDisplayName(), stats: this.ioStats('Byproduct', node.amount, node.item), machines: '', ...icons};
-		}
-		return {...colors, name: '?', machines: '', stats: this.rateFormatter.amount(node.amount), ...icons};
+		return {...colors, name: node.getDisplayName(), stats: '', machines: '', ...icons};
 	}
 
 	private accentColor(node: Node): string
@@ -3285,11 +3498,6 @@ export class PlannerGraphService implements OnDestroy
 		if (node instanceof ByproductNode) return colors.byproduct;
 		if (node instanceof SubplanNode) return colors.subplan;
 		return '#666666';
-	}
-
-	private textFill(style: NodeStyle, dark: string): {fill?: string}
-	{
-		return style.darkText ? {fill: dark} : {};
 	}
 
 	/** Delegated: x6 renders views asynchronously, so indicators may not exist yet after restore(). */
@@ -3581,13 +3789,6 @@ export class PlannerGraphService implements OnDestroy
 	{
 		const lines = this.singleLineMachines() ? [] : node.groups.map(group => this.groupStatLine(group));
 		return lines.join('\n');
-	}
-
-	private labelBlockOffset(stats: string, height: number): number
-	{
-		const lines = stats === '' ? 0 : stats.split('\n').length;
-		const naturalHeight = (RECIPE_STATS_Y + RECIPE_STATS_LINE_HEIGHT * lines + RECIPE_BOTTOM_PADDING) * this.nodeScale();
-		return Math.max(0, (height - naturalHeight) / 2);
 	}
 
 	/** The somersloop icon is drawn separately (recipeSloopBadges). */

@@ -38,6 +38,11 @@
 		z-index: 40;
 	}
 
+	// The flow chart's canvas: x6 fills the chart container, which carries no class of its own here.
+	.x6-graph {
+		background: var(--chart);
+	}
+
 	// ---- top bar: logo, plan name, tabs, actions -------------------------------------------------
 	.pl-logo {
 		display: flex;
