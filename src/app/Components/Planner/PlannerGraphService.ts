@@ -63,9 +63,11 @@ const NODE_WIDTH = GraphMetrics.NODE_WIDTH;
 
 /**
  * The flow layout's block geometry version. 3 = the Look C blocks: plans stamped 2 were laid out for the old flat
- * sizes, so they are laid out once more when opened.
+ * sizes, so they are laid out once more when opened. 4 = the Look B blocks, which are narrower; a plan laid out in one
+ * look is laid out again when it is opened in the other.
  */
 const LAYOUT_VERSION = 3;
+const GAME_LAYOUT_VERSION = 4;
 
 
 // Look C ("Large"), from the mock-up: a dark card with a 52 px icon and a text column beside it, and the
@@ -123,6 +125,62 @@ const LOOK_C_GOOD = '#79d39a';
 const LOOK_C_WARN = '#d4663f';
 /** The fill setting tints the card toward its type colour; capped at 5%, so the card always reads as dark grey. */
 const LOOK_C_TINT_MAX = 0.05;
+
+// Look B ("Game style"), from the mock-up (ui-mockups/style.css, body[data-look="b"]): a 256 px card with 10 px
+// chamfers, the machine count and rate on a band across its top, and the product icon and name under it.
+const GAME_WIDTH = 256;
+/** Blocks stay on a lattice, so a longer name or rate takes the next whole step rather than a ragged width. */
+const GAME_WIDTH_STEP = 30;
+const GAME_HEIGHT_STEP = 10;
+const GAME_MIN_HEIGHT = 84;
+const GAME_CHAMFER = 10;
+const GAME_BAND_H = 24;
+const GAME_BAND_FONT = 13;
+/** The mock-up's band tracking (.03em); measured with the text, or a rate and its unit would run together. */
+const GAME_BAND_TRACKING = 0.03;
+const GAME_BAND_ICON = 16;
+const GAME_BAND_PAD_LEFT = 14;
+const GAME_BAND_ICON_GAP = 6;
+const GAME_BAND_RATE_PAD_RIGHT = 9;
+/** The gap the band keeps between its title and its rate, so the two never touch. */
+const GAME_BAND_TITLE_GAP = 8;
+const GAME_ICON = 38;
+const GAME_ICON_X = 11;
+const GAME_ICON_Y = 32;
+const GAME_ICON_GAP = 10;
+const GAME_TEXT_INSET = GAME_ICON_X + GAME_ICON + GAME_ICON_GAP;
+const GAME_TEXT_PAD_LEFT = 11;
+const GAME_TEXT_PAD_RIGHT = 11;
+const GAME_NAME_FONT = 14;
+const GAME_DIM_FONT = 13;
+const GAME_ALT_FONT = 10.5;
+const GAME_ALT_HEIGHT = 16;
+const GAME_ALT_WIDTH = 26;
+const GAME_ALT_GAP = 6;
+const GAME_LINE_HEIGHT = 18;
+/** Text centres from the block's top: the name row, then the clocks or the extra line under it. */
+const GAME_NAME_Y = 41;
+const GAME_CLOCK_Y = 59;
+const GAME_EXTRA_Y = 59;
+const GAME_PAD_Y = 10;
+/** Lock and sloop sit under the band, which already carries the rate on its right. */
+const GAME_BADGE_Y = GAME_BAND_H + 6;
+const GAME_FONT_FAMILY = 'Roboto Condensed, "Arial Narrow", sans-serif';
+const GAME_CARD_FILL = '#262626';
+const GAME_CARD_SELECTED = '#33281f';
+const GAME_CARD_BUILT = '#1f2b22';
+const GAME_BAND = '#fa9549';
+const GAME_BAND_INK = '#1a0f04';
+const GAME_BAND_SOURCE = '#5a5a5a';
+const GAME_BAND_SOURCE_INK = '#f2f0ec';
+const GAME_BAND_PRODUCT = '#f2f0ec';
+const GAME_TEXT = '#f2f0ec';
+const GAME_DIM = '#9a968f';
+const GAME_WARN = '#f3c04f';
+const GAME_CHART_COLOUR = '#1c1c1c';
+const GAME_FLOW_LINE_WIDTH = 1.8;
+const GAME_FLOW_LABEL_RADIUS = 2;
+
 const CHART_COLOUR = '#121315';
 const SLOOP_GLOW_COLOR = '#c56cf0';
 const LOCK_ICON_SIZE = 18;
@@ -272,6 +330,23 @@ for (let i = 0; i < SUBPLAN_IO_MAX; i++) {
 }
 const SUBPLAN_MORE_Y = SUBPLAN_IO_TOP + (SUBPLAN_IO_MAX - 1) * SUBPLAN_IO_ROW_H + SUBPLAN_IO_ICON / 2;
 
+/**
+ * A Look B card: square except for a chamfer cut off its top-left and bottom-right corners, like the mock-up's
+ * clip-path. Built for the block's actual size, so the cut stays 10 px whatever the card's width or height.
+ */
+function gameCardPath(width: number, height: number, chamfer: number): string
+{
+	const cut = Math.min(chamfer, width / 2, height / 2);
+	return `M ${cut} 0 L ${width} 0 L ${width} ${height - cut} L ${width - cut} ${height} L 0 ${height} L 0 ${cut} Z`;
+}
+
+/** The Look B band across the card's top: it keeps the card's top-left chamfer and squares off its own bottom. */
+function gameBandPath(width: number, height: number, chamfer: number): string
+{
+	const cut = Math.min(chamfer, width / 2, height);
+	return `M ${cut} 0 L ${width} 0 L ${width} ${height} L 0 ${height} L 0 ${cut} Z`;
+}
+
 /** The left stripe of a Look C card: inset by its corner radius, so it never leaves the rounded body. */
 function stripeAttrs(inset: number, width: number): Record<string, string | number>
 {
@@ -303,16 +378,26 @@ function mixColour(from: string, to: string, amount: number): string
 	return `#${blend(0)}${blend(2)}${blend(4)}`;
 }
 
-/** The width the block's text takes, so the "Alt" tag can sit right after the name instead of at a guessed offset. */
-const textMeasureContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
-function measureTextWidth(text: string, fontSize: number, bold: boolean): number
+/** The width the block's text takes, so the "Alt" tag can sit right after the name instead of at a guessed offset. */const textMeasureContext = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+function measureTextWidth(text: string, fontSize: number, bold: boolean, family = 'Arial, helvetica, sans-serif'): number
 {
 	if (textMeasureContext === null) {
-		return text.length * fontSize * 0.6;
+		// Look B's condensed face is narrower than the fallback's 0.6 em, so an unmeasured guess still fits.
+		return text.length * fontSize * (family === GAME_FONT_FAMILY ? 0.5 : 0.6);
 	}
 	// x6's text preset renders in this font (it does not inherit the page's), so measure the same one.
-	textMeasureContext.font = `${bold ? 'bold ' : ''}${fontSize}px Arial, helvetica, sans-serif`;
+	textMeasureContext.font = `${bold ? 'bold ' : ''}${fontSize}px ${family}`;
 	return textMeasureContext.measureText(text).width;
+}
+
+/**
+ * Look B's band text width. SVG applies letter-spacing after every glyph including the last, and a canvas does not
+ * measure it, so the tracking is added here; the spare glyphs cover SVG's per-glyph rounding. Over-measuring only
+ * widens a card by a whole 30 px step, while under-measuring would let a rate run into its unit.
+ */
+function measureBandTextWidth(text: string, fontSize: number): number
+{
+	return measureTextWidth(text, fontSize, true, GAME_FONT_FAMILY) + (text.length + 4) * fontSize * GAME_BAND_TRACKING;
 }
 
 function registerPlannerShapes(scale: number): void
@@ -470,12 +555,184 @@ function registerPlannerShapes(scale: number): void
 		},
 	}, true);
 
+	// Look B ("Game style"): a chamfered card with the machine count and rate on a band across its top, then the
+	// product icon and name (mock-up ui-mockups/style.css, body[data-look="b"] .node). Paths rather than rects
+	// because the chamfers are cut at the card's real size; addGameNode() writes each path's `d`.
+	const bandText = {refX: 0, refY: 0, x: 0, y: 0, textAnchor: 'start', textVerticalAnchor: 'middle', fontWeight: 'bold', fontSize: px(GAME_BAND_FONT), letterSpacing: px(GAME_BAND_FONT * GAME_BAND_TRACKING), fill: GAME_BAND_INK};
+	X6Graph.registerNode('planner-game-node', {
+		inherit: 'rect',
+		markup: [
+			{tagName: 'path', selector: 'body', className: 'pn-body'},
+			{tagName: 'path', selector: 'band', className: 'pn-band'},
+			{tagName: 'rect', selector: 'claimBar', className: 'pn-claim'},
+			{tagName: 'text', selector: 'machines', className: 'pn-detail pn-band-text'},
+			{tagName: 'text', selector: 'bandRate', className: 'pn-detail pn-band-text'},
+			{tagName: 'text', selector: 'bandUnit', className: 'pn-detail pn-band-text'},
+			{tagName: 'text', selector: 'name', className: 'pn-detail'},
+			{tagName: 'rect', selector: 'altTag', className: 'pn-alt'},
+			{tagName: 'text', selector: 'altText', className: 'pn-alt-text'},
+			{tagName: 'text', selector: 'stats', className: 'pn-detail'},
+			{tagName: 'text', selector: 'extra', className: 'pn-detail'},
+			{tagName: 'text', selector: 'zoomedOutName', className: 'pn-zoomed-out-name'},
+			...statSloopMarkup,
+			{tagName: 'image', selector: 'machineIcon', className: 'pn-machine'},
+			{tagName: 'image', selector: 'countIcon', className: 'pn-count'},
+			{tagName: 'image', selector: 'sloop', className: 'pn-sloop'},
+			{tagName: 'image', selector: 'lock', className: 'pn-lock'},
+			{tagName: 'image', selector: 'done', className: 'pn-done'},
+			{tagName: 'image', selector: 'inputWarning', className: 'pn-input-warning'},
+			{tagName: 'image', selector: 'outputWarning', className: 'pn-output-warning'},
+			{tagName: 'image', selector: 'capacityWarning', className: 'pn-capacity-warning'},
+		],
+		attrs: {
+			// Fallbacks for every rect and text the markup holds, matching x6's white/black defaults by tag name.
+			rect: {fill: NODE_FALLBACK_FILL, stroke: 'none', strokeWidth: 0},
+			text: {fill: NODE_FALLBACK_TEXT, refX: 0, refY: 0, x: 0, y: 0, textAnchor: 'start', textVerticalAnchor: 'middle', fontWeight: 'normal', fontSize: px(GAME_NAME_FONT), fontFamily: GAME_FONT_FAMILY},
+			body: {
+				d: gameCardPath(px(GAME_WIDTH), px(GAME_MIN_HEIGHT), px(GAME_CHAMFER)),
+				fill: GAME_CARD_FILL,
+				stroke: 'none',
+				strokeWidth: NODE_STROKE_WIDTH,
+			},
+			band: {
+				d: gameBandPath(px(GAME_WIDTH), px(GAME_BAND_H), px(GAME_CHAMFER)),
+				fill: GAME_BAND,
+				stroke: 'none',
+				pointerEvents: 'none',
+			},
+			claimBar: {x: 0, y: 0, refHeight: '100%', width: px(CLAIM_BAR_WIDTH), fill: '', display: 'none', rx: px(3), ry: px(3), pointerEvents: 'none'},
+			...statSloopAttrs,
+			machines: {...bandText, textAnchor: 'start'},
+			// The rate and its unit are anchored on their right edges, so a wider-than-measured glyph only grows into
+			// the band's padding instead of over the neighbouring text.
+			bandRate: {...bandText, textAnchor: 'end'},
+			bandUnit: {...bandText, textAnchor: 'end', fill: GAME_BAND_INK},
+			name: {refX: 0, refY: 0, x: px(GAME_TEXT_INSET), y: px(GAME_NAME_Y), textAnchor: 'start', textVerticalAnchor: 'middle', fontWeight: 'bold', fontSize: px(GAME_NAME_FONT), fill: GAME_TEXT},
+			altTag: {
+				x: px(GAME_TEXT_INSET),
+				y: px(GAME_NAME_Y - GAME_ALT_HEIGHT / 2),
+				width: px(GAME_ALT_WIDTH),
+				height: px(GAME_ALT_HEIGHT),
+				fill: 'none',
+				stroke: GAME_BAND,
+				strokeWidth: 1,
+				rx: px(LOOK_C_ALT_RADIUS),
+				ry: px(LOOK_C_ALT_RADIUS),
+				display: 'none',
+			},
+			altText: {refX: 0, refY: 0, x: 0, y: 0, textAnchor: 'start', textVerticalAnchor: 'middle', fontWeight: 'bold', fontSize: px(GAME_ALT_FONT), fill: GAME_BAND, display: 'none'},
+			stats: {refX: 0, refY: 0, x: px(GAME_TEXT_INSET), y: px(GAME_CLOCK_Y), textAnchor: 'start', textVerticalAnchor: 'middle', fontSize: px(GAME_DIM_FONT), fill: GAME_DIM},
+			extra: {refX: 0, refY: 0, x: px(GAME_TEXT_INSET), y: px(GAME_EXTRA_Y), textAnchor: 'start', textVerticalAnchor: 'middle', fontSize: px(GAME_DIM_FONT), fill: GAME_DIM},
+			zoomedOutName: {refX: 0.5, refY: 0.5, textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fill: GAME_TEXT, display: 'none'},
+			machineIcon: {
+				refX: 0,
+				x: px(GAME_ICON_X),
+				refY: 0,
+				y: px(GAME_ICON_Y),
+				width: px(GAME_ICON),
+				height: px(GAME_ICON),
+			},
+			countIcon: {
+				refX: 0,
+				x: px(GAME_BAND_PAD_LEFT),
+				refY: 0,
+				y: px((GAME_BAND_H - GAME_BAND_ICON) / 2),
+				width: px(GAME_BAND_ICON),
+				height: px(GAME_BAND_ICON),
+			},
+			// Below the band: it already carries the rate on its right.
+			sloop: {
+				refDx: -px(SLOOP_ICON_SIZE + GAME_CHAMFER),
+				refY: 0,
+				y: px(GAME_BADGE_Y),
+				width: px(SLOOP_ICON_SIZE),
+				height: px(SLOOP_ICON_SIZE),
+				cursor: 'help',
+			},
+			lock: {
+				refDx: -px(LOCK_ICON_SIZE + GAME_CHAMFER),
+				refY: 0,
+				y: px(GAME_BADGE_Y),
+				width: px(LOCK_ICON_SIZE),
+				height: px(LOCK_ICON_SIZE),
+				cursor: 'help',
+			},
+			done: {
+				refDx: -px(DONE_ICON_SIZE + GAME_CHAMFER),
+				refDy: -px(DONE_ICON_SIZE + GAME_CHAMFER),
+				width: px(DONE_ICON_SIZE),
+				height: px(DONE_ICON_SIZE),
+			},
+			inputWarning: {
+				refX: 0,
+				x: px(GAME_CHAMFER),
+				refY: 0.5,
+				y: -px(WARNING_ICON_SIZE / 2),
+				width: px(WARNING_ICON_SIZE),
+				height: px(WARNING_ICON_SIZE),
+				cursor: 'help',
+			},
+			outputWarning: {
+				refDx: -px(WARNING_ICON_SIZE + GAME_CHAMFER),
+				refY: 0.5,
+				y: -px(WARNING_ICON_SIZE / 2),
+				width: px(WARNING_ICON_SIZE),
+				height: px(WARNING_ICON_SIZE),
+				cursor: 'help',
+			},
+			capacityWarning: {
+				refDx: -px(WARNING_ICON_SIZE + GAME_CHAMFER),
+				refDy: -px(WARNING_ICON_SIZE + GAME_CHAMFER),
+				width: px(WARNING_ICON_SIZE),
+				height: px(WARNING_ICON_SIZE),
+				cursor: 'help',
+			},
+		},
+	}, true);
+
 	const subplanIoAttrs: Record<string, object> = {};
 	for (let i = 0; i < SUBPLAN_IO_MAX; i++) {
 		const y = px(SUBPLAN_IO_TOP + i * SUBPLAN_IO_ROW_H);
 		subplanIoAttrs[`in${i}`] = {refX: 0, x: px(10), refY: 0, y, width: px(SUBPLAN_IO_ICON), height: px(SUBPLAN_IO_ICON)};
 		subplanIoAttrs[`out${i}`] = {refDx: -px(SUBPLAN_IO_ICON + 10), refY: 0, y, width: px(SUBPLAN_IO_ICON), height: px(SUBPLAN_IO_ICON)};
 	}
+
+	// Look B subplan: the same chamfered card, without a band (the mock-up has no subplan block); its name and stats
+	// keep the Look C positions.
+	X6Graph.registerNode('planner-game-subplan-node', {
+		inherit: 'rect',
+		markup: [
+			{tagName: 'path', selector: 'body', className: 'pn-body'},
+			{tagName: 'rect', selector: 'claimBar', className: 'pn-claim'},
+			{tagName: 'text', selector: 'name', className: 'pn-detail'},
+			{tagName: 'text', selector: 'stats', className: 'pn-detail'},
+			{tagName: 'text', selector: 'zoomedOutName', className: 'pn-zoomed-out-name'},
+			...subplanIoMarkup,
+			{tagName: 'text', selector: 'inMore'},
+			{tagName: 'text', selector: 'outMore'},
+			{tagName: 'image', selector: 'lock', className: 'pn-lock'},
+			{tagName: 'image', selector: 'done', className: 'pn-done'},
+		],
+		attrs: {
+			rect: {fill: NODE_FALLBACK_FILL, stroke: 'none', strokeWidth: 0},
+			text: {fill: NODE_FALLBACK_TEXT, refX: 0, refY: 0, x: 0, y: 0, textAnchor: 'start', textVerticalAnchor: 'middle', fontWeight: 'normal', fontSize: px(GAME_NAME_FONT), fontFamily: GAME_FONT_FAMILY},
+			body: {
+				d: gameCardPath(px(GraphMetrics.SUBPLAN_NODE_WIDTH), px(GraphMetrics.SUBPLAN_NODE_HEIGHT), px(GAME_CHAMFER)),
+				fill: GAME_CARD_FILL,
+				stroke: 'none',
+				strokeWidth: NODE_STROKE_WIDTH,
+			},
+			claimBar: {x: 0, y: 0, refHeight: '100%', width: px(CLAIM_BAR_WIDTH), fill: '', display: 'none', rx: px(3), ry: px(3), pointerEvents: 'none'},
+			name: {refX: 0.5, refY: 0.5, y: px(-10), textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fontSize: px(SUBPLAN_NAME_FONT_SIZE), fill: GAME_TEXT, fontFamily: GAME_FONT_FAMILY},
+			stats: {refX: 0.5, refY: 0.5, y: px(12), textAnchor: 'middle', textVerticalAnchor: 'middle', fontSize: px(13), fill: GAME_DIM, fontFamily: GAME_FONT_FAMILY},
+			zoomedOutName: {refX: 0.5, refY: 0.5, textAnchor: 'middle', textVerticalAnchor: 'middle', fontWeight: 'bold', fill: GAME_TEXT, display: 'none', fontFamily: GAME_FONT_FAMILY},
+			...subplanIoAttrs,
+			inMore: {refX: 0, x: px(10), refY: 0, y: px(SUBPLAN_MORE_Y), textAnchor: 'start', textVerticalAnchor: 'middle', fontSize: px(11), fill: GAME_DIM, fontFamily: GAME_FONT_FAMILY},
+			outMore: {refDx: px(-10), refY: 0, y: px(SUBPLAN_MORE_Y), textAnchor: 'end', textVerticalAnchor: 'middle', fontSize: px(11), fill: GAME_DIM, fontFamily: GAME_FONT_FAMILY},
+			lock: {refDx: -px(LOCK_ICON_SIZE + GAME_CHAMFER), refY: 0, y: px(GAME_CHAMFER), width: px(LOCK_ICON_SIZE), height: px(LOCK_ICON_SIZE), cursor: 'help'},
+			done: {refDx: -px(DONE_ICON_SIZE + GAME_CHAMFER), refDy: -px(DONE_ICON_SIZE + GAME_CHAMFER), width: px(DONE_ICON_SIZE), height: px(DONE_ICON_SIZE)},
+		},
+	}, true);
 
 	X6Graph.registerNode('planner-subplan-node', {
 		inherit: 'rect',
@@ -599,6 +856,8 @@ export class PlannerGraphService implements OnDestroy
 	/** Edge arrays the flow layout produced, so a restore recognises its own routes. */
 	private readonly laidOutEdges = new WeakSet<GraphEdge[]>();
 	private renderedLayoutMode: 'free' | 'grid' | null = null;
+	/** The look the last restore drew; a change re-lays the chart out, since the two looks size blocks differently. */
+	private renderedLook: 'large' | 'game' | null = null;
 	private linePalette: FlowLinePalette | null = null;
 	private junctionLayer: SVGGElement | null = null;
 	private junctionCircles: Array<{circle: SVGCircleElement; x: number; y: number}> = [];
@@ -694,7 +953,7 @@ export class PlannerGraphService implements OnDestroy
 
 		const edges = this.edgeBuilder.build(response.nodes);
 		this.layoutFlowGraph(response.nodes, edges, settings);
-		const graph: Graph = {nodes: response.nodes, edges, layoutVersion: LAYOUT_VERSION, layoutHeights: this.layoutHeightsOfEdges.get(edges)};
+		const graph: Graph = {nodes: response.nodes, edges, layoutVersion: this.gameLook() ? GAME_LAYOUT_VERSION : LAYOUT_VERSION, layoutHeights: this.layoutHeightsOfEdges.get(edges)};
 		this.restore(container, graph);
 		return graph;
 	}
@@ -853,25 +1112,37 @@ export class PlannerGraphService implements OnDestroy
 
 	/**
 	 * A plan saved before the flow layout carries ELK routes (relative label distances, 0-1): it gets the flow layout
-	 * once, then is stamped and saved. A layout-mode change re-routes the open plan the same way.
+	 * once, then is stamped and saved. A layout-mode change re-routes the open plan the same way, and so does a look
+	 * change, because Look B's blocks are narrower than Look C's and the saved positions were measured for the old ones.
 	 */
 	private ensureFlowLayout(graph: Graph): void
 	{
 		const mode = this.settings.graph().layoutMode;
+		const look = this.settings.graph().look;
 		const modeChanged = this.renderedLayoutMode !== null && this.renderedLayoutMode !== mode;
+		// A redraw after the look changed, because block widths differ between the two looks.
+		const lookChanged = this.renderedLook !== null && this.renderedLook !== look;
+		// A look switch keeps hand-placed blocks where they are, unless the new block sizes would overlap.
+		const layoutChanged = modeChanged || (lookChanged && this.blocksOverlap(graph));
 		this.renderedLayoutMode = mode;
+		this.renderedLook = look;
 		if (graph.nodes.length === 0) {
 			return;
 		}
 		// Freshly laid out by layout() a moment ago, only the marker is missing.
-		const fresh = this.laidOutEdges.has(graph.edges);
+		const fresh = this.laidOutEdges.has(graph.edges) && !lookChanged;
+		// A look stamps its own geometry, so a plan laid out in the other look is laid out again.
+		const stamp = look === 'game' ? GAME_LAYOUT_VERSION : LAYOUT_VERSION;
 		// A fresh layout (a calculation or Rearrange) brings new heights; the graph may still carry the old ones.
 		if (fresh && !modeChanged) {
-			graph.layoutVersion = LAYOUT_VERSION;
+			graph.layoutVersion = stamp;
 			graph.layoutHeights = this.layoutHeightsOfEdges.get(graph.edges) ?? graph.layoutHeights;
 			return;
 		}
-		if (graph.layoutVersion === LAYOUT_VERSION && !modeChanged) {
+		if (lookChanged && !layoutChanged && (graph.layoutVersion === LAYOUT_VERSION || graph.layoutVersion === GAME_LAYOUT_VERSION)) {
+			graph.layoutVersion = stamp;
+		}
+		if (graph.layoutVersion === stamp && !layoutChanged) {
 			// Ports need the room the layout left for them; a graph rebuilt without the heights gets them back
 			// from its own routes instead of the layout running again.
 			if (graph.layoutHeights === undefined) {
@@ -880,12 +1151,30 @@ export class PlannerGraphService implements OnDestroy
 			return;
 		}
 		this.layoutFlowGraph(graph.nodes, graph.edges, this.planManager.activePlan()?.settings.graph);
-		graph.layoutVersion = LAYOUT_VERSION;
+		graph.layoutVersion = stamp;
 		graph.layoutHeights = this.layoutHeightsOfEdges.get(graph.edges);
 		const plan = this.planManager.activePlan();
 		if (plan !== null && !this.planManager.isReadOnlyPlan(plan.id)) {
 			this.planManager.setGraph(plan.id, graph);
 		}
+	}
+
+	/** True when two blocks, drawn at their sizes in the current look, would overlap. */
+	private blocksOverlap(graph: Graph): boolean
+	{
+		const boxes = graph.nodes
+			.map(node => ({x: node.x, y: node.y, ...this.nodeSizeForDraw(node)}))
+			.sort((a, b) => a.x - b.x);
+		for (let i = 0; i < boxes.length; i++) {
+			const a = boxes[i];
+			for (let j = i + 1; j < boxes.length && boxes[j].x < a.x + a.width; j++) {
+				const b = boxes[j];
+				if (b.y < a.y + a.height && a.y < b.y + b.height) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Source blocks feed the chart from the left; products close it on the right. */
@@ -1007,7 +1296,7 @@ export class PlannerGraphService implements OnDestroy
 
 	private lineColourFor(itemClassName: string): string
 	{
-		return this.linePalette?.colourFor(itemClassName) ?? FLOW_CASING_COLOUR;
+		return this.linePalette?.colourFor(itemClassName) ?? this.flowCasingColour();
 	}
 
 	/** Junction dots in the stage, so they pan, zoom and export with the cells. */
@@ -1036,7 +1325,7 @@ export class PlannerGraphService implements OnDestroy
 			const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
 			circle.setAttribute('cx', String(junction.x));
 			circle.setAttribute('cy', String(junction.y));
-			circle.setAttribute('r', String(FLOW_JUNCTION_RADIUS));
+			circle.setAttribute('r', String(this.flowJunctionRadius()));
 			circle.setAttribute('fill', this.lineColourFor(junction.itemClassName));
 			this.junctionLayer.appendChild(circle);
 			this.junctionCircles.push({circle, x: junction.x, y: junction.y});
@@ -1083,9 +1372,10 @@ export class PlannerGraphService implements OnDestroy
 		if (modelEdge === undefined) {
 			return;
 		}
-		const width = focused ? FLOW_LINE_WIDTH + 1.6 : FLOW_LINE_WIDTH;
+		const base = this.flowLineWidth();
+		const width = focused ? base + 1.6 : base;
 		cell.attr('line/strokeWidth', width);
-		cell.attr('casing/strokeWidth', focused ? width + 5 : FLOW_CASING_WIDTH);
+		cell.attr('casing/strokeWidth', focused ? width + 5 : this.flowCasingWidth());
 		cell.attr('line/stroke', this.lineColourFor(modelEdge.itemClassName));
 		if (cell.getLabelAt(0)) {
 			cell.prop('labels/0/attrs/rect/strokeWidth', focused ? FLOW_LABEL_STROKE + 1 : FLOW_LABEL_STROKE);
@@ -1456,9 +1746,14 @@ export class PlannerGraphService implements OnDestroy
 	private cleanExportSvg(svg: SVGSVGElement, fontFamily: string): void
 	{
 		svg.setAttribute('font-family', fontFamily);
-		svg.querySelectorAll('.x6-node-selected rect.pn-body').forEach(body => {
+		svg.querySelectorAll('.x6-node-selected rect.pn-body, .x6-node-selected path.pn-body').forEach(body => {
 			const cellId = body.closest('[data-cell-id]')?.getAttribute('data-cell-id') ?? '';
 			const modelNode = this.nodeById.get(cellId);
+			if (body.tagName.toLowerCase() === 'path') {
+				// Look B cards have no border; their selection is the warmer card fill.
+				body.setAttribute('fill', GAME_CARD_SELECTED);
+				return;
+			}
 			body.setAttribute('stroke', modelNode ? this.styleFor(modelNode).bodyStroke : NODE_FALLBACK_STROKE);
 			body.setAttribute('stroke-width', String(NODE_STROKE_WIDTH));
 		});
@@ -1467,7 +1762,7 @@ export class PlannerGraphService implements OnDestroy
 			const cellId = line.closest('[data-cell-id]')?.getAttribute('data-cell-id') ?? '';
 			const modelEdge = this.edgeById.get(cellId);
 			line.setAttribute('stroke', modelEdge ? this.lineColourFor(modelEdge.itemClassName) : EDGE_STROKE);
-			line.setAttribute('stroke-width', String(FLOW_LINE_WIDTH));
+			line.setAttribute('stroke-width', String(this.flowLineWidth()));
 			line.setAttribute('class', EDGE_LINE_CLASS);
 			// x6 keeps one <marker> per arrowhead colour, so a highlighted edge points at an orange one. Cloned per
 			// colour: over-limit lines and normal ones can share that marker in the same export.
@@ -1500,6 +1795,8 @@ export class PlannerGraphService implements OnDestroy
 			const modelEdge = this.edgeById.get(cellId);
 			box.setAttribute('stroke', modelEdge ? this.lineColourFor(modelEdge.itemClassName) : EDGE_STROKE);
 			box.setAttribute('stroke-width', String(FLOW_LABEL_STROKE));
+			box.setAttribute('rx', String(this.flowLabelRadius()));
+			box.setAttribute('ry', String(this.flowLabelRadius()));
 			box.setAttribute('class', LABEL_BOX_CLASS);
 		});
 		// Focus fades live on the cell view's style; an export should show the whole chart.
@@ -1547,6 +1844,9 @@ export class PlannerGraphService implements OnDestroy
 			autoResize: true,
 			panning: true,
 			mousewheel: true,
+			// Look B's chart is a touch lighter than Look C's (#1c1c1c vs #121315), set here because the shell's
+			// .x6-graph background rule is the other worker's file.
+			background: {color: this.gameLook() ? GAME_CHART_COLOUR : CHART_COLOUR},
 			interacting: this.readOnly ? false : {edgeMovable: false},
 			connecting: {
 				snap: {radius: CONNECT_SNAP_RADIUS},
@@ -1772,6 +2072,10 @@ export class PlannerGraphService implements OnDestroy
 			this.addSubplanNode(x6Graph, node);
 			return;
 		}
+		if (this.gameLook()) {
+			this.addGameNode(x6Graph, node);
+			return;
+		}
 
 		const style = this.styleFor(node);
 		const size = this.nodeSizeForDraw(node);
@@ -1884,7 +2188,175 @@ export class PlannerGraphService implements OnDestroy
 		this.applyClaimMarker(cell, node.id);
 	}
 
-	/** A Look C card's text: the bold line, the dim lines under it, and the rate a recipe block makes. */
+	/**
+	 * A Look B ("Game style") block: a chamfered card with the machine count and rate on a band across its top, then
+	 * the product icon, the recipe name with its Alt tag, and the clocks (mock-up ui-mockups/style.css .node, look b).
+	 */
+	private addGameNode(x6Graph: X6Graph, node: Node): void
+	{
+		const style = this.styleFor(node);
+		const size = this.nodeSizeForDraw(node);
+		const sloopIcon = this.sloopIconFor(node);
+		const sloopGlow = sloopIcon !== '' && this.settings.graph().sloopGlow;
+		const cornerSloop = sloopIcon !== '' && this.settings.graph().showSloopCornerIcon ? sloopIcon : '';
+		const scale = this.nodeScale();
+		const content = this.cardContentFor(node);
+		const band = this.gameBandFor(node, content);
+		const recipe = node instanceof RecipeNode;
+		const clockLines = content.dimLine === '' ? 0 : content.dimLine.split('\n').length;
+		const textX = (content.icon === '' ? GAME_TEXT_PAD_LEFT : GAME_TEXT_INSET) * scale;
+		const nameY = GAME_NAME_Y * scale;
+		const nameWidth = measureTextWidth(content.name, GAME_NAME_FONT * scale, true, GAME_FONT_FAMILY);
+		const altX = textX + nameWidth + GAME_ALT_GAP * scale;
+		const bandIconX = GAME_BAND_PAD_LEFT;
+		const bandTitleX = bandIconX + (band.icon === '' ? 0 : GAME_BAND_ICON + GAME_BAND_ICON_GAP);
+		const rateX = size.width - GAME_BAND_RATE_PAD_RIGHT * scale;
+		// Right-anchored unit, then the rate to its left, with a small cushion so rounding cannot close the gap.
+		const unitWidth = band.unit === '' ? 0 : measureBandTextWidth(band.unit, GAME_BAND_FONT * scale) + 2 * scale;
+		const rateRight = rateX - (band.unit === '' ? 0 : unitWidth + GAME_BAND_ICON_GAP * scale);
+		// Look B fades a built block the way the mock-up does: the whole card, not per element, and the card itself
+		// takes the built tint (style.bodyFill), so only the icons on top still fade.
+		const fade = node.done && style.bodyFill !== GAME_CARD_BUILT ? {opacity: DONE_OPACITY} : {};
+		const width = size.width;
+		const height = size.height;
+		const cell = x6Graph.addNode({
+			id: node.id,
+			shape: 'planner-game-node',
+			zIndex: NODE_BASE_Z,
+			x: node.x,
+			y: node.y,
+			width,
+			height,
+			ports: this.portsFor(node),
+			attrs: {
+				body: {
+					d: gameCardPath(width, height, GAME_CHAMFER * scale),
+					fill: style.bodyFill,
+					// Look B cards carry no border of their own; only a warning paints one, in the warning colour.
+					stroke: style.bodyStroke === 'none' ? 'none' : style.bodyStroke,
+					strokeWidth: style.bodyStroke === 'none' ? 0 : NODE_STROKE_WIDTH,
+					...(sloopGlow
+						? {filter: {name: 'dropShadow', args: {dx: 0, dy: 0, blur: 9, color: SLOOP_GLOW_COLOR, opacity: 0.55}}}
+						: {}),
+					...fade,
+				},
+				band: {
+					d: gameBandPath(width, GAME_BAND_H * scale, GAME_CHAMFER * scale),
+					fill: band.fill,
+					...fade,
+				},
+				// A Look B card has no room for the bar along its chamfered left edge, so it runs from under the band.
+				claimBar: {x: 0, y: GAME_BAND_H * scale, height: height - (GAME_BAND_H + GAME_CHAMFER) * scale, fill: '', display: 'none', rx: scale, ry: scale, pointerEvents: 'none'},
+				machines: {
+					text: band.title,
+					x: bandTitleX * scale,
+					y: GAME_BAND_H * scale / 2,
+					fill: band.ink,
+					...fade,
+				},
+				bandRate: {
+					text: band.value,
+					x: rateRight,
+					y: GAME_BAND_H * scale / 2,
+					fill: band.ink,
+					...fade,
+				},
+				bandUnit: {
+					text: band.unit,
+					display: band.unit === '' ? 'none' : 'inline',
+					x: rateX,
+					y: GAME_BAND_H * scale / 2,
+					fill: band.ink,
+					opacity: 0.7,
+					...fade,
+				},
+				name: {text: content.name, x: textX, y: nameY, ...fade},
+				altTag: {...this.altTagAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
+				altText: {...this.altTextAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
+				stats: {
+					text: recipe ? content.dimLine : '',
+					display: recipe && content.dimLine !== '' ? 'inline' : 'none',
+					x: textX,
+					// A multi-line text block is centred on y, so lift it to keep its first line on the clock row.
+					y: (GAME_CLOCK_Y + (clockLines - 1) * GAME_LINE_HEIGHT / 2) * scale,
+					lineHeight: GAME_LINE_HEIGHT * scale,
+					fontSize: GAME_DIM_FONT * scale,
+					...fade,
+				},
+				extra: {
+					text: content.extraLine,
+					display: content.extraLine === '' ? 'none' : 'inline',
+					// A recipe's clocks sit at GAME_CLOCK_Y, so extra lines start under them; other blocks start first.
+					y: (recipe ? GAME_CLOCK_Y + Math.max(clockLines, 1) * GAME_LINE_HEIGHT : GAME_CLOCK_Y) * scale,
+					lineHeight: GAME_LINE_HEIGHT * scale,
+					fontSize: GAME_DIM_FONT * scale,
+					...fade,
+				},
+				zoomedOutName: {
+					...this.zoomedOutNameAttrs(content.name, size, content.icon === '' ? ZOOMED_OUT_NAME_PAD_RIGHT : GAME_TEXT_INSET, ZOOMED_OUT_NAME_PAD_RIGHT),
+					...fade,
+				},
+				machineIcon: {...this.iconAttrs(content.icon), ...this.gameIconAttrs(content.icon, scale), ...fade},
+				countIcon: {...this.iconAttrs(band.icon), y: (GAME_BAND_H - GAME_BAND_ICON) / 2 * scale, ...fade},
+				...this.gameSloopBadges(node, textX, fade),
+				sloop: {...this.iconAttrs(cornerSloop), ...fade},
+				lock: {...this.iconAttrs(style.lock), y: GAME_BADGE_Y * scale, ...fade},
+				done: this.iconAttrs(style.done),
+				inputWarning: {...this.iconAttrs(style.inputWarning), ...fade},
+				outputWarning: {...this.iconAttrs(style.outputWarning), ...fade},
+				capacityWarning: {
+					...this.iconAttrs(style.capacityWarning),
+					...(node.done ? {refDx: -(WARNING_ICON_SIZE + GAME_CHAMFER + DONE_ICON_SIZE + 4) * scale} : {}),
+					...fade,
+				},
+			},
+		});
+		this.applyClaimMarker(cell, node.id);
+	}
+
+	/** The 38 px item icon under the band, top-aligned with the name row. */
+	private gameIconAttrs(icon: string, scale: number): Record<string, number | string>
+	{
+		return icon === ''
+			? {display: 'none'}
+			: {
+				refX: 0,
+				x: GAME_ICON_X * scale,
+				refY: 0,
+				y: GAME_ICON_Y * scale,
+				width: GAME_ICON * scale,
+				height: GAME_ICON * scale,
+			};
+	}
+
+	/** The Look B clock rows carry their somersloop counts like Look C's, on the taller 18 px line. */
+	private gameSloopBadges(node: Node, textShift: number, fade: {opacity?: number} = {}): Record<string, Record<string, string | number>>
+	{
+		if (!(node instanceof RecipeNode) || this.singleLineMachines()) {
+			return {};
+		}
+		const url = this.sloopIconFor(node);
+		if (!url) {
+			return {};
+		}
+		const scale = this.nodeScale();
+		const badges: Record<string, Record<string, string | number>> = {};
+		node.groups.forEach((group, i) => {
+			if (group.sloops <= 0 || i >= STAT_SLOOP_MAX_LINES) {
+				return;
+			}
+			const lineWidth = measureTextWidth(this.groupStatLine(group), GAME_DIM_FONT * scale, false, GAME_FONT_FAMILY);
+			badges[`statSloop${i}`] = {
+				'xlink:href': url,
+				display: 'inline',
+				x: textShift + lineWidth + STAT_SLOOP_GAP * scale,
+				y: (GAME_CLOCK_Y + i * GAME_LINE_HEIGHT + STAT_SLOOP_CENTER_OFFSET - STAT_SLOOP_SIZE / 2) * scale,
+				...fade,
+			};
+		});
+		return badges;
+	}
+
 	private cardContentFor(node: Node): NodeCardContent
 	{
 		const graph = this.settings.graph();
@@ -1978,7 +2450,7 @@ export class PlannerGraphService implements OnDestroy
 			};
 	}
 
-	/** The "Alt" tag, hidden unless the recipe is an alternate. */
+	/** The "Alt" tag, hidden unless the recipe is an alternate. Its 4 px radius is the same in both looks. */
 	private altTagAttrs(visible: boolean, x: number, y: number, scale: number): Record<string, string | number>
 	{
 		if (!visible) {
@@ -2015,15 +2487,24 @@ export class PlannerGraphService implements OnDestroy
 		const style = this.baseStyleFor(node);
 		const size = this.nodeSizeForDraw(node);
 		const baseSize = this.sizeFor(node);
+		const game = this.gameLook();
 		const ioInset = this.settings.graph().showSubplanItemIcons ? SUBPLAN_IO_COLUMN_WIDTH + 4 : ZOOMED_OUT_NAME_PAD_RIGHT;
-		const attrs: Record<string, Record<string, string | number>> = {
-			body: {fill: style.bodyFill, stroke: style.bodyStroke, strokeWidth: NODE_STROKE_WIDTH, rx: LOOK_C_RADIUS, ry: LOOK_C_RADIUS},
-			stripe: {...stripeAttrs(LOOK_C_RADIUS, LOOK_C_STRIPE), fill: style.accent},
-			name: {text: this.subplanDisplayName(node)},
-			stats: {text: this.subplanStats(node)},
-			zoomedOutName: this.zoomedOutNameAttrs(this.subplanDisplayName(node), baseSize, ioInset, ioInset),
-			lock: this.iconAttrs(this.lockIconUri),
-		};
+		const attrs: Record<string, Record<string, string | number>> = game
+			? {
+				body: {d: gameCardPath(size.width, size.height, GAME_CHAMFER * this.nodeScale()), fill: style.bodyFill, stroke: 'none', strokeWidth: NODE_STROKE_WIDTH},
+				name: {text: this.subplanDisplayName(node)},
+				stats: {text: this.subplanStats(node)},
+				zoomedOutName: this.zoomedOutNameAttrs(this.subplanDisplayName(node), baseSize, ioInset, ioInset),
+				lock: {...this.iconAttrs(this.lockIconUri), y: GAME_CHAMFER * this.nodeScale()},
+			}
+			: {
+				body: {fill: style.bodyFill, stroke: style.bodyStroke, strokeWidth: NODE_STROKE_WIDTH, rx: LOOK_C_RADIUS, ry: LOOK_C_RADIUS},
+				stripe: {...stripeAttrs(LOOK_C_RADIUS, LOOK_C_STRIPE), fill: style.accent},
+				name: {text: this.subplanDisplayName(node)},
+				stats: {text: this.subplanStats(node)},
+				zoomedOutName: this.zoomedOutNameAttrs(this.subplanDisplayName(node), baseSize, ioInset, ioInset),
+				lock: this.iconAttrs(this.lockIconUri),
+			};
 		this.applySubplanIoIcons(attrs, 'in', node.inputs);
 		this.applySubplanIoIcons(attrs, 'out', node.outputs);
 		if (node.done) {
@@ -2032,7 +2513,7 @@ export class PlannerGraphService implements OnDestroy
 		attrs['done'] = this.iconAttrs(style.done);
 		const cell = x6Graph.addNode({
 			id: node.id,
-			shape: 'planner-subplan-node',
+			shape: game ? 'planner-game-subplan-node' : 'planner-subplan-node',
 			zIndex: NODE_BASE_Z,
 			x: node.x,
 			y: node.y,
@@ -2467,6 +2948,8 @@ export class PlannerGraphService implements OnDestroy
 		const label = this.labelPillFor(edge);
 		const colour = this.lineColourFor(edge.itemClassName);
 		const scale = this.edgeScale();
+		const lineWidth = this.flowLineWidth();
+		const casingWidth = this.flowCasingWidth();
 		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
 		const fade = this.doneNodeIds.has(edge.sourceId) && this.doneNodeIds.has(edge.targetId)
 			? {opacity: DONE_OPACITY}
@@ -2498,8 +2981,8 @@ export class PlannerGraphService implements OnDestroy
 				casing: {
 					class: EDGE_CASING_CLASS,
 					fill: 'none',
-					stroke: FLOW_CASING_COLOUR,
-					strokeWidth: FLOW_CASING_WIDTH,
+					stroke: this.flowCasingColour(),
+					strokeWidth: casingWidth,
 					strokeLinejoin: 'round',
 					pointerEvents: 'none',
 					...fade,
@@ -2508,7 +2991,7 @@ export class PlannerGraphService implements OnDestroy
 					class: EDGE_LINE_CLASS,
 					fill: 'none',
 					stroke: colour,
-					strokeWidth: FLOW_LINE_WIDTH,
+					strokeWidth: lineWidth,
 					strokeLinejoin: 'round',
 					pointerEvents: 'none',
 					// The mock-up has no arrowheads; the default `edge` shape would otherwise add one.
@@ -2596,8 +3079,8 @@ export class PlannerGraphService implements OnDestroy
 						fill: FLOW_LABEL_FILL,
 						stroke: colour,
 						strokeWidth: FLOW_LABEL_STROKE,
-						rx: FLOW_LABEL_RADIUS,
-						ry: FLOW_LABEL_RADIUS,
+						rx: this.flowLabelRadius(),
+						ry: this.flowLabelRadius(),
 						...fade,
 					},
 				},
@@ -2704,13 +3187,28 @@ export class PlannerGraphService implements OnDestroy
 
 		x6Graph.getNodes().forEach(cell => {
 			const modelNode = this.nodeById.get(cell.id);
+			const game = this.gameLook() && modelNode !== undefined && !(modelNode instanceof SubplanNode);
 			if (selectedIds.has(cell.id)) {
-				cell.attr('body/stroke', SELECTED_STROKE);
-				cell.attr('body/strokeWidth', SELECTED_STROKE_WIDTH);
+				if (game) {
+					// Look B has no border: the selected card itself lifts to a warm #33281f (mock-up .node.sel .card).
+					cell.attr('body/fill', GAME_CARD_SELECTED);
+					cell.attr('body/stroke', 'none');
+					cell.attr('body/strokeWidth', 0);
+				} else {
+					cell.attr('body/stroke', SELECTED_STROKE);
+					cell.attr('body/strokeWidth', SELECTED_STROKE_WIDTH);
+				}
 				this.scheduleZChange(cell, this.touchUsed ? SELECTED_TOUCH_Z : NODE_HIGHLIGHT_Z);
 			} else if (modelNode) {
-				cell.attr('body/stroke', this.styleFor(modelNode).bodyStroke);
-				cell.attr('body/strokeWidth', NODE_STROKE_WIDTH);
+				if (game) {
+					const bodyStroke = this.styleFor(modelNode).bodyStroke;
+					cell.attr('body/fill', modelNode.done ? GAME_CARD_BUILT : this.baseStyleFor(modelNode).bodyFill);
+					cell.attr('body/stroke', bodyStroke);
+					cell.attr('body/strokeWidth', bodyStroke === 'none' ? 0 : NODE_STROKE_WIDTH);
+				} else {
+					cell.attr('body/stroke', this.styleFor(modelNode).bodyStroke);
+					cell.attr('body/strokeWidth', NODE_STROKE_WIDTH);
+				}
 				this.scheduleZChange(cell, null);
 			}
 		});
@@ -3317,7 +3815,7 @@ export class PlannerGraphService implements OnDestroy
 		if (warnings) {
 			style = {
 				...style,
-				bodyStroke: LOOK_C_WARN,
+				bodyStroke: this.gameLook() ? GAME_WARN : LOOK_C_WARN,
 				inputWarning: warnings.inputs.length > 0 ? this.warningIconUri : '',
 				outputWarning: warnings.outputs.length > 0 ? this.warningIconUri : '',
 				capacityWarning: warnings.capacity !== null || warnings.extractors ? this.warningIconUri : '',
@@ -3417,6 +3915,37 @@ export class PlannerGraphService implements OnDestroy
 		return this.settings.graph().nodeScale;
 	}
 
+	/** True while the setting asks for the mock-up's Look B ("Game style") blocks and lines. */
+	private gameLook(): boolean
+	{
+		return this.settings.graph().look === 'game';
+	}
+
+	private flowLineWidth(): number
+	{
+		return this.gameLook() ? GAME_FLOW_LINE_WIDTH : FLOW_LINE_WIDTH;
+	}
+
+	private flowCasingWidth(): number
+	{
+		return this.flowLineWidth() + 5;
+	}
+
+	private flowCasingColour(): string
+	{
+		return this.gameLook() ? GAME_CHART_COLOUR : FLOW_CASING_COLOUR;
+	}
+
+	private flowJunctionRadius(): number
+	{
+		return this.flowLineWidth() + 2;
+	}
+
+	private flowLabelRadius(): number
+	{
+		return this.gameLook() ? GAME_FLOW_LABEL_RADIUS : FLOW_LABEL_RADIUS;
+	}
+
 	private edgeScale(): number
 	{
 		return this.settings.graph().edgeScale;
@@ -3432,6 +3961,9 @@ export class PlannerGraphService implements OnDestroy
 	{
 		if (node instanceof SubplanNode) {
 			return this.subplanSize(node);
+		}
+		if (this.gameLook()) {
+			return this.gameSizeFor(node);
 		}
 		const content = this.cardContentFor(node);
 		const recipe = node instanceof RecipeNode;
@@ -3460,6 +3992,54 @@ export class PlannerGraphService implements OnDestroy
 		return {width, height};
 	}
 
+	/**
+	 * Look B's block: 256 px wide, grown in whole steps when a long name or rate would not fit. The card's first row
+	 * is the band (machine count and rate), then the product icon and name, then the clocks or kind word.
+	 */
+	private gameSizeFor(node: Node): {width: number; height: number}
+	{
+		const content = this.cardContentFor(node);
+		const band = this.gameBandFor(node, content);
+		const recipe = node instanceof RecipeNode;
+		const extraLines = content.extraLine === '' ? 0 : content.extraLine.split('\n').length;
+		const measure = (text: string, font: number, bold: boolean): number => measureTextWidth(text, font, bold, GAME_FONT_FAMILY);
+		const bandLeft = GAME_BAND_PAD_LEFT + (band.icon === '' ? 0 : GAME_BAND_ICON + GAME_BAND_ICON_GAP);
+		const bandRight = GAME_BAND_RATE_PAD_RIGHT + measureBandTextWidth(band.value, GAME_BAND_FONT) + (band.unit === '' ? 0 : GAME_BAND_ICON_GAP + measureBandTextWidth(band.unit, GAME_BAND_FONT));
+		const bandWidth = bandLeft + measureBandTextWidth(band.title, GAME_BAND_FONT) + GAME_BAND_TITLE_GAP + bandRight;
+		const textInset = content.icon === '' ? GAME_TEXT_PAD_LEFT : GAME_TEXT_INSET;
+		const textWidth = Math.max(
+			textInset + measure(content.name, GAME_NAME_FONT, true) + (content.alternate ? GAME_ALT_GAP + GAME_ALT_WIDTH : 0) + GAME_TEXT_PAD_RIGHT,
+			...(content.dimLine.split('\n').map(line => textInset + measure(line, GAME_DIM_FONT, false) + STAT_SLOOP_SIZE + GAME_TEXT_PAD_RIGHT)),
+			...(content.extraLine.split('\n').map(line => textInset + measure(line, GAME_DIM_FONT, false) + GAME_TEXT_PAD_RIGHT)),
+		);
+		const width = Math.max(GAME_WIDTH, Math.ceil(Math.max(bandWidth, textWidth) / GAME_WIDTH_STEP) * GAME_WIDTH_STEP);
+		// The band names a source's kind, and the card has no room for a second kind line, so only a recipe's clocks
+		// and any extra line are drawn under the name.
+		const rows = [...(recipe ? content.dimLine.split('\n').filter(line => line !== '') : []), ...(extraLines > 0 ? content.extraLine.split('\n') : [])];
+		const lastY = rows.length === 0 ? GAME_NAME_Y : GAME_CLOCK_Y + (rows.length - 1) * GAME_LINE_HEIGHT;
+		const height = Math.max(GAME_MIN_HEIGHT, Math.ceil((lastY + GAME_PAD_Y + 10) / GAME_HEIGHT_STEP) * GAME_HEIGHT_STEP);
+		return {width, height};
+	}
+
+	/**
+	 * The Look B band: a recipe block shows its machine count and the rate it makes; every other block shows its kind
+	 * word and its amount. The band's colour follows the kind (orange, grey for a source, light for the product), and
+	 * its text is uppercase like the mock-up's.
+	 */
+	private gameBandFor(node: Node, content: NodeCardContent): {icon: string; title: string; value: string; unit: string; fill: string; ink: string}
+	{
+		if (node instanceof RecipeNode) {
+			return {icon: content.countIcon, title: content.bigLine.toUpperCase(), value: content.makes, unit: content.makesUnit, fill: GAME_BAND, ink: GAME_BAND_INK};
+		}
+		const kind = node instanceof MineNode ? 'Resource' : node instanceof InputNode ? 'Supplied' : content.dimLine;
+		const tone = node instanceof ProductNode
+			? {fill: GAME_BAND_PRODUCT, ink: GAME_BAND_INK}
+			: node instanceof MineNode || node instanceof InputNode
+				? {fill: GAME_BAND_SOURCE, ink: GAME_BAND_SOURCE_INK}
+				: {fill: GAME_BAND, ink: GAME_BAND_INK};
+		return {icon: '', title: kind.toUpperCase(), value: content.bigLine, unit: '', ...tone};
+	}
+
 	private subplanSize(node: SubplanNode): {width: number; height: number}
 	{
 		const textWidth = Math.max(
@@ -3477,6 +4057,12 @@ export class PlannerGraphService implements OnDestroy
 	private baseStyleFor(node: Node): NodeStyle
 	{
 		const accent = this.accentColor(node);
+		if (this.gameLook()) {
+			// Look B: a plain #262626 card, no border and no type stripe; built and selection states repaint it.
+			const fill = mixColour(GAME_CARD_FILL, accent, this.settings.graph().nodeFillAmount * LOOK_C_TINT_MAX);
+			const icons = {lock: '', done: node.done ? this.doneIconUri : '', inputWarning: '', outputWarning: '', capacityWarning: ''};
+			return {bodyFill: node.done ? GAME_CARD_BUILT : fill, bodyStroke: 'none', accent, name: node.getDisplayName(), stats: '', machines: '', ...icons};
+		}
 		// The fill setting tints the dark card toward the block's type colour, so 0 leaves it plain.
 		const fill = mixColour(LOOK_C_FILL, accent, this.settings.graph().nodeFillAmount * LOOK_C_TINT_MAX);
 		const product = node instanceof ProductNode;
