@@ -19,15 +19,9 @@
 		<button
 			class="pl-tab"
 			type="button"
-			#tabTip="bs-tooltip"
 			[class.active]="dock.isOpen(tab.id)"
-			[tooltip]="tabTooltip(tab.label, tab.id)"
-			placement="bottom"
-			container="body"
-			[delay]="600"
-			[isDisabled]="dock.isOpen(tab.id)"
+			[attr.title]="tabTooltip(tab.label, tab.id)"
 			[attr.aria-keyshortcuts]="shortcutOf(tab.id)"
-			(mousedown)="tabTip.hide()"
 			(click)="toggleTab(tab.id)"
 		>
 			{{ tab.label }}

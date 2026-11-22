@@ -338,6 +338,17 @@
 		}
 	}
 
+	// Below 1360 px a long plan name and full tab padding no longer fit beside the right-hand buttons.
+	@media (max-width: 1360px) {
+		.pl-plan-btn {
+			max-width: 220px;
+		}
+
+		.pl-tab {
+			padding: 0 9px;
+		}
+	}
+
 	@media (max-width: 1180px) {
 		.pl-logo {
 			display: none;
