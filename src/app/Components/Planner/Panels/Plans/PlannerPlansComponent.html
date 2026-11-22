@@ -29,6 +29,7 @@
 			: 'No plans yet. Press New plan above to start your first factory.' }}</div>
 	}
 
+	<div class="tree-list">
 	@for (item of treeItems(); track item.type + ':' + (item.type === 'plan' ? item.plan.id : item.type === 'folder' ? item.id : item.parentId + ':' + item.mode)) {
 		@if (item.type === 'input') {
 			<div class="d-flex align-items-center gap-1 tree-row" [style.padding-left.rem]="item.depth * 1 + (item.mode === 'folder' ? 1.5 : 1.5)">
@@ -157,6 +158,7 @@
 			</div>
 		}
 	}
+	</div>
 
 	@if (showLocalSection()) {
 		<div class="tree-section mt-3" [class.open]="localOpen()" role="button" (click)="toggleLocal()">
@@ -178,6 +180,7 @@
 				<info-note class="tree-section-note">Made while signed out. Saved only on {{ platform.device }}. To edit one, drag it onto &ldquo;Your plans&rdquo; or use its menu.</info-note>
 			}
 
+			<div class="tree-list">
 			@for (item of localTreeItems(); track item.kind + ':' + item.id) {
 				<div
 					class="d-flex align-items-center gap-1 tree-row"
@@ -217,6 +220,7 @@
 					}
 				</div>
 			}
+			</div>
 		}
 	}
 
@@ -244,6 +248,7 @@
 				<info-note class="tree-section-note">Opened from share links. They are read-only and never change. To edit one, drag it onto &ldquo;Your plans&rdquo; to get a copy.</info-note>
 			}
 
+			<div class="tree-list">
 			@for (share of sharedList(); track share.share) {
 				<div
 					class="d-flex align-items-center gap-1 tree-row"
@@ -337,6 +342,7 @@
 					}
 				}
 			}
+			</div>
 		}
 	}
 
