@@ -2,17 +2,17 @@
 	<div class="export-dialog card" (click)="$event.stopPropagation()">
 		<div class="card-header d-flex align-items-center gap-2">
 			<fa-icon [icon]="faImage" class="opacity-75"></fa-icon>
-			<span class="fw-semibold flex-grow-1">Export the graph as an image</span>
+			<span class="fw-semibold flex-grow-1">Export the chart as an image</span>
 			<button type="button" class="btn-close" aria-label="Close" (click)="close()"></button>
 		</div>
 		<div class="card-body">
 			@if (loading()) {
 				<div class="text-secondary py-2">
 					<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-					Preparing the graph…
+					Preparing the chart…
 				</div>
 			} @else if (snapshot() === null && error() === null) {
-				<info-note kind="info">The graph is empty. There is nothing to export.</info-note>
+				<info-note kind="info">The chart is empty. There is nothing to export.</info-note>
 			} @else if (snapshot(); as snapshot) {
 
 				<div class="mb-3">
@@ -54,17 +54,17 @@
 							@if (selectedOption(); as option) {
 								{{ sizeText(option.size) }}.
 							}
-							100&nbsp;% is the graph at normal zoom.
+							100&nbsp;% is the chart at normal zoom.
 							@if (someSizeTooLarge()) {
 								Greyed-out sizes are too large for the browser to draw.
 							}
 						</div>
 					</div>
 
-					<div class="small text-secondary mb-1">Preview of one node at this size:</div>
+					<div class="small text-secondary mb-1">Preview of one block at this size:</div>
 					<div class="preview-box">
 						@if (preview(); as url) {
-							<img [src]="url" alt="Preview of one node" [style.width.px]="previewCssWidth()">
+							<img [src]="url" alt="Preview of one block" [style.width.px]="previewCssWidth()">
 						} @else {
 							<div class="preview-wait d-flex align-items-center justify-content-center text-secondary">
 								<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>

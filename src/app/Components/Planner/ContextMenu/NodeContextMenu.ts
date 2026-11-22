@@ -61,7 +61,7 @@ export class NodeContextMenu extends PlannerContextMenu
 	{
 		const items: ContextMenuItem[] = [
 			{
-				label: 'Inspect node…',
+				label: 'Inspect block…',
 				icon: faCrosshairs,
 				hotkey: 'graph.inspectNode',
 				action: () => {
@@ -81,7 +81,7 @@ export class NodeContextMenu extends PlannerContextMenu
 			} else if (!recipeNode.machine.canOverclock) {
 				overclockHint = 'This building can\'t be overclocked';
 			} else if (slooped) {
-				overclockHint = 'Slooped machines: use Inspect node';
+				overclockHint = 'Slooped machines: use Inspect block';
 			}
 			items.push({
 				label: 'Overclock…',
@@ -104,7 +104,7 @@ export class NodeContextMenu extends PlannerContextMenu
 				label: 'Unpack subplan',
 				icon: faBoxOpen,
 				hotkey: 'graph.unpackSubplan',
-				hint: 'Moves its nodes into this plan and deletes the subplan. Its own subplans move here too.',
+				hint: 'Moves its blocks into this plan and deletes the subplan. Its own subplans move here too.',
 				action: () => this.actions.requestSubplanUnpack(this.node.id),
 			});
 		} else {
@@ -118,7 +118,7 @@ export class NodeContextMenu extends PlannerContextMenu
 
 		if (this.node.canToggleLock()) {
 			items.push({
-				label: this.node.locked ? 'Unlock node' : 'Lock node',
+				label: this.node.locked ? 'Unlock block' : 'Lock block',
 				icon: this.node.locked ? faLockOpen : faLock,
 				hotkey: 'graph.toggleLock',
 				action: () => this.actions.requestNodeLock({nodeIds: [this.node.id], locked: !this.node.locked}),
@@ -137,7 +137,7 @@ export class NodeContextMenu extends PlannerContextMenu
 		}
 
 		items.push({
-			label: this.node.done ? 'Mark as not done' : 'Mark as done',
+			label: this.node.done ? 'Mark as not built' : 'Mark as built',
 			icon: this.node.done ? faRotateLeft : faCheck,
 			hotkey: 'graph.toggleDone',
 			action: () => this.actions.requestNodeDone({nodeIds: [this.node.id], done: !this.node.done}),
@@ -171,7 +171,7 @@ export class NodeContextMenu extends PlannerContextMenu
 		items.push(this.resizeItem('graph.growToConnections', 'Grow to connections', faExpand, this.resize.maximise));
 
 		items.push({
-			label: 'Delete node',
+			label: 'Delete block',
 			icon: faTrashCan,
 			hotkey: 'graph.deleteNode',
 			action: () => this.actions.requestNodeDelete([this.node.id]),
@@ -269,7 +269,7 @@ export class NodeContextMenu extends PlannerContextMenu
 			disabled: count < 2,
 			hint: count < 2
 				? nothingToSplit
-				: `Splits into ${count} nodes, ${description}.`,
+				: `Splits into ${count} blocks, ${description}.`,
 			action: () => this.actions.requestNodeSplit({nodeId: this.node.id, mode}),
 		};
 	}

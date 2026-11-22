@@ -18,7 +18,7 @@ export class MultiNodeContextMenu extends PlannerContextMenu
 
 	public override getTitle(): string
 	{
-		return `${this.nodes.length} nodes`;
+		return `${this.nodes.length} blocks`;
 	}
 
 	public getItems(): ContextMenuItem[]
@@ -53,13 +53,13 @@ export class MultiNodeContextMenu extends PlannerContextMenu
 				action: () => this.actions.requestNodeLock({nodeIds: lockableIds, locked: false}),
 			},
 			{
-				label: allDone ? 'Mark all as not done' : 'Mark all as done',
+				label: allDone ? 'Mark all as not built' : 'Mark all as built',
 				hotkey: 'graph.toggleDone',
 				icon: allDone ? faRotateLeft : faCheck,
 				action: () => this.actions.requestNodeDone({nodeIds: this.nodes.map(node => node.id), done: !allDone}),
 			},
 			{
-				label: `Delete ${this.nodes.length} nodes`,
+				label: `Delete ${this.nodes.length} blocks`,
 				icon: faTrashCan,
 				hotkey: 'graph.deleteNode',
 				action: () => this.actions.requestNodeDelete(this.nodes.map(node => node.id)),

@@ -292,7 +292,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			id: 'calculator',
 			helpTopic: 'panel.calculator',
 			hotkey: 'panel.calculator',
-			label: 'Production request',
+			label: 'Produce',
 			icon: faListCheck,
 			component: CalculatorComponent,
 			defaultSide: 'top',
@@ -311,7 +311,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			id: 'inspector',
 			helpTopic: 'panel.inspector',
 			hotkey: 'panel.inspector',
-			label: 'Inspector',
+			label: 'Block details',
 			icon: faCrosshairs,
 			component: PlannerInspectorComponent,
 			defaultSide: 'right',
@@ -338,7 +338,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			id: 'build-cost',
 			helpTopic: 'panel.build-cost',
 			hotkey: 'panel.buildCost',
-			label: 'Build cost',
+			label: 'Materials',
 			icon: faCoins,
 			component: PlannerBuildCostComponent,
 			defaultSide: 'right',
@@ -1062,7 +1062,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			graph = this.planSerializer.reviveGraph(plan.graph);
 		} catch (err) {
-			this.notifications.show('Could not split the node: ' + String(err));
+			this.notifications.show('Could not split the block: ' + String(err));
 			return;
 		}
 
@@ -1107,7 +1107,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			current = this.planSerializer.reviveGraph(plan.graph);
 		} catch (err) {
-			this.notifications.show('Could not apply node update: ' + String(err));
+			this.notifications.show('Could not apply block update: ' + String(err));
 			return;
 		}
 
@@ -1297,7 +1297,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			graph = this.planSerializer.reviveGraph(plan.graph);
 		} catch (err) {
-			this.notifications.show('Could not connect nodes: ' + String(err));
+			this.notifications.show('Could not connect blocks: ' + String(err));
 			return null;
 		}
 
@@ -1475,7 +1475,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			graph = this.planSerializer.reviveGraph(plan.graph);
 		} catch (err) {
-			this.notifications.show('Could not delete nodes: ' + String(err));
+			this.notifications.show('Could not delete blocks: ' + String(err));
 			return;
 		}
 
@@ -1581,7 +1581,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			graph = this.planSerializer.reviveGraph(JSON.parse(snapshot.graphJson) as Graph);
 		} catch (err) {
-			this.notifications.show('Could not restore graph state: ' + String(err));
+			this.notifications.show('Could not restore chart state: ' + String(err));
 			return;
 		}
 		this.plannerGraph.restore(this.graphContainerRef.nativeElement, graph, false);
@@ -1613,7 +1613,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			graph = this.planSerializer.reviveGraph(plan.graph);
 		} catch (err) {
-			this.notifications.show('Could not change node lock: ' + String(err));
+			this.notifications.show('Could not change block lock: ' + String(err));
 			return;
 		}
 
@@ -1648,7 +1648,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			graph = this.planSerializer.reviveGraph(plan.graph);
 		} catch (err) {
-			this.notifications.show('Could not change node done state: ' + String(err));
+			this.notifications.show('Could not change block built state: ' + String(err));
 			return;
 		}
 
@@ -1797,7 +1797,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			graph = this.planSerializer.reviveGraph(plan.graph);
 		} catch (err) {
-			this.notifications.show('Could not rearrange the graph: ' + String(err));
+			this.notifications.show('Could not rearrange the chart: ' + String(err));
 			return;
 		}
 		if (graph.nodes.length === 0) {
@@ -1809,7 +1809,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		try {
 			await this.plannerGraph.layout(graph.nodes, graph.edges, plan.settings.graph);
 		} catch (err) {
-			this.notifications.show('Could not rearrange the graph: ' + String(err));
+			this.notifications.show('Could not rearrange the chart: ' + String(err));
 			return;
 		}
 
@@ -2066,7 +2066,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			try {
 				graph = this.planSerializer.reviveGraph(plan.graph);
 			} catch (err) {
-				this.notifications.show('Could not add node: ' + String(err));
+				this.notifications.show('Could not add block: ' + String(err));
 				return;
 			}
 		} else {
@@ -2532,7 +2532,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 			// Undefined clears stale maximise results.
 			this.planManager.setAchievedMaximums(plan.id, pending.result.achievedMaximums);
 		}).catch(err => {
-			this.actions.setSolveError('error', 'Could not draw the graph: ' + String(err) + '. This is a bug, please tell me on Discord.');
+			this.actions.setSolveError('error', 'Could not draw the chart: ' + String(err) + '. This is a bug, please tell me on Discord.');
 		});
 	}
 
@@ -2547,7 +2547,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 					// Undefined clears stale maximise results.
 					this.planManager.setAchievedMaximums(plan.id, result.achievedMaximums);
 				}).catch(err => {
-					this.actions.setSolveError('error', 'Could not draw the graph: ' + String(err) + '. This is a bug, please tell me on Discord.');
+					this.actions.setSolveError('error', 'Could not draw the chart: ' + String(err) + '. This is a bug, please tell me on Discord.');
 				});
 			},
 			failed: () => {},
@@ -2639,7 +2639,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 	{
 		this.subscription.add(
 			this.productionSolver.diagnoseFailure(plan, lockedNodes).subscribe(message => {
-				const hint = lockedNodes.length > 0 ? ' Locked nodes also limit what is possible.' : '';
+				const hint = lockedNodes.length > 0 ? ' Locked blocks also limit what is possible.' : '';
 				this.actions.setSolveError('no solution', message + hint);
 			}),
 		);

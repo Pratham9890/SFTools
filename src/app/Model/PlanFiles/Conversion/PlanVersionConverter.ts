@@ -85,7 +85,7 @@ export class PlanVersionConverter
 			const conversion = this.graphs.convert(graph, context, issues);
 			graph = this.revivable(conversion.graph) ? conversion.graph : null;
 			if (graph === null) {
-				issues.warn('The production graph could not be converted and was removed - calculate the plan again');
+				issues.warn('The production chart could not be converted and was removed - calculate the plan again');
 			} else if (conversion.changed && graph.nodes.length > 0) {
 				recalculationNeeded = true;
 			}

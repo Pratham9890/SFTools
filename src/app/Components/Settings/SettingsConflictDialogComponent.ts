@@ -37,7 +37,7 @@ const NUMBER_LABELS: Record<keyof NumberSettings, SettingsFieldLabel> = {
 
 const GRAPH_LABELS: Record<Exclude<keyof GraphSettings, 'nodeAccentColors'>, SettingsFieldLabel> = {
 	sloopGlow: {label: 'Sloop glow', format: YES_NO},
-	simplifyWhenZoomedOut: {label: 'Simplify the graph when zoomed out', format: YES_NO},
+	simplifyWhenZoomedOut: {label: 'Simplify the chart when zoomed out', format: YES_NO},
 	showEdgeItemIcons: {label: 'Item icons on connections', format: YES_NO},
 	showEdgeLabelBoxes: {label: 'Box behind connection labels', format: YES_NO},
 	addBendPointsByClick: {label: 'Add bend points by clicking connection lines', format: YES_NO},
@@ -45,10 +45,10 @@ const GRAPH_LABELS: Record<Exclude<keyof GraphSettings, 'nodeAccentColors'>, Set
 	colourLinesByItem: {label: 'Colour lines by item', format: YES_NO},
 	look: {label: 'Look', format: CHOICE({large: 'Large', game: 'Game style'})},
 	showClockFractions: {label: 'Show clock speeds as fractions', format: YES_NO},
-	showNodeItemIcons: {label: 'Item icons on nodes', format: YES_NO},
-	showNodeBuildingIcons: {label: 'Building icons on nodes', format: YES_NO},
+	showNodeItemIcons: {label: 'Item icons on blocks', format: YES_NO},
+	showNodeBuildingIcons: {label: 'Building icons on blocks', format: YES_NO},
 	showSubplanItemIcons: {label: 'Input/output icons on subplans', format: YES_NO},
-	showSloopCornerIcon: {label: 'Sloop icon in node corner', format: YES_NO},
+	showSloopCornerIcon: {label: 'Sloop icon in block corner', format: YES_NO},
 	machineDisplay: {
 		label: 'Machine count display',
 		format: CHOICE({
@@ -58,9 +58,9 @@ const GRAPH_LABELS: Record<Exclude<keyof GraphSettings, 'nodeAccentColors'>, Set
 			'groups-only': 'Machine groups only',
 		}),
 	},
-	nodeScale: {label: 'Node size', format: PERCENT},
+	nodeScale: {label: 'Block size', format: PERCENT},
 	edgeScale: {label: 'Connection label size', format: PERCENT},
-	nodeFillAmount: {label: 'Node fill strength', format: PERCENT},
+	nodeFillAmount: {label: 'Block fill strength', format: PERCENT},
 };
 
 const PLANNER_LABELS: Record<keyof PlannerSettings, SettingsFieldLabel> = {
@@ -72,12 +72,12 @@ const PLANNER_LABELS: Record<keyof PlannerSettings, SettingsFieldLabel> = {
 		label: 'Action bar size',
 		format: CHOICE({tiny: 'Tiny', small: 'Small', normal: 'Normal', large: 'Large', huge: 'Huge'}),
 	},
-	tabBadges: {label: 'Counts on the production request tabs', format: YES_NO},
+	tabBadges: {label: 'Counts on the Produce tabs', format: YES_NO},
 	tabLabels: {
-		label: 'Production request tab labels',
+		label: 'Produce tab labels',
 		format: CHOICE({auto: 'Fit to width', icons: 'Icons only', labels: 'Always labels'}),
 	},
-	groupTabs: {label: 'Less-used production request tabs under More', format: YES_NO},
+	groupTabs: {label: 'Less-used Produce tabs under More', format: YES_NO},
 	moreTabs: {
 		label: 'Tabs listed under More',
 		format: value => (value as CalculatorTab[]).map(tab => CalculatorTabDefinitions.labelOf(tab)).join(', ') || 'None',
@@ -94,12 +94,12 @@ const MAP_LABELS: Record<keyof MapSettings, SettingsFieldLabel> = {
 const PLAN_DEFAULTS_LABELS: Record<keyof PlanDefaultsSettings, SettingsFieldLabel> = {
 	alternateRecipes: {label: 'Alternate recipes on by default', format: YES_NO},
 	conversionRecipes: {label: 'Resource conversion recipes on by default', format: YES_NO},
-	graphDirection: {label: 'Default graph direction', format: CHOICE({left: 'Left to right', down: 'Top to bottom', right: 'Right to left', up: 'Bottom to top'})},
+	graphDirection: {label: 'Default chart direction', format: CHOICE({left: 'Left to right', down: 'Top to bottom', right: 'Right to left', up: 'Bottom to top'})},
 	graphEdgeShape: {label: 'Default connection shape', format: CHOICE({multisegment: 'With corners', straight: 'Straight'})},
-	graphNodeSpacing: {label: 'Default node spacing'},
+	graphNodeSpacing: {label: 'Default block spacing'},
 	graphLayerSpacing: {label: 'Default layer spacing'},
 	groupingMode: {
-		label: 'Default machine grouping',
+		label: 'Machines per line',
 		format: CHOICE({
 			'underclock-last': 'Underclock the last machine',
 			'clock-equally': 'Same clock for all',
@@ -220,7 +220,7 @@ export class SettingsConflictDialogComponent
 
 		return [
 			...this.diff('Numbers', remote.numbers, local.numbers, NUMBER_LABELS),
-			...this.diff('Graph', remoteGraph, localGraph, GRAPH_LABELS),
+			...this.diff('Chart', remoteGraph, localGraph, GRAPH_LABELS),
 			...this.diffColors(remoteColors, localColors),
 			...this.diff('Planner', remote.planner, local.planner, PLANNER_LABELS),
 			...this.diff('Map', remote.map, local.map, MAP_LABELS),
@@ -312,7 +312,7 @@ export class SettingsConflictDialogComponent
 				return;
 			}
 			rows.push({
-				group: 'Graph colours',
+				group: 'Chart colours',
 				label: NODE_COLOR_LABELS[key] ?? `${SettingsConflictDialogComponent.humanize(key)} colour`,
 				remote: remoteValue,
 				local: localValue,

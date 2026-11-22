@@ -28,7 +28,7 @@ export class GoToNodeButtonComponent
 
 	public get label(): string
 	{
-		return this.nodeIds.length > 1 ? `Show ${this.nodeIds.length} nodes on the graph` : 'Show on the graph';
+		return this.nodeIds.length > 1 ? `Show ${this.nodeIds.length} blocks on the chart` : 'Show on the chart';
 	}
 
 	/** Rows that hold the button toggle on click, so the click must not reach them. */

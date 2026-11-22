@@ -663,7 +663,7 @@ export class HomeComponent
 		if (local > 0) {
 			parts.push(account > 0 ? `${local} on this device` : `${local} plan${local === 1 ? '' : 's'} on this device`);
 		}
-		return parts.length === 0 ? null : parts.join(' · ');
+		return parts.length === 0 ? null : parts.join(', ');
 	}
 
 	public lastEditedLabel(version: Version): string | null

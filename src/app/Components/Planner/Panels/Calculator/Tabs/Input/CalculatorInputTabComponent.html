@@ -1,9 +1,9 @@
 <div class="p-2 stack">
-	<info-note>Items you already have, for example from another factory. The plan uses up to this amount.</info-note>
+	<info-note>Parts you already have, for example from another factory. The plan uses up to this amount.</info-note>
 
 	@if (!weightsEnabled()) {
 		<info-note kind="warning">
-			Input weights are turned off in the Optimisation tab. Every input is free and the weights below are ignored.
+			Part weights are turned off in the Optimisation tab. Every part is free and the weights below are ignored.
 		</info-note>
 	}
 
@@ -57,13 +57,13 @@
 				><fa-icon [icon]="faXmark"></fa-icon></button>
 			</div>
 		} @empty {
-			<div class="pp-note empty">No inputs yet.</div>
+			<div class="pp-note empty">No parts yet.</div>
 		}
 	</div>
 
 	<div class="pp-row foot">
 		<button class="btn btn-sm btn-outline-success" type="button" (click)="addRow()">
-			+ Add Input
+			+ Add part
 		</button>
 	</div>
 </div>

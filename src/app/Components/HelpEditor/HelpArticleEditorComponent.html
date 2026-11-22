@@ -22,7 +22,7 @@
 	<collapsible-card title="Article details" [open]="detailsOpen" (toggle)="toggleDetails()" class="mb-3">
 		<span card-actions class="text-secondary small">
 			@if (!detailsOpen) {
-				{{ slug || 'no slug' }} · {{ categoryName() || 'Other' }} · {{ published ? 'Published' : 'Draft' }} · {{ topics().length }} topic{{ topics().length === 1 ? '' : 's' }}
+				{{ slug || 'no slug' }}, {{ categoryName() || 'Other' }}, {{ published ? 'Published' : 'Draft' }}, {{ topics().length }} topic{{ topics().length === 1 ? '' : 's' }}
 			}
 		</span>
 		@if (detailsOpen) {

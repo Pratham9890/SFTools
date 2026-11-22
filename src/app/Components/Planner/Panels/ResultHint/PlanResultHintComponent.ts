@@ -30,7 +30,7 @@ export class PlanResultHintComponent
 			return `Open a plan to see ${this.subject}.`;
 		}
 		if (!plan.requests.some(request => request.itemClassName !== '')) {
-			return `Add an item in Production request, or add nodes to the graph by hand, to see ${this.subject}.`;
+			return `Add an item in Produce, or add blocks to the chart by hand, to see ${this.subject}.`;
 		}
 		if (this.planManager.activeSettings()?.calculationMode !== 'automatic') {
 			return `Press Calculate to see ${this.subject}.`;

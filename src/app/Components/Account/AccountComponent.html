@@ -23,9 +23,9 @@
 					<div class="text-secondary small">
 						Login <span class="text-light">{{ profile.login }}</span>
 						@if (profile.email; as email) {
-							· {{ email }}
+							, {{ email }}
 						}
-						· member since {{ profile.createdAt | date:'mediumDate' }}
+						, member since {{ profile.createdAt | date:'mediumDate' }}
 					</div>
 					@if (profile.supporter; as supporter) {
 						<div class="small mt-1">
@@ -89,9 +89,9 @@
 						<span class="text-secondary small flex-grow-1">
 							{{ connection.nickname ?? connection.email ?? 'connected' }}
 							@if (connection.nickname && connection.email) {
-								· {{ connection.email }}
+								, {{ connection.email }}
 							}
-							· since {{ connection.connectedAt | date:'mediumDate' }}
+							, since {{ connection.connectedAt | date:'mediumDate' }}
 						</span>
 						<button
 							type="button"

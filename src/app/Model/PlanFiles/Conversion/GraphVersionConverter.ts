@@ -90,7 +90,7 @@ export class GraphVersionConverter
 			case 'augmenter': {
 				const className = raw['buildingClassName'] as string;
 				if (!context.target.searchBuildingByClassName(className)) {
-					issues.warn(`Removed node: ${context.buildingName(className)} - the building no longer exists`);
+					issues.warn(`Removed block: ${context.buildingName(className)} - the building no longer exists`);
 					return null;
 				}
 				return {node: raw, changed: false, allowed: null};
@@ -108,13 +108,13 @@ export class GraphVersionConverter
 					?? (raw['items'] as {itemClassName: string}[] | undefined)?.[0]?.itemClassName;
 				if (className === undefined || !context.hasItem(className)) {
 					const name = className === undefined ? 'unknown item' : context.itemName(className);
-					issues.warn(`Removed node: ${name} (${GraphVersionConverter.itemNodeLabels[raw['type'] as string]}) - the item no longer exists`);
+					issues.warn(`Removed block: ${name} (${GraphVersionConverter.itemNodeLabels[raw['type'] as string]}) - the item no longer exists`);
 					return null;
 				}
 				return {node: raw, changed: false, allowed: null};
 			}
 			default:
-				issues.warn(`Removed a node of an unknown type "${String(raw['type'])}"`);
+				issues.warn(`Removed a block of an unknown type "${String(raw['type'])}"`);
 				return null;
 		}
 	}
@@ -128,7 +128,7 @@ export class GraphVersionConverter
 		const recipeClassName = raw['recipeClassName'] as string;
 		const recipe = context.target.searchRecipeByClassName(recipeClassName);
 		if (!recipe) {
-			issues.warn(`Removed node: ${context.recipeName(recipeClassName)} - the recipe no longer exists`);
+			issues.warn(`Removed block: ${context.recipeName(recipeClassName)} - the recipe no longer exists`);
 			return null;
 		}
 
@@ -142,7 +142,7 @@ export class GraphVersionConverter
 
 		if (!machine) {
 			if (machines.length === 0) {
-				issues.warn(`Removed node: ${recipe.name} - no machine makes this recipe any more`);
+				issues.warn(`Removed block: ${recipe.name} - no machine makes this recipe any more`);
 				return null;
 			}
 			machine = machines[0];
@@ -203,12 +203,12 @@ export class GraphVersionConverter
 		const fuelClassName = raw['fuelItemClassName'] as string;
 		const generator = context.target.searchBuildingByClassName(generatorClassName);
 		if (!generator) {
-			issues.warn(`Removed node: ${context.buildingName(generatorClassName)} - the generator no longer exists`);
+			issues.warn(`Removed block: ${context.buildingName(generatorClassName)} - the generator no longer exists`);
 			return null;
 		}
 		const fuel = generator.fuel.find(candidate => candidate.item?.className === fuelClassName);
 		if (!fuel) {
-			issues.warn(`Removed node: ${generator.name} - it no longer burns ${context.itemName(fuelClassName)}`);
+			issues.warn(`Removed block: ${generator.name} - it no longer burns ${context.itemName(fuelClassName)}`);
 			return null;
 		}
 

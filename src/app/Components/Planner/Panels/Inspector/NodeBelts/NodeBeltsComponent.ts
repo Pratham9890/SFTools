@@ -190,8 +190,8 @@ export class NodeBeltsComponent
 				index,
 				lineName: plan.isFluid ? 'Pipe' : 'Belt',
 				header: feeds
-					? `Out: ${itemName} → ${target.getDisplayName()} · ${capacityLabel}`
-					: `In: ${itemName} ← ${source.getDisplayName()} · ${capacityLabel}`,
+					? `Out: ${itemName} → ${target.getDisplayName()}, ${capacityLabel}`
+					: `In: ${itemName} ← ${source.getDisplayName()}, ${capacityLabel}`,
 				belts: plan.layout.belts.map((belt, beltIndex) => ({
 					index: belt.index,
 					load: this.rateFormatter.rate(belt.load, item),
@@ -206,17 +206,17 @@ export class NodeBeltsComponent
 		}
 		connections.sort((left, right) => left.index - right.index);
 		const total = splitters > 0 || mergers > 0
-			? `Manifold parts for this block: ${NodeBeltsComponent.partText(splitters, 'splitter')} · `
+			? `Manifold parts for this block: ${NodeBeltsComponent.partText(splitters, 'splitter')}, `
 				+ NodeBeltsComponent.partText(mergers, 'merger')
 			: null;
 		return {connections, manifold: total};
 	}
 
-	/** "· 2 splitters", or empty when the belt carries at most one machine. The last machine connects straight to the belt end. */
+	/** ", 2 splitters", or empty when the belt carries at most one machine. The last machine connects straight to the belt end. */
 	private static manifoldText(machines: number | undefined, noun: 'splitter' | 'merger'): string
 	{
 		const count = Math.max(0, (machines ?? 0) - 1);
-		return count > 0 ? ` · ${NodeBeltsComponent.partText(count, noun)}` : '';
+		return count > 0 ? `, ${NodeBeltsComponent.partText(count, noun)}` : '';
 	}
 
 	private static partText(count: number, noun: string): string
@@ -246,7 +246,7 @@ export class NodeBeltsComponent
 		}, new Set<string>()).size;
 		const after = this.rateFormatter.machineCount(proposal.machinesAfter);
 		const change = before > 0 ? ` (${after} machines, now ${this.rateFormatter.machineCount(before)})` : ` (${after} machines)`;
-		return `regroup so each belt is fed by whole machines: ${belts.join(' · ')}${change}`;
+		return `regroup so each belt is fed by whole machines: ${belts.join(', ')}${change}`;
 	}
 
 	private proposalFor(proposal: BeltProposal, edgeIndex: number, edge: GraphEdge, edges: readonly GraphEdge[]): BeltProposalView
@@ -257,7 +257,7 @@ export class NodeBeltsComponent
 		if (this.planManager.activePlanReadOnly()) {
 			disabledReason = 'The plan is read-only';
 		} else if (shared) {
-			disabledReason = 'Applies only when this node feeds one connection of this item';
+			disabledReason = 'Applies only when this block feeds one connection of this item';
 		}
 		return {request: {edgeIndex, nodeId: edge.sourceId, proposal}, disabledReason};
 	}

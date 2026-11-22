@@ -181,7 +181,7 @@
 									<tr class="small">
 										<th class="fw-normal text-secondary">Resource</th>
 										<th class="fw-normal text-secondary" title="impure / normal / pure">Nodes</th>
-										<th class="fw-normal text-secondary" title="cores · impure / normal / pure satellites">Wells</th>
+										<th class="fw-normal text-secondary" title="cores, impure / normal / pure satellites">Wells</th>
 										<th class="fw-normal text-secondary text-end">Limit</th>
 									</tr>
 								</thead>
@@ -211,13 +211,13 @@
 												} @else if (worldCustomise) {
 													<span class="d-inline-flex align-items-center gap-1">
 														<input type="number" min="0" step="1" class="form-control form-control-sm bg-dark text-light border-secondary" style="width: 56px;" [(ngModel)]="row.cores" (ngModelChange)="onCountChange(row)" title="Well cores"/>
-														<span class="text-secondary">·</span>
+														<span class="text-secondary">,</span>
 														<input type="number" min="0" step="1" class="form-control form-control-sm bg-dark text-light border-secondary" style="width: 62px;" [(ngModel)]="row.satellites.impure" (ngModelChange)="onCountChange(row)"/>
 														<input type="number" min="0" step="1" class="form-control form-control-sm bg-dark text-light border-secondary" style="width: 62px;" [(ngModel)]="row.satellites.normal" (ngModelChange)="onCountChange(row)"/>
 														<input type="number" min="0" step="1" class="form-control form-control-sm bg-dark text-light border-secondary" style="width: 62px;" [(ngModel)]="row.satellites.pure" (ngModelChange)="onCountChange(row)"/>
 													</span>
 												} @else {
-													{{ row.cores }} cores · {{ countsText(row.satellites) }}
+													{{ row.cores }} cores, {{ countsText(row.satellites) }}
 												}
 											</td>
 											<td class="text-nowrap align-middle text-end">

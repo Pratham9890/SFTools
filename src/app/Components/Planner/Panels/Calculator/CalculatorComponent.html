@@ -117,7 +117,7 @@
 		<button
 			class="btn btn-sm btn-outline-secondary"
 			type="button"
-			[tooltip]="'Rearrange the graph. Amounts stay the same.' + hotkeys.suffix('planner.rearrange')" placement="bottom"
+			[tooltip]="'Rearrange the chart. Amounts stay the same.' + hotkeys.suffix('planner.rearrange')" placement="bottom"
 			[disabled]="actions.isCalculating() || !hasGraph()"
 			(click)="relayout()"
 		><fa-icon [icon]="faSitemap"></fa-icon> Rearrange</button>
@@ -384,7 +384,7 @@
 		}
 		@case ('input') {
 			<div class="p-2">
-				<info-note>A folder has no inputs. Open one of its plans to add them.</info-note>
+				<info-note>A folder has no Supply parts. Open one of its plans to add them.</info-note>
 			</div>
 		}
 		@default {

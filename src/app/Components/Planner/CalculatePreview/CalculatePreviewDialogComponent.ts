@@ -188,10 +188,10 @@ export class CalculatePreviewDialogComponent
 	private changedTitle(before: Node, after: Node): string
 	{
 		if (before instanceof RecipeNode && after instanceof RecipeNode) {
-			return `${before.recipe.name} · ${this.machineText(before)} → ${this.machineText(after)}`;
+			return `${before.recipe.name}, ${this.machineText(before)} → ${this.machineText(after)}`;
 		}
 		if (before instanceof ItemAmountNode && after instanceof ItemAmountNode) {
-			return `${before.getDisplayName()} · ${this.rateFormatter.rate(before.amount, before.item)} → ${this.rateFormatter.rate(after.amount, after.item)}`;
+			return `${before.getDisplayName()}, ${this.rateFormatter.rate(before.amount, before.item)} → ${this.rateFormatter.rate(after.amount, after.item)}`;
 		}
 		return `${this.describe(before)} → ${this.describe(after)}`;
 	}
@@ -207,12 +207,12 @@ export class CalculatePreviewDialogComponent
 	private describe(node: Node): string
 	{
 		if (node instanceof RecipeNode) {
-			return `${node.recipe.name} · ${this.machineText(node)}`;
+			return `${node.recipe.name}, ${this.machineText(node)}`;
 		}
 		if (node instanceof ItemAmountNode) {
-			return `${node.getDisplayName()} · ${this.rateFormatter.rate(node.amount, node.item)}`;
+			return `${node.getDisplayName()}, ${this.rateFormatter.rate(node.amount, node.item)}`;
 		}
-		return `${node.getDisplayName()} · ${this.rateFormatter.machineCount(node.amount)}×`;
+		return `${node.getDisplayName()}, ${this.rateFormatter.machineCount(node.amount)}×`;
 	}
 
 	private machineText(node: RecipeNode): string

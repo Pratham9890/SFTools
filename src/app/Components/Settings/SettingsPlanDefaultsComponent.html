@@ -28,7 +28,7 @@
 			</div>
 		</div>
 
-		<div class="subsection-title">Graph layout</div>
+		<div class="subsection-title">Chart layout</div>
 		<div class="mb-3" style="max-width: 480px;">
 			<label class="form-label" for="default-graph-direction">Direction</label><setting-reset-button category="planDefaults" field="graphDirection"/>
 			<select
@@ -57,7 +57,7 @@
 		</div>
 		<div class="mb-3" style="max-width: 480px;">
 			<label class="form-label d-flex justify-content-between" for="default-graph-node-spacing">
-				<span>Node spacing</span>
+				<span>Block spacing</span>
 				<span class="d-flex align-items-center">
 					{{ graphNodeSpacing }}
 					<setting-reset-button category="planDefaults" field="graphNodeSpacing"/>
@@ -73,7 +73,7 @@
 				[ngModel]="graphNodeSpacing"
 				(ngModelChange)="setGraphNodeSpacing($event)"
 			/>
-			<div class="form-text">Gap between nodes side by side.</div>
+			<div class="form-text">Gap between blocks side by side.</div>
 		</div>
 		<div class="mb-3" style="max-width: 480px;">
 			<label class="form-label d-flex justify-content-between" for="default-graph-layer-spacing">
@@ -98,7 +98,7 @@
 
 		<div class="subsection-title">Machine groups</div>
 		<div style="max-width: 480px;">
-			<label class="form-label" for="default-grouping-mode">Machine grouping for new nodes</label><setting-reset-button category="planDefaults" field="groupingMode"/>
+			<label class="form-label" for="default-grouping-mode">Machine grouping for new blocks</label><setting-reset-button category="planDefaults" field="groupingMode"/>
 			<select
 				id="default-grouping-mode"
 				class="form-select"
@@ -110,7 +110,7 @@
 				<option value="no-clocking">Whole machines only</option>
 			</select>
 			<div class="form-text">
-				Can be changed for each node in the Inspector.
+				Can be changed for each block in Block details.
 			</div>
 		</div>
 </settings-section>

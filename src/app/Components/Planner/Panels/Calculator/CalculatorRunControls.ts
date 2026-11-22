@@ -13,9 +13,9 @@ export class CalculatorRunControls
 
 	public readonly modeOptions: readonly CalculationModeOption[] = [
 		{mode: 'automatic', label: 'Automatic', description: 'Recalculates after every change'},
-		{mode: 'manual-fresh', label: 'Manual (replace)', description: 'Replaces the current graph'},
-		{mode: 'manual-upgrade', label: 'Manual (merge)', description: 'Adds to the current graph. Matching nodes are combined.'},
-		{mode: 'manual-append', label: 'Manual (add)', description: 'Adds the result next to the current graph. Nothing is combined.'},
+		{mode: 'manual-fresh', label: 'Manual (replace)', description: 'Replaces the current chart'},
+		{mode: 'manual-upgrade', label: 'Manual (merge)', description: 'Adds to the current chart. Matching blocks are combined.'},
+		{mode: 'manual-append', label: 'Manual (add)', description: 'Adds the result next to the current chart. Nothing is combined.'},
 	];
 
 	/** Plans saved before calculation modes existed have no mode - treat them as automatic. */
@@ -57,7 +57,7 @@ export class CalculatorRunControls
 			}
 		});
 		this.calculateHint = computed(() => this.graphDirty()
-			? 'Build the graph again. Only locked nodes keep your hand edits.'
+			? 'Build the chart again. Only locked blocks keep your hand edits.'
 			: this.modeOptions.find(option => option.mode === this.mode())?.description ?? '');
 		this.calculateDisabled = computed(() =>
 			this.calculating() || (this.mode() === 'automatic' && !this.graphDirty()));

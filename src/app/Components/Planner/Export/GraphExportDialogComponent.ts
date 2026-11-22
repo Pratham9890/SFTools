@@ -259,7 +259,7 @@ export class GraphExportDialogComponent implements OnInit
 
 	private messageOf(error: unknown): string
 	{
-		return error instanceof Error && error.message !== '' ? error.message : 'The graph could not be exported.';
+		return error instanceof Error && error.message !== '' ? error.message : 'The chart could not be exported.';
 	}
 
 }

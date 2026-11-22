@@ -113,7 +113,7 @@ export class LineSplitter
 			return 'No production machines to split';
 		}
 		if (sourceNode !== null && targetNode !== null && sourceNode.id === targetNode.id) {
-			return 'A node cannot be split into lines against itself';
+			return 'A block cannot be split into lines against itself';
 		}
 		if ((sourceNode !== null && LineSplitter.slooped(sourceNode)) || (targetNode !== null && LineSplitter.slooped(targetNode))) {
 			return 'Slooped machines can\'t be split into lines';

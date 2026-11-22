@@ -291,7 +291,7 @@ export class AmountNodeEditorComponent implements OnChanges, OnDestroy
 		if (shards > 0) {
 			parts.push(`${this.rateFormatter.amount(shards)} power shard${shards === 1 ? '' : 's'}`);
 		}
-		return parts.join(' · ');
+		return parts.join(', ');
 	}
 
 	public rowRate(row: ExtractorDraft): number

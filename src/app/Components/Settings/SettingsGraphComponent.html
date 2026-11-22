@@ -1,4 +1,4 @@
-<settings-section [resetCategories]="['graph']" helpTopic="settings.graph" title="Graph" [icon]="sectionIcon">
+<settings-section [resetCategories]="['graph']" helpTopic="settings.graph" title="Chart" [icon]="sectionIcon">
 	@if (inSheet) {
 		<!-- In the sheet the groups are cards, so the Flow chart section stays short; the first one is open. -->
 		<collapsible-card title="Icons" [open]="foldState.isOpen('icons', true)" (toggle)="foldState.toggle('icons', true)">
@@ -19,7 +19,7 @@
 				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="effectsGroup"/></div>
 			}
 		</collapsible-card>
-		<collapsible-card title="Recipe nodes" [open]="foldState.isOpen('recipe-nodes', false)" (toggle)="foldState.toggle('recipe-nodes', false)">
+		<collapsible-card title="Recipe blocks" [open]="foldState.isOpen('recipe-nodes', false)" (toggle)="foldState.toggle('recipe-nodes', false)">
 			@if (foldState.isOpen('recipe-nodes', false)) {
 				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="recipeNodesGroup"/></div>
 			}
@@ -29,7 +29,7 @@
 				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="sizeGroup"/></div>
 			}
 		</collapsible-card>
-		<collapsible-card title="Node colours" [open]="foldState.isOpen('node-colours', false)" (toggle)="foldState.toggle('node-colours', false)">
+		<collapsible-card title="Block colours" [open]="foldState.isOpen('node-colours', false)" (toggle)="foldState.toggle('node-colours', false)">
 			@if (foldState.isOpen('node-colours', false)) {
 				<div class="card-body p-2"><ng-container [ngTemplateOutlet]="nodeColoursGroup"/></div>
 			}
@@ -48,13 +48,13 @@
 		<div class="subsection-title">Effects</div>
 		<ng-container [ngTemplateOutlet]="effectsGroup"/>
 
-		<div class="subsection-title">Recipe nodes</div>
+		<div class="subsection-title">Recipe blocks</div>
 		<ng-container [ngTemplateOutlet]="recipeNodesGroup"/>
 
 		<div class="subsection-title">Size</div>
 		<ng-container [ngTemplateOutlet]="sizeGroup"/>
 
-		<div class="subsection-title">Node colours</div>
+		<div class="subsection-title">Block colours</div>
 		<ng-container [ngTemplateOutlet]="nodeColoursGroup"/>
 	}
 
@@ -125,7 +125,7 @@
 				[ngModel]="graph.sloopGlow"
 				(ngModelChange)="setToggle('sloopGlow', $event)"
 			/>
-			<label class="form-check-label" for="sloopGlow">Glow around nodes with somersloops</label><setting-reset-button category="graph" field="sloopGlow"/>
+			<label class="form-check-label" for="sloopGlow">Glow around blocks with somersloops</label><setting-reset-button category="graph" field="sloopGlow"/>
 		</div>
 		<div class="form-check">
 			<input
@@ -135,7 +135,7 @@
 				[ngModel]="graph.simplifyWhenZoomedOut"
 				(ngModelChange)="setToggle('simplifyWhenZoomedOut', $event)"
 			/>
-			<label class="form-check-label" for="simplifyWhenZoomedOut">Simplify the graph when zoomed out</label><setting-reset-button category="graph" field="simplifyWhenZoomedOut"/>
+			<label class="form-check-label" for="simplifyWhenZoomedOut">Simplify the chart when zoomed out</label><setting-reset-button category="graph" field="simplifyWhenZoomedOut"/>
 			<div class="form-text">Bigger names and icons when the normal text gets too small to read.</div>
 		</div>
 	</ng-template>
@@ -174,7 +174,7 @@
 	<ng-template #sizeGroup>
 		<div class="row g-3 mb-2">
 			<div class="col-12 col-lg-6">
-				<label class="form-label" for="node-scale">Node scale</label><setting-reset-button category="graph" field="nodeScale"/>
+				<label class="form-label" for="node-scale">Block scale</label><setting-reset-button category="graph" field="nodeScale"/>
 				<select
 					id="node-scale"
 					class="form-select"
@@ -201,7 +201,7 @@
 				<div class="form-text">The item name, rate and icon boxes on the connections.</div>
 			</div>
 		</div>
-		<info-note>Existing graphs keep their layout until you press Rearrange in the planner. Until then, bigger nodes may overlap.</info-note>
+		<info-note>Existing charts keep their layout until you press Rearrange in the planner. Until then, bigger blocks may overlap.</info-note>
 	</ng-template>
 
 	<ng-template #nodeColoursGroup>
@@ -220,7 +220,7 @@
 		</div>
 		<div class="mb-3" style="max-width: 480px;">
 			<label class="form-label d-flex justify-content-between" for="node-fill-strength">
-				<span>Node fill strength</span>
+				<span>Block fill strength</span>
 				<span class="d-flex align-items-center">
 					{{ graph.nodeFillAmount * 100 | number: '1.0-0' }}%
 					<setting-reset-button category="graph" field="nodeFillAmount"/>
@@ -236,7 +236,7 @@
 				[ngModel]="graph.nodeFillAmount"
 				(ngModelChange)="setNodeFillStrength($event)"
 			/>
-			<div class="form-text">How much colour fills each node. Low values keep nodes dark with a coloured border. 100% fills them solid.</div>
+			<div class="form-text">How much colour fills each block. Low values keep blocks dark with a coloured border. 100% fills them solid.</div>
 		</div>
 		<div class="row g-2">
 			@for (type of nodeTypes; track type.key) {

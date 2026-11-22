@@ -109,7 +109,7 @@ export class SettingsComponent implements OnDestroy
 	{
 		this.sections = [
 			{id: 'numbers', label: 'Numbers', icon: faHashtag},
-			{id: 'graph', label: 'Graph', icon: faDiagramProject},
+			{id: 'graph', label: 'Chart', icon: faDiagramProject},
 			{id: 'planner', label: 'Planner', icon: faTableColumns},
 			{id: 'map', label: 'Map', icon: faMap},
 			{id: 'plan-defaults', label: 'Plan defaults', icon: faFileCirclePlus},

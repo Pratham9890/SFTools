@@ -192,7 +192,7 @@ export class ProductionSolverService
 
 	public diagnoseFailure(plan: Plan, lockedNodes: Node[] = []): Observable<string>
 	{
-		const generic = 'No solution. This cannot be made with the current recipes, resource limits and locked nodes.';
+		const generic = 'No solution. This cannot be made with the current recipes, resource limits and locked blocks.';
 		const data = this.versionManager.activeVersionData();
 		if (data === null) {
 			return of(generic);

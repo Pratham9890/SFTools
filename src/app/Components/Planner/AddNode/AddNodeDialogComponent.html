@@ -7,7 +7,7 @@
 					<game-icon [hash]="filterItem?.icon ?? null" [size]="20"></game-icon>
 					<span>{{ filterItem?.name ?? connectFilter.itemClassName }}</span>
 				} @else {
-					Add node
+					Add block
 				}
 			</span>
 			<button type="button" class="btn-close" aria-label="Close" (click)="close.emit()"></button>
@@ -76,7 +76,7 @@
 
 		<div class="card-footer d-flex justify-content-end gap-2">
 			<button type="button" class="btn btn-sm btn-outline-secondary" (click)="close.emit()">Cancel</button>
-			<button type="button" class="btn btn-sm btn-primary" [disabled]="!canAdd" (click)="submit()">Add node</button>
+			<button type="button" class="btn btn-sm btn-primary" [disabled]="!canAdd" (click)="submit()">Add block</button>
 		</div>
 	</div>
 </div>

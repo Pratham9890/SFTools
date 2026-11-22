@@ -1710,7 +1710,7 @@ export class PlannerGraphService implements OnDestroy
 		});
 		const root = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
 		if (!(root instanceof SVGSVGElement)) {
-			throw new Error('The graph could not be exported.');
+			throw new Error('The chart could not be exported.');
 		}
 		return new GraphSvgSnapshot(root, content, sample);
 	}
@@ -2409,10 +2409,10 @@ export class PlannerGraphService implements OnDestroy
 		return {...empty(), bigLine: this.rateFormatter.amount(node.amount), dimLine: node.type};
 	}
 
-	/** "Resource · 80.46/min" is split into an amount and a kind word of its own. */
+	/** "Resource, 80.46/min" is split into an amount and a kind word of its own. */
 	private amountWithoutKind(line: string): string
 	{
-		return line.replace(/^[A-Za-z ]+ · /, '');
+		return line.replace(/^[A-Za-z ]+, /, '');
 	}
 
 	/** How much is supplied against what the plan asks for, like the mock-up's "80.46 of 180/min". */
@@ -4184,8 +4184,8 @@ export class PlannerGraphService implements OnDestroy
 		let line: string;
 		if (open <= 1e-6) {
 			line = info.side === 'out'
-				? `All ${rate(total)} goes to other nodes. Drag to add another connection.`
-				: `All ${rate(total)} comes from other nodes. Drag to add another connection.`;
+				? `All ${rate(total)} goes to other blocks. Drag to add another connection.`
+				: `All ${rate(total)} comes from other blocks. Drag to add another connection.`;
 		} else if (Math.abs(open - total) <= 1e-6) {
 			line = info.side === 'out'
 				? `${rate(open)} not used yet. Drag to connect it.`
@@ -4215,8 +4215,8 @@ export class PlannerGraphService implements OnDestroy
 		return {
 			title: `${node.getDisplayName()} - locked`,
 			lines: [
-				'The calculation will not change this node.',
-				'Unlock it from the right-click menu or the Inspector.',
+				'The calculation will not change this block.',
+				'Unlock it from the right-click menu or Block details.',
 			],
 		};
 	}
@@ -4311,7 +4311,7 @@ export class PlannerGraphService implements OnDestroy
 
 	private ioStats(role: string, amount: number, item: Item): string
 	{
-		return `${role} · ${this.rateFormatter.rate(amount, item)}`;
+		return `${role}, ${this.rateFormatter.rate(amount, item)}`;
 	}
 
 	private mineStats(node: MineNode): string
@@ -4333,7 +4333,7 @@ export class PlannerGraphService implements OnDestroy
 		const data = this.versionManager.activeVersionData();
 		const capacity = data ? ExtractorCapacity.capacity(rows, data, node.item, this.extractorBeltCap(node.item)) : 0;
 		const count = ExtractorCapacity.buildings(rows);
-		return `${this.rateFormatter.amount(count)} extractor${count === 1 ? '' : 's'} · `
+		return `${this.rateFormatter.amount(count)} extractor${count === 1 ? '' : 's'}, `
 			+ `cap ${this.rateFormatter.rate(capacity, node.item)}`;
 	}
 

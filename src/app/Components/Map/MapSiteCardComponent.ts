@@ -150,7 +150,7 @@ export class MapSiteCardComponent
 			return 'no nodes';
 		}
 		const distance = this.sites.options().mode === 'farthest' ? use.farthest : use.total;
-		return `${count} ${count === 1 ? 'node' : 'nodes'} · ${this.distances.format(distance)}`;
+		return count === 1 ? '1 node, ' + this.distances.format(distance) : `${count} nodes, ${this.distances.format(distance)}`;
 	}
 
 }

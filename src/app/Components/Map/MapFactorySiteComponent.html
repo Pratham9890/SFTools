@@ -78,7 +78,7 @@
 	@if (sites.status() === 'ready') {
 		@if (sites.result(); as result) {
 			@if (result.spots.length > 0) {
-				<div class="site-label text-secondary mt-3 mb-1">Best spots · {{ sites.options().mode === 'farthest' ? 'farthest node' : 'sum of distances' }}</div>
+				<div class="site-label text-secondary mt-3 mb-1">Best spots, {{ sites.options().mode === 'farthest' ? 'farthest node' : 'sum of distances' }}</div>
 				<div class="d-flex gap-1">
 					@for (entry of result.spots; track $index) {
 						<button type="button" class="btn btn-sm btn-outline-secondary flex-fill d-flex align-items-center justify-content-center gap-2" [attr.aria-label]="'Show best spot ' + ($index + 1)" (click)="spot.emit(entry)">

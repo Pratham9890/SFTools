@@ -91,7 +91,7 @@ export class MapFolderPlansComponent
 	public detail(plan: MapFolderPlan): string
 	{
 		const parts = [plan.area !== null ? 'area' : null, plan.spot !== null ? 'factory location' : null].filter(part => part !== null);
-		return parts.length === 0 ? 'nothing on the map' : parts.join(' · ');
+		return parts.length === 0 ? 'nothing on the map' : parts.join(', ');
 	}
 
 }

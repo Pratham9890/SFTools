@@ -197,7 +197,7 @@ export class AboutComponent
 			{
 				icon: faDiagramProject,
 				title: 'Planner',
-				text: 'Production plans worked out for you. Edit the graph by hand, add subplans and group plans in folders.',
+				text: 'Production plans worked out for you. Edit the chart by hand, add subplans and group plans in folders.',
 				link: null,
 			},
 			{

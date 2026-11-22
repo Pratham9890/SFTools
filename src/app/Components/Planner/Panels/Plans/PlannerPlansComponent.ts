@@ -1027,7 +1027,7 @@ export class PlannerPlansComponent implements AfterViewChecked, OnDestroy, PlanT
 	{
 		const name = this.planNames.displayName(plan);
 		const message = plan.parentPlanId !== null
-			? `Delete subplan "${name}"? Its node is also removed from the parent plan.`
+			? `Delete subplan "${name}"? Its block is also removed from the parent plan.`
 			: `Delete plan "${name}"?`;
 		if (!confirm(message)) return;
 		this.planManager.deletePlan(plan.id);

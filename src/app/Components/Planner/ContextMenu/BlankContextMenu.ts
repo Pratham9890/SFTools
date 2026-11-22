@@ -20,7 +20,7 @@ export class BlankContextMenu extends PlannerContextMenu
 	{
 		const items: ContextMenuItem[] = [
 			{
-				label: 'Add node…',
+				label: 'Add block…',
 				icon: faPlus,
 				hotkey: 'graph.addNode',
 				action: () => this.actions.requestNodeAdd(this.position),

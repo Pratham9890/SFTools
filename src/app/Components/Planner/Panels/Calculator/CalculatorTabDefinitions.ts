@@ -11,7 +11,7 @@ export class CalculatorTabDefinitions
 		{id: 'resources', label: 'Resources', icon: faMountain},
 		{id: 'recipes', label: 'Recipes', icon: faScroll},
 		{id: 'machines', label: 'Machines', icon: faIndustry},
-		{id: 'input', label: 'Input', icon: faRightToBracket},
+		{id: 'input', label: 'Supply', icon: faRightToBracket},
 		{id: 'byproducts', label: 'Byproducts', icon: faRightFromBracket},
 		{id: 'power', label: 'Power', icon: faBolt},
 		{id: 'sink', label: 'Sink', icon: faRecycle},

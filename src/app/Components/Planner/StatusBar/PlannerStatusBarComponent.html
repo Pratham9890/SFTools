@@ -64,7 +64,7 @@
 						<div class="warnings-hint">Recalculate the plan or the folder to fit the shared pool.</div>
 					}
 					@for (entry of visibleEntries(); track entry.nodeId) {
-						<button class="warning-group group-button" type="button" (click)="focusWarning(entry); warnings.hide()" title="Show on the graph">
+						<button class="warning-group group-button" type="button" (click)="focusWarning(entry); warnings.hide()" title="Show on the chart">
 							<span class="group-head">
 								@if (entry.nodeIcon) {
 									<game-icon [hash]="entry.nodeIcon" [size]="20" [alt]="entry.nodeName"></game-icon>
@@ -101,7 +101,7 @@
 	} @else if (actions.solveError(); as error) {
 		<span class="state" [class.state-error]="!actions.solveErrorIsSettingsProblem()" [class.state-modified]="actions.solveErrorIsSettingsProblem()" [tooltip]="actions.solveErrorDetail() ?? error" container="body" placement="top"><span class="dot"></span><span class="state-text">{{ error }}</span></span>
 	} @else if (hasGraph() && automaticPaused()) {
-		<span class="state state-modified" tooltip="Press Calculate to build the graph again. Locked nodes are kept." container="body" placement="top"><span class="dot"></span><span class="state-text">Edited by hand, calculation paused</span></span>
+		<span class="state state-modified" tooltip="Press Calculate to build the chart again. Locked blocks are kept." container="body" placement="top"><span class="dot"></span><span class="state-text">Edited by hand, calculation paused</span></span>
 	} @else if (hasGraph() && graphDirty()) {
 		<span class="state state-modified" tooltip="Calculated, then edited by hand" container="body" placement="top"><span class="dot"></span><span class="state-text">Calculated, then edited by hand</span></span>
 	} @else if (hasGraph() && recalculationNeeded()) {

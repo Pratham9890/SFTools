@@ -91,10 +91,10 @@ export class SettingsGraphComponent
 
 	public readonly iconToggles: {key: keyof GraphSettings; label: string}[] = [
 		{key: 'showEdgeItemIcons', label: 'Item icons on connections'},
-		{key: 'showNodeItemIcons', label: 'Item icons on nodes'},
-		{key: 'showNodeBuildingIcons', label: 'Building icons on nodes'},
+		{key: 'showNodeItemIcons', label: 'Item icons on blocks'},
+		{key: 'showNodeBuildingIcons', label: 'Building icons on blocks'},
 		{key: 'showSubplanItemIcons', label: 'Input/output icons on subplans'},
-		{key: 'showSloopCornerIcon', label: 'Sloop icon in node corner'},
+		{key: 'showSloopCornerIcon', label: 'Sloop icon in block corner'},
 	];
 
 	public readonly nodeTypes: {key: keyof NodeColors; label: string}[] = [
@@ -225,7 +225,7 @@ export class SettingsGraphComponent
 	{
 		// Only colours of the user's own would be lost; switching between presets needs no question.
 		const ownColours = !this.presets.some(candidate => this.isActivePreset(candidate));
-		if (ownColours && !confirm(`Replace your node colours with the "${preset.label}" colours?`)) {
+		if (ownColours && !confirm(`Replace your block colours with the "${preset.label}" colours?`)) {
 			return;
 		}
 		this.settings.updateGraph({nodeAccentColors: {...preset.colors}, nodeFillAmount: preset.fillStrength});

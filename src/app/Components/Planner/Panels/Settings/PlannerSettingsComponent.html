@@ -10,7 +10,7 @@
 			<info-note>{{ readOnlyNote() }}</info-note>
 		}
 
-		<collapsible-card title="Graph layout" [open]="foldState.isOpen('graph')" (toggle)="foldState.toggle('graph')">
+		<collapsible-card title="Chart layout" [open]="foldState.isOpen('graph')" (toggle)="foldState.toggle('graph')">
 			@if (foldState.isOpen('graph')) {
 				<fieldset class="card-body p-2 d-flex flex-column gap-2" [disabled]="readOnly()">
 
@@ -42,7 +42,7 @@
 
 					<div>
 						<label class="form-label text-secondary mb-1 d-flex justify-content-between">
-							<span>{{ inSheet ? 'This plan: node spacing' : 'Node spacing' }}</span>
+							<span>{{ inSheet ? 'This plan: block spacing' : 'Block spacing' }}</span>
 							<span class="text-light">{{ graphSettings().nodeSpacing }}</span>
 						</label>
 						<input
@@ -73,7 +73,7 @@
 					</div>
 
 					@if (!activeFolder()) {
-						<info-note>Used the next time the graph is arranged.</info-note>
+						<info-note>Used the next time the chart is arranged.</info-note>
 					}
 
 				</fieldset>
@@ -85,7 +85,7 @@
 				<fieldset class="card-body p-2 d-flex flex-column gap-2" [disabled]="readOnly()">
 
 					<div>
-						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: default machine grouping for new nodes' : 'Default machine grouping for new nodes' }}</label>
+						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: machines per line for new blocks' : 'Machines per line for new blocks' }}</label>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
 							[ngModel]="defaultGroupingMode"

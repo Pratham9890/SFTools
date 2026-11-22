@@ -26,9 +26,9 @@
 					[checked]="inputsEnabled"
 					(change)="toggleInputs()"
 				/>
-				<label class="form-check-label fw-semibold" for="opt-inputs">Input weights</label>
+				<label class="form-check-label fw-semibold" for="opt-inputs">Supply weights</label>
 			</div>
-			<div class="pp-note">Cost of each unit taken from an input. Set for each input in the Input tab. When off, every input is free.</div>
+			<div class="pp-note">Cost of each unit taken from Supply. Set for each part in the Supply tab. When off, every part is free.</div>
 		</div>
 
 		<div class="goal">
@@ -151,7 +151,7 @@
 			<info-note kind="warning">
 				Enable at least one goal. Otherwise nothing can be calculated.
 				@if (inputsEnabled && !hasInputs) {
-					Input weights only matter when the plan has inputs.
+					Supply weights only matter when the plan has parts in Supply.
 				}
 			</info-note>
 		}

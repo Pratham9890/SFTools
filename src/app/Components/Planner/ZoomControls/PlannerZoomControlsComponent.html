@@ -5,6 +5,6 @@
 <button class="zb" type="button" [tooltip]="'Zoom to fit' + hotkeys.suffix('planner.zoomFit')" placement="right" (click)="zoomFit()"><fa-icon [icon]="faExpand"></fa-icon></button>
 <!-- Rearrange is desktop-only: the phone layout keeps exactly the controls it had. -->
 @if (!layout.isMobile()) {
-	<button class="zb zb-separated zb-rearrange" type="button" [tooltip]="'Rearrange the graph. Amounts stay the same.' + hotkeys.suffix('planner.rearrange')" placement="right" [disabled]="actions.isCalculating() || !hasGraph" (click)="relayout()"><fa-icon [icon]="faSitemap"></fa-icon> Rearrange</button>
+	<button class="zb zb-separated zb-rearrange" type="button" [tooltip]="'Rearrange the chart. Amounts stay the same.' + hotkeys.suffix('planner.rearrange')" placement="right" [disabled]="actions.isCalculating() || !hasGraph" (click)="relayout()"><fa-icon [icon]="faSitemap"></fa-icon> Rearrange</button>
 }
 <button class="zb zb-separated" type="button" [tooltip]="'Export as image' + hotkeys.suffix('planner.export')" placement="right" (click)="exportImage()"><fa-icon [icon]="faImage"></fa-icon></button>
