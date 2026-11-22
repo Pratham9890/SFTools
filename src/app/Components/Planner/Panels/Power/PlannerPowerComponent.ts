@@ -19,6 +19,67 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 	changeDetection: ChangeDetectionStrategy.Eager,
 	templateUrl: './PlannerPowerComponent.html',
 	imports: [FaIconComponent, GameIconComponent, PlanResultHintComponent, PowerDrawComponent, GoToNodeButtonComponent, BuiltMarkComponent],
+	styles: [`
+		.power-search { flex: 0 1 320px; }
+		.power-grid { gap: 6px; align-items: start; }
+		.power-block {
+			display: grid;
+			gap: 2px;
+			padding: 6px 8px;
+			background: var(--surface-2);
+			border: 1px solid var(--rule);
+			border-radius: 10px;
+			min-width: 0;
+		}
+		.power-block.open { border-color: var(--rule-strong); }
+		.power-head {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			min-width: 0;
+		}
+		.power-name {
+			font-weight: 600;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			min-width: 0;
+		}
+		.power-figures {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px 16px;
+			padding-left: 26px;
+		}
+		.power-figures .figure { white-space: nowrap; display: inline-flex; align-items: baseline; gap: 6px; }
+		.power-entries {
+			display: grid;
+			gap: 4px;
+			padding: 4px 0 2px 26px;
+			border-top: 1px solid var(--rule);
+			margin-top: 4px;
+		}
+		.power-entry {
+			display: grid;
+			gap: 2px;
+			padding: 3px 6px;
+			border-radius: 6px;
+		}
+		.power-entry:hover { background: var(--ground); }
+		.power-entry-head {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			min-width: 0;
+		}
+		.power-entry-figures {
+			display: flex;
+			justify-content: space-between;
+			gap: 8px;
+			padding-left: 4px;
+		}
+		.flow-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	`],
 })
 export class PlannerPowerComponent
 {

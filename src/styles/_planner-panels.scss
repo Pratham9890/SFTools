@@ -64,3 +64,12 @@
 	.border-secondary { border-color: var(--rule-strong) !important; }
 	.text-light { color: var(--ink) !important; }
 }
+
+// Bootstrap cards and tables used by older panels (Overview, Materials) in the planner look.
+.planner-ui {
+	.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; color: var(--ink); overflow: hidden; }
+	.card-header { background: var(--surface-2); border-bottom: 1px solid var(--rule); color: var(--ink); }
+	.card-body { color: var(--ink); }
+	.list-group-item { background: transparent; color: var(--ink); border-color: var(--rule); }
+	.table { --bs-table-bg: transparent; --bs-table-color: var(--ink); --bs-table-border-color: var(--rule); --bs-table-striped-bg: var(--surface-2); --bs-table-hover-bg: var(--surface-2); }
+}

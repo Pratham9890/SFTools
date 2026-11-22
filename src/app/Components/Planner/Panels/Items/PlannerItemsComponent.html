@@ -1,76 +1,66 @@
-<div class="p-2 d-flex flex-column gap-2">
+<div class="p-2 pp-stack">
 
 	@if (!hasRows()) {
 		<plan-result-hint subject="its item flows" [folderView]="isFolderView()"/>
 	} @else {
-		<input
-			type="search"
-			class="form-control form-control-sm bg-dark text-light border-secondary"
-			placeholder="Filter by item or producer/consumer…"
-			[value]="searchTerm()"
-			(input)="setSearchTerm($any($event.target).value)"
-		/>
+		<div class="pp-row">
+			<input
+				type="search"
+				class="form-control form-control-sm bg-dark text-light border-secondary items-search"
+				placeholder="Filter by item or producer/consumer…"
+				[value]="searchTerm()"
+				(input)="setSearchTerm($any($event.target).value)"
+			/>
+			<span class="pp-note">{{ rows().length }} item{{ rows().length === 1 ? '' : 's' }}</span>
+		</div>
 
-		<table class="table table-dark table-sm table-hover align-middle mb-0 table-stack-sm">
-			<thead>
-				<tr>
-					<th>Item</th>
-					<th class="text-end" style="width: 105px;">Sources</th>
-					<th class="text-end" style="width: 105px;">Targets</th>
-				</tr>
-			</thead>
-			<tbody>
-				@for (row of rows(); track row.item.className) {
-					<tr (click)="toggle(row)" style="cursor: pointer;">
-						<td class="stack-full">
-							<div class="d-flex align-items-center gap-1">
-								<fa-icon
-									[icon]="isExpanded(row) ? faChevronDown : faChevronRight"
-									[fixedWidth]="true"
-									class="text-secondary"
-								></fa-icon>
-								<game-icon [hash]="row.item.icon" [size]="20" [alt]="row.item.name"></game-icon>
-								<span>{{ row.item.name }}</span>
-								<built-mark [built]="row.builtAmount" [total]="row.totalSources + row.totalTargets" [share]="true"></built-mark>
-								<go-to-node class="ms-auto" [nodeIds]="row.nodeIds"></go-to-node>
-							</div>
-						</td>
-						<td class="text-end text-success" data-label="Sources">{{ rateFormatter.amount(row.totalSources) }}<wbr>{{ unitText(row.item) }}</td>
-						<td class="text-end text-info" data-label="Targets">{{ rateFormatter.amount(row.totalTargets) }}<wbr>{{ unitText(row.item) }}</td>
-					</tr>
+		<div class="pp-cols wide items-grid">
+			@for (row of rows(); track row.item.className) {
+				<div class="item-block" [class.open]="isExpanded(row)">
+					<div class="item-head" role="button" (click)="toggle(row)">
+						<fa-icon
+							[icon]="isExpanded(row) ? faChevronDown : faChevronRight"
+							[fixedWidth]="true"
+							class="text-secondary"
+						></fa-icon>
+						<game-icon [hash]="row.item.icon" [size]="20" [alt]="row.item.name"></game-icon>
+						<span class="item-name">{{ row.item.name }}</span>
+						<built-mark [built]="row.builtAmount" [total]="row.totalSources + row.totalTargets" [share]="true"></built-mark>
+						<go-to-node class="ms-auto" [nodeIds]="row.nodeIds"></go-to-node>
+					</div>
+					<div class="item-figures">
+						<span class="pp-note">Sources</span>
+						<span class="text-success">{{ rateFormatter.amount(row.totalSources) }}<wbr>{{ unitText(row.item) }}</span>
+						<span class="pp-note">Targets</span>
+						<span class="text-info">{{ rateFormatter.amount(row.totalTargets) }}<wbr>{{ unitText(row.item) }}</span>
+					</div>
 					@if (isExpanded(row)) {
-						@for (flow of row.sources; track flow.key) {
-							<tr class="stack-sub">
-								<td class="ps-4 stack-grow">
-									<div class="d-flex align-items-center gap-1">
-										<span class="flex-grow-1">{{ flow.name }}</span>
-										<built-mark [built]="flow.builtAmount" [total]="flow.amount" [share]="true"></built-mark>
-										<go-to-node [nodeIds]="flow.nodeIds"></go-to-node>
-									</div>
-								</td>
-								<td class="text-end text-secondary">{{ rateFormatter.amount(flow.amount) }}<wbr>{{ unitText(row.item) }}</td>
-								<td></td>
-							</tr>
-						}
-						@for (flow of row.targets; track flow.key) {
-							<tr class="stack-sub">
-								<td class="ps-4 stack-grow">
-									<div class="d-flex align-items-center gap-1">
-										<span class="flex-grow-1">{{ flow.name }}</span>
-										<built-mark [built]="flow.builtAmount" [total]="flow.amount" [share]="true"></built-mark>
-										<go-to-node [nodeIds]="flow.nodeIds"></go-to-node>
-									</div>
-								</td>
-								<td></td>
-								<td class="text-end text-secondary">{{ rateFormatter.amount(flow.amount) }}<wbr>{{ unitText(row.item) }}</td>
-							</tr>
-						}
+						<div class="item-flows">
+							@for (flow of row.sources; track flow.key) {
+								<div class="flow-row">
+									<span class="pp-tag">from</span>
+									<span class="flow-name">{{ flow.name }}</span>
+									<built-mark [built]="flow.builtAmount" [total]="flow.amount" [share]="true"></built-mark>
+									<go-to-node [nodeIds]="flow.nodeIds"></go-to-node>
+									<span class="flow-amount text-secondary">{{ rateFormatter.amount(flow.amount) }}<wbr>{{ unitText(row.item) }}</span>
+								</div>
+							}
+							@for (flow of row.targets; track flow.key) {
+								<div class="flow-row">
+									<span class="pp-tag good">to</span>
+									<span class="flow-name">{{ flow.name }}</span>
+									<built-mark [built]="flow.builtAmount" [total]="flow.amount" [share]="true"></built-mark>
+									<go-to-node [nodeIds]="flow.nodeIds"></go-to-node>
+									<span class="flow-amount text-secondary">{{ rateFormatter.amount(flow.amount) }}<wbr>{{ unitText(row.item) }}</span>
+								</div>
+							}
+						</div>
 					}
-				} @empty {
-					<tr><td colspan="3" class="text-secondary fst-italic">Nothing matches the filter.</td></tr>
-				}
-			</tbody>
-		</table>
+				</div>
+			} @empty {
+				<div class="text-secondary fst-italic pp-note">Nothing matches the filter.</div>
+			}
+		</div>
 	}
 
 </div>

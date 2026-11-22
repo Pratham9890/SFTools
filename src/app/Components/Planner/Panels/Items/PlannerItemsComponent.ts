@@ -17,6 +17,58 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 	changeDetection: ChangeDetectionStrategy.Eager,
 	templateUrl: './PlannerItemsComponent.html',
 	imports: [FaIconComponent, GameIconComponent, PlanResultHintComponent, GoToNodeButtonComponent, BuiltMarkComponent],
+	styles: [`
+		.items-search { flex: 0 1 320px; }
+		.items-grid { gap: 8px; align-items: start; }
+		.item-block {
+			display: grid;
+			gap: 2px;
+			padding: 6px 8px;
+			background: var(--surface-2);
+			border: 1px solid var(--rule);
+			border-radius: 10px;
+			min-width: 0;
+		}
+		.item-block.open { border-color: var(--rule-strong); }
+		.item-head {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			cursor: pointer;
+			min-width: 0;
+		}
+		.item-head:hover { color: var(--accent); }
+		.item-name {
+			font-weight: 600;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			min-width: 0;
+		}
+		.item-figures {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: baseline;
+			gap: 4px 10px;
+			padding-left: 26px;
+		}
+		.item-flows {
+			display: grid;
+			gap: 2px;
+			padding: 4px 0 2px 26px;
+			border-top: 1px solid var(--rule);
+			margin-top: 4px;
+		}
+		.flow-row {
+			display: grid;
+			grid-template-columns: 34px minmax(0, 1fr) auto auto auto;
+			align-items: center;
+			gap: 6px;
+			min-height: 28px;
+		}
+		.flow-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.flow-amount { text-align: right; white-space: nowrap; }
+	`],
 })
 export class PlannerItemsComponent
 {

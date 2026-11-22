@@ -36,22 +36,31 @@ import {RateFormatter} from '@src/Model/RateFormatter';
 	templateUrl: './PlannerOverviewComponent.html',
 	imports: [FaIconComponent, GameIconComponent, CollapsibleCardComponent, InfoNoteComponent, PowerDrawComponent, GoToNodeButtonComponent, BuiltMarkComponent],
 	styles: [`
-		.overview-grid {
-			container-type: inline-size;
-		}
-		/* Each column is its own "panel" container, so the narrow-table rules see the card's width, not the panel's. */
+		.overview-grid { align-items: flex-start; }
+		/* Each card is its own "panel" container, so the narrow-table rules see the card's width, not the panel's. */
 		.overview-col {
-			flex: 0 0 100%;
-			max-width: 100%;
+			flex: 1 1 360px;
+			max-width: 640px;
+			min-width: 0;
 			container-type: inline-size;
 			container-name: panel;
 		}
-		@container (min-width: 620px) {
-			.overview-col { flex: 0 0 50%; max-width: 50%; }
+		/* Long lists read as several columns across the wide panel instead of one tall strip. */
+		.overview-list { gap: 2px 18px; }
+		.overview-row {
+			position: relative;
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 8px;
+			min-height: 32px;
+			padding: 3px 6px;
+			border-radius: 6px;
 		}
-		@container (min-width: 960px) {
-			.overview-col { flex: 0 0 33.3333%; max-width: 33.3333%; }
-		}
+		.overview-row:hover { background: var(--surface-2); }
+		.overview-row.has-limit-bar { padding-bottom: 0.6rem; }
+		.overview-figure { text-align: right; }
+		.overview-total { font-weight: 600; border-radius: 0; border-top: 1px solid var(--rule); }
 		tr.has-limit-bar { position: relative; }
 		tr.has-limit-bar > td { padding-bottom: 0.6rem; }
 		.limit-bar {
@@ -60,14 +69,15 @@ import {RateFormatter} from '@src/Model/RateFormatter';
 			right: 0;
 			bottom: 1px;
 			height: 4px;
-			background: rgba(255, 255, 255, 0.08);
+			background: var(--rule);
 			overflow: hidden;
 		}
 		.limit-bar > div { height: 100%; }
 		tr.resource-off td:first-child { opacity: 0.5; }
+		.overview-row.resource-off > :first-child { opacity: 0.5; }
 		.conversion-note {
-			border-top: 2px solid #5d7489;
-			background: rgba(0, 0, 0, 0.15);
+			border-top: 1px solid var(--rule-strong);
+			background: var(--surface-2);
 		}
 	`],
 })
