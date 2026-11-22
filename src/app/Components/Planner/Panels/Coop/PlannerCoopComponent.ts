@@ -29,6 +29,59 @@ interface PartRow extends CoopClaimable
 	templateUrl: './PlannerCoopComponent.html',
 	styleUrl: './PlannerCoopComponent.scss',
 	imports: [FormsModule, FaIconComponent, GameIconComponent, GoToNodeButtonComponent, CoopServerSettingsComponent],
+	styles: [`
+		// The panel is full width and at most ~44% of the window tall: two columns side by side, the
+		// parts and their materials on the right, the players and the space on the left.
+		.coop { gap: 14px; }
+		.coop .coop-body { gap: 18px 32px; align-items: flex-start; }
+		.coop .coop-side { flex: 0 1 300px; min-width: 260px; padding: 12px 14px; background: var(--ground); border: 1px solid var(--rule); border-radius: 10px; }
+		.coop .coop-main { flex: 1 1 520px; min-width: 320px; gap: 12px; }
+		.coop .who { gap: 8px; }
+		.coop .who .pp-label { font-size: 15px; }
+		.coop .space-head { flex-wrap: nowrap; }
+		.coop .space-head .pp-title { min-width: 0; }
+		.coop .space-name { flex: 1 1 auto; min-width: 0; }
+		.coop .name-field { flex: 1 1 220px; }
+		.coop .setup { max-width: 760px; }
+		.coop .identity { max-width: 620px; }
+		.coop .start-join { gap: 18px 32px; }
+		.coop .start, .coop .join { flex: 1 1 300px; max-width: 460px; }
+
+		.coop .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; }
+		.coop .player { display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+		// The scss rings and dots still point at Bootstrap's variables; use the planner tokens instead.
+		.coop .swatch.selected { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+		.coop .connection::before { background: var(--dim); }
+		.coop .connection.connection-live::before { background: var(--good); }
+		.coop .connection.connection-connecting::before { background: var(--accent); }
+		.coop .connection.connection-offline::before { background: var(--warn); }
+
+		// Segmented control: one row of views, the chosen one filled.
+		.coop .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+		.coop .seg .btn { border-radius: 8px; }
+		.coop .seg .btn.active { background: var(--surface-2); color: var(--ink); border-color: var(--rule-strong); box-shadow: inset 0 -2px 0 var(--accent); }
+		.coop .count { margin-left: 4px; color: var(--dim); font-weight: 600; }
+		.coop .seg .btn.active .count { color: var(--accent); }
+
+		// Parts in a grid, each row a bordered card with its holder colour down the left edge.
+		.coop .pp-cols.parts-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 6px 12px; align-items: start; }
+		.coop .part { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 5px 8px; background: var(--ground); border: 1px solid var(--rule); border-left: 4px solid transparent; border-radius: 8px; }
+		.coop .part.done { opacity: .65; }
+		.coop .part-holder { margin-left: 6px; }
+		.coop .part.done .pp-tag { margin-left: 6px; }
+		.coop .span-all { grid-column: 1 / -1; }
+
+		.coop .materials { gap: 6px; }
+		.coop .mats-head { gap: 12px; }
+		.coop .mats { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 2px 20px; }
+		.coop .mat { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 8px; min-height: 28px; min-width: 0; }
+		.coop .mat-amount { font-weight: 600; text-align: right; }
+
+		.coop .attention { flex: 1 1 320px; padding: 10px 14px; background: var(--ground); border: 1px solid var(--rule); border-left: 3px solid var(--warn); border-radius: 8px; }
+		.coop .attention-title { display: flex; align-items: center; gap: 8px; color: var(--warn); }
+		.coop .orphan { flex-wrap: nowrap; }
+	`],
 })
 export class PlannerCoopComponent
 {

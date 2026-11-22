@@ -8,6 +8,18 @@ import {CoopServerConfig} from '@src/Model/Coop/CoopServerConfig';
 	changeDetection: ChangeDetectionStrategy.Eager,
 	templateUrl: './CoopServerSettingsComponent.html',
 	imports: [FormsModule],
+	styles: [`
+		// Address and key sit side by side with Save and Clear at the end of the row.
+		.server-form { gap: 10px; }
+		.server-fields { align-items: flex-end; flex-wrap: nowrap; }
+		.server-fields .grow { flex: 1 1 260px; min-width: 0; }
+		.server-actions { flex: none; }
+
+		@media (max-width: 760px) {
+			.server-fields { flex-wrap: wrap; }
+			.server-actions { flex: 1 1 100%; }
+		}
+	`],
 })
 export class CoopServerSettingsComponent
 {
