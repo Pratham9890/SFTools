@@ -29,6 +29,7 @@ import {PlannerOverviewComponent} from '@src/Components/Planner/Panels/Overview/
 import {PlanPanelComponent} from '@src/Components/Planner/PlanPanel/PlanPanelComponent';
 import {PlannerPowerComponent} from '@src/Components/Planner/Panels/Power/PlannerPowerComponent';
 import {PlannerSettingsComponent} from '@src/Components/Planner/Panels/Settings/PlannerSettingsComponent';
+import {SettingsSheetService} from '@src/Components/Planner/SettingsSheet/SettingsSheetService';
 import {HelpTopicId} from '@src/Model/Help/HelpTopicId';
 import {PlanManager} from '@src/Model/Planner/PlanManager';
 
@@ -122,6 +123,7 @@ export class PlannerDockService implements PlannerDockApi
 	public constructor(
 		private readonly planManager: PlanManager,
 		private readonly calculatorTabs: CalculatorTabStateService,
+		private readonly settingsSheet: SettingsSheetService,
 	)
 	{
 	}
@@ -159,12 +161,24 @@ export class PlannerDockService implements PlannerDockApi
 		if (!this.entries.some(entry => entry.id === id)) {
 			return;
 		}
+		// Settings lives in the sheet now; this keeps any caller that opens the dock entry landing there.
+		if (id === 'settings') {
+			this.close();
+			this.settingsSheet.open();
+			return;
+		}
+		// A dock panel and the settings sheet would cover each other, so opening one closes the other.
+		this.settingsSheet.close();
 		this.openIdSignal.set(id);
 		this.syncCalculatorTab();
 	}
 
 	public toggle(id: string): void
 	{
+		if (id === 'settings') {
+			this.settingsSheet.toggle();
+			return;
+		}
 		if (this.openIdSignal() === id) {
 			this.close();
 			return;
@@ -186,6 +200,10 @@ export class PlannerDockService implements PlannerDockApi
 
 	public isOpen(id: string): boolean
 	{
+		// The rail's wrench and the panel layout ask through here, so the sheet reports the same state.
+		if (id === 'settings') {
+			return this.settingsSheet.isOpen();
+		}
 		return this.openIdSignal() === id;
 	}
 

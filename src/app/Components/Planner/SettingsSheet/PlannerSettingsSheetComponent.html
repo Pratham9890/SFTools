@@ -1,0 +1,99 @@
+<div class="pl-sheet-head">
+	<h2 class="pl-sheet-title">Settings</h2>
+	<button class="pl-sheet-close" type="button" aria-label="Close" title="Close" (click)="sheet.close()"><fa-icon [icon]="faXmark"></fa-icon></button>
+</div>
+
+<div #sheetBody class="pl-sheet-body">
+
+	<section class="pl-sheet-section" data-settings-section="appearance">
+		<h3 class="pp-title">Appearance</h3>
+		<div class="pp-field">
+			<span class="pp-label">Look</span>
+			<div class="pl-choice-row" role="radiogroup" aria-label="Look">
+				<button
+					class="pl-choice"
+					type="button"
+					role="radio"
+					[class.selected]="graph.look === 'large'"
+					[attr.aria-checked]="graph.look === 'large'"
+					(click)="setLook('large')"
+				>Large</button>
+				<button
+					class="pl-choice"
+					type="button"
+					role="radio"
+					[class.selected]="graph.look === 'game'"
+					[attr.aria-checked]="graph.look === 'game'"
+					(click)="setLook('game')"
+				>Game style</button>
+			</div>
+		</div>
+	</section>
+
+	<section class="pl-sheet-section" data-settings-section="flow-chart">
+		<h3 class="pp-title">Flow chart</h3>
+		<div class="pp-field">
+			<span class="pp-label">Layout</span>
+			<div class="pl-choice-row" role="radiogroup" aria-label="Layout">
+				<button
+					class="pl-choice"
+					type="button"
+					role="radio"
+					[class.selected]="graph.layoutMode === 'free'"
+					[attr.aria-checked]="graph.layoutMode === 'free'"
+					(click)="setLayoutMode('free')"
+				>Free</button>
+				<button
+					class="pl-choice"
+					type="button"
+					role="radio"
+					[class.selected]="graph.layoutMode === 'grid'"
+					[attr.aria-checked]="graph.layoutMode === 'grid'"
+					(click)="setLayoutMode('grid')"
+				>Grid</button>
+			</div>
+		</div>
+		<div class="form-check">
+			<input
+				id="sheet-colour-lines-by-item"
+				type="checkbox"
+				class="form-check-input"
+				[ngModel]="graph.colourLinesByItem"
+				(ngModelChange)="setColourLinesByItem($event)"
+			/>
+			<label class="form-check-label" for="sheet-colour-lines-by-item">Colour lines by item</label>
+		</div>
+		<planner-settings></planner-settings>
+		<settings-graph></settings-graph>
+	</section>
+
+	<section class="pl-sheet-section" data-settings-section="planner">
+		<h3 class="pp-title">Planner</h3>
+		<settings-planner></settings-planner>
+		<settings-numbers></settings-numbers>
+		<settings-plan-defaults></settings-plan-defaults>
+	</section>
+
+	<section class="pl-sheet-section" data-settings-section="map">
+		<h3 class="pp-title">Map</h3>
+		<settings-map></settings-map>
+	</section>
+
+	<section class="pl-sheet-section" data-settings-section="coop">
+		<h3 class="pp-title">Co-op server</h3>
+		<coop-server-settings></coop-server-settings>
+	</section>
+
+	<section class="pl-sheet-section" data-settings-section="keyboard">
+		<h3 class="pp-title">Keyboard</h3>
+		<settings-hotkeys></settings-hotkeys>
+	</section>
+
+	<section class="pl-sheet-section" data-settings-section="app">
+		<h3 class="pp-title">App</h3>
+		<settings-desktop></settings-desktop>
+		<settings-account></settings-account>
+		<settings-supporter></settings-supporter>
+	</section>
+
+</div>

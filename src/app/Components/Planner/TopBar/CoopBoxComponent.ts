@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Output, Signal, computed, inject, signal} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {PlannerDockService} from '@src/Components/Planner/Dock/PlannerDockService';
+import {SettingsSheetService} from '@src/Components/Planner/SettingsSheet/SettingsSheetService';
 import {CoopAccessDeniedError, CoopPlayer} from '@src/Model/Coop/CoopApi';
 import {COOP_COLORS, CoopSession} from '@src/Model/Coop/CoopSession';
 import {NotificationService} from '@src/Model/NotificationService';
@@ -22,6 +23,7 @@ export class CoopBoxComponent
 
 	private readonly coop = inject(CoopSession);
 	private readonly dock = inject(PlannerDockService);
+	private readonly sheet = inject(SettingsSheetService);
 	private readonly notifications = inject(NotificationService);
 
 	/** Asks the top bar to close its dropdown: a panel, Settings or Leave replaces the box. */
@@ -95,6 +97,12 @@ export class CoopBoxComponent
 
 	public openPanel(id: string): void
 	{
+		// Settings has one home now: the sheet from the gear. This button lands on the co-op section.
+		if (id === 'settings') {
+			this.sheet.open('coop');
+			this.close.emit();
+			return;
+		}
 		this.dock.open(id);
 		this.close.emit();
 	}

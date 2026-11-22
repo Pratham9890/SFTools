@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, computed, effect, ElementRef, OnDestroy, signal, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+import {AfterViewInit, Component, computed, effect, ElementRef, OnDestroy, signal, untracked, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {ActivatedRoute, Router} from '@angular/router';
 import {faBolt, faBook, faChartPie, faCircleQuestion, faCoins, faCrosshairs, faCubes, faFolderTree, faGear, faListCheck, faMap, faUsers} from '@fortawesome/free-solid-svg-icons';
@@ -50,6 +50,8 @@ import {CALCULATOR_DOCK_IDS, PLANNER_DOCK} from '@src/Components/Planner/Dock/Pl
 import {PlannerDockService} from '@src/Components/Planner/Dock/PlannerDockService';
 import {PlannerDockComponent} from '@src/Components/Planner/Dock/PlannerDockComponent';
 import {PlannerTopBarComponent} from '@src/Components/Planner/TopBar/PlannerTopBarComponent';
+import {PlannerSettingsSheetComponent} from '@src/Components/Planner/SettingsSheet/PlannerSettingsSheetComponent';
+import {SettingsSheetService} from '@src/Components/Planner/SettingsSheet/SettingsSheetService';
 import {SiteChrome} from '@src/Model/SiteChrome';
 import {CalculatorComponent} from '@src/Components/Planner/Panels/Calculator/CalculatorComponent';
 import {PlannerCodexComponent} from '@src/Components/Planner/Panels/Codex/PlannerCodexComponent';
@@ -140,7 +142,7 @@ const RATIO_TOLERANCE = 1e-4;
 
 @Component({
 	templateUrl: './PlannerComponent.html',
-	imports: [PlannerTopBarComponent, PlannerDockComponent, PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, CalculatePreviewDialogComponent, OverclockDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
+	imports: [PlannerTopBarComponent, PlannerDockComponent, PlannerSettingsSheetComponent, PlannerPanelContainerComponent, PlannerContextMenuComponent, PlannerNodeTooltipComponent, AddNodeDialogComponent, CalculatePreviewDialogComponent, OverclockDialogComponent, PlanShareDialogComponent, PlanLinkUnavailableDialogComponent, GraphExportDialogComponent, PlanExportDialogComponent, PlanImportDialogComponent],
 	providers: [
 		FolderRecalculationService,
 		PlannerGraphService,
@@ -255,6 +257,7 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 		private readonly route: ActivatedRoute,
 		private readonly router: Router,
 		private readonly dock: PlannerDockService,
+		public readonly settingsSheet: SettingsSheetService,
 		private readonly siteChrome: SiteChrome,
 	)
 	{
@@ -780,6 +783,13 @@ export class PlannerComponent implements AfterViewInit, OnDestroy, HotkeyItemSou
 				return;
 			}
 			this.pageMeta.clear();
+		});
+
+		// The sheet and the dock panel would cover each other; the sheet wins when it opens.
+		effect(() => {
+			if (this.settingsSheet.isOpen()) {
+				untracked(() => this.dock.close());
+			}
 		});
 
 		// Claims of the active plan show on its nodes; the service keeps them across redraws.

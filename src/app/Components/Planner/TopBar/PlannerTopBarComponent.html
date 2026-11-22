@@ -164,9 +164,9 @@
 	<button
 		class="pl-ghost pl-gear"
 		type="button"
-		tooltip="Planner settings"
+		tooltip="Settings"
 		placement="bottom"
-		[class.active]="dock.isOpen('settings')"
+		[class.active]="sheet.isOpen()"
 		(click)="toggleSettings()"
 	><fa-icon [icon]="faGear"></fa-icon></button>
 </div>

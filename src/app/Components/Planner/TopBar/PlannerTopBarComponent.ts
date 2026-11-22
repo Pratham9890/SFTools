@@ -11,6 +11,7 @@ import {PlannerDockService} from '@src/Components/Planner/Dock/PlannerDockServic
 import {GraphExportDialogService} from '@src/Components/Planner/Export/GraphExportDialogService';
 import {PanelLayoutService} from '@src/Components/Planner/Panel/PanelLayoutService';
 import {PlannerActionsService} from '@src/Components/Planner/PlannerActionsService';
+import {SettingsSheetService} from '@src/Components/Planner/SettingsSheet/SettingsSheetService';
 import {CoopPlayer} from '@src/Model/Coop/CoopApi';
 import {CoopSession} from '@src/Model/Coop/CoopSession';
 import {CoopBoxComponent} from '@src/Components/Planner/TopBar/CoopBoxComponent';
@@ -76,6 +77,7 @@ export class PlannerTopBarComponent
 	public constructor(
 		public readonly dock: PlannerDockService,
 		public readonly layout: PanelLayoutService,
+		public readonly sheet: SettingsSheetService,
 		private readonly planManager: PlanManager,
 		private readonly planNames: PlanNameResolver,
 		public readonly coop: CoopSession,
@@ -132,7 +134,7 @@ export class PlannerTopBarComponent
 
 	public toggleSettings(): void
 	{
-		this.dock.toggle('settings');
+		this.sheet.toggle();
 	}
 
 	public preview(): void
