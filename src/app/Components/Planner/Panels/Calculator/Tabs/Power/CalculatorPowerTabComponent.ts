@@ -26,6 +26,21 @@ import {SpecialClasses} from '@src/Model/Planner/SpecialClasses';
 	templateUrl: './CalculatorPowerTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [CollapsibleCardComponent, FaIconComponent, GameIconComponent, InfoNoteComponent, PowerDrawComponent],
+	styles: [`
+		:host { display: block; }
+		.pp-power-side { flex: 0 1 380px; min-width: 320px; }
+		.pp-slider { flex: 1 1 160px; width: auto; min-width: 120px; }
+		.pp-percent { flex: none; width: 42px; }
+		.pp-num { flex: none; width: 90px; }
+		.pp-of { flex: none; width: 62px; }
+		.pp-gen { flex: 0 1 250px; min-width: 220px; }
+		.pp-fuels {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+			gap: 4px 14px;
+		}
+		.pp-totals { font-size: 13px; }
+	`],
 })
 export class CalculatorPowerTabComponent
 {

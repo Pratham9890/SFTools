@@ -32,20 +32,54 @@ import {RateFormatter} from '@src/Model/RateFormatter';
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [FaIconComponent, FormsModule, BsDropdownModule, GameIconComponent, ItemRateComponent, AppTooltipDirective, InfoNoteComponent],
 	styles: [`
-		tr.resource-row { cursor: pointer; }
-		tr.resource-row:hover > td { background-color: rgba(255, 255, 255, 0.04); }
-		tr.resource-disabled td:not(.toggle-cell) { opacity: 0.45; }
+		.res-head { row-gap: 8px; }
+		.mode-note { flex: 1 1 280px; min-width: 200px; }
+		.res-head info-note { flex: 1 1 100%; }
+		.res-subhead { margin: 4px 0 2px; }
+		.used-heading { font-size: 13px; }
+
+		/* One compact row per resource, in as many columns as the panel is wide. */
+		.pp-cols.wide.res-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 2px 18px; }
+		.res-item {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 0;
+			min-height: 40px;
+			padding: 3px 6px;
+			border-radius: 6px;
+			cursor: pointer;
+		}
+		.res-item:hover { background: var(--surface-2); }
+		.res-item.over { box-shadow: inset 3px 0 0 var(--warn); }
+		.res-item .form-check-input { flex: none; margin: 0; float: none; }
+		.res-name { flex: 1 1 auto; min-width: 60px; font-weight: 600; }
+		.limit-group { flex: 0 0 230px; }
+		.weight-cell { flex: 0 0 auto; min-width: 96px; display: flex; align-items: center; gap: 6px; }
+		.w-label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }
+		.weight-cell .form-control { width: 76px; min-width: 0; }
+		.used-cell { flex: none; }
+
+		.res-item.off .res-name,
+		.res-item.off .limit-group,
+		.res-item.off .weight-cell,
+		.res-item.off .used-cell { opacity: 0.45; }
+
 		/* Only the weights stay editable while a map area sets the limits. */
-		table.area-locked td:not(.weight-cell) { opacity: 0.45; }
-		table.area-locked tr.resource-row { cursor: default; }
-		table.area-locked tr.resource-row:hover > td { background-color: transparent; }
-		.toggle-cell .form-check-input { display: block; margin: 0 auto; float: none; }
+		.area-locked .res-item { cursor: default; }
+		.area-locked .res-item:hover { background: transparent; }
+		.area-locked .res-item > :not(.weight-cell) { opacity: 0.45; }
+		.area-locked .res-item > .weight-cell { opacity: 1; }
+
 		/* As wide as "m³/min", so the numbers line up. */
-		.unit-addon { min-width: 4.6em; justify-content: flex-start; }
-		.pool-bar { height: 8px; background: #1d2833; }
-		.pool-others { background: #d9a441; }
-		.pool-plan { background: #5bc0de; }
-		.pool-free { background: #1d2833; border: 1px solid #4e5d6c; }
+		.unit-addon { min-width: 4.2em; justify-content: flex-start; }
+
+		.pool-bar { height: 8px; background: var(--ground); }
+		.pool-others { background: var(--warn); }
+		.pool-plan { background: var(--accent); }
+		.pool-free { background: var(--ground); border: 1px solid var(--rule-strong); }
+		/* A resource the folder switched off keeps its row, dimmed. */
+		tr.resource-disabled > td { opacity: 0.45; }
 		.pool-legend {
 			display: inline-block;
 			width: 12px;
@@ -53,6 +87,7 @@ import {RateFormatter} from '@src/Model/RateFormatter';
 			margin-right: 4px;
 			vertical-align: middle;
 		}
+		.legend-row { gap: 16px; }
 	`],
 })
 export class CalculatorResourcesTabComponent implements OnDestroy

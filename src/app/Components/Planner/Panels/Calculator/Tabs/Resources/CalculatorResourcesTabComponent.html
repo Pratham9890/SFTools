@@ -1,6 +1,6 @@
-<div class="p-2 d-flex flex-column gap-2">
-	<div class="d-flex align-items-center gap-2 flex-wrap">
-		<span class="text-nowrap" id="resource-weight-mode-label">Resource weights</span>
+<div class="p-2 pp-stack">
+	<div class="pp-row top res-head">
+		<span class="pp-title text-nowrap" id="resource-weight-mode-label">Resource weights</span>
 		<!-- container="body": the panel's overflow container would clip the menu. -->
 		<div class="btn-group" dropdown container="body" placement="bottom left">
 			<button
@@ -25,77 +25,7 @@
 				}
 			</div>
 		</div>
-	</div>
-	@if (!weightsEnabled()) {
-		<info-note kind="warning">
-			Raw resource weights are turned off in the Optimisation tab. The weights below are ignored.
-		</info-note>
-	}
-
-	@if (poolStatus(); as statuses) {
-		<table class="table table-dark table-sm align-middle mb-0 table-stack">
-			<thead>
-				<tr>
-					<th>Raw resource</th>
-					<th class="text-end" style="width: 120px;">Folder limit</th>
-					<th class="text-end" style="width: 120px;">This plan</th>
-					<th class="text-end" style="width: 90px;">Weight</th>
-					<th style="width: 34%;">Share of the pool</th>
-				</tr>
-			</thead>
-			<tbody>
-				@for (status of statuses; track status.item.className) {
-					<tr [class.table-danger]="status.overUse" [class.resource-disabled]="status.disabled">
-						<td class="stack-full">
-							<span class="d-inline-flex align-items-center gap-2">
-								<game-icon [hash]="status.item.icon" [size]="20" [alt]="status.item.name"></game-icon>
-								{{ status.item.name }}
-							</span>
-						</td>
-						<td class="text-end text-nowrap" data-label="Folder limit"><item-rate [amount]="status.limit" [item]="status.item"></item-rate></td>
-						<td class="text-end text-nowrap" data-label="This plan" [class.text-danger]="status.overUse"><item-rate [amount]="status.usedByPlan" [item]="status.item"></item-rate></td>
-						<td class="text-end text-nowrap" data-label="Weight" [class.text-secondary]="!weightsEnabled()">{{ weightText(status.item.className) }}</td>
-						<td class="stack-full">
-							@if (status.disabled) {
-								<small class="text-secondary">switched off by the folder</small>
-							} @else if (barSegments(status); as segments) {
-								<div class="progress pool-bar" [tooltip]="'Other plans ' + rateFormatter.rate(status.usedByOthers, status.item) + ' · this plan ' + rateFormatter.rate(status.usedByPlan, status.item) + ' · ' + (status.available === null ? '' : rateFormatter.rate(status.available - status.usedByPlan > 0 ? status.available - status.usedByPlan : 0, status.item) + ' free of ') + rateFormatter.rate(status.limit!, status.item)" container="body" placement="top">
-									<div class="progress-bar pool-others" [style.width.%]="segments.others"></div>
-									<div class="progress-bar" [class.pool-plan]="!status.overUse" [class.bg-danger]="status.overUse" [style.width.%]="segments.plan"></div>
-								</div>
-								<small class="text-secondary text-nowrap">
-									other plans {{ rateFormatter.rate(status.usedByOthers, status.item) }} · {{ status.available === null ? '∞' : rateFormatter.rate(status.available, status.item) }} available
-								</small>
-								@if (status.overUse) {
-									<small class="text-danger d-block">Uses more than its share. Recalculate this plan.</small>
-								}
-							} @else if (status.limit === 0) {
-								<small class="text-secondary">cannot be mined</small>
-							} @else {
-								<small class="text-secondary">unlimited</small>
-							}
-						</td>
-					</tr>
-				}
-			</tbody>
-		</table>
-		<div class="small text-secondary d-flex align-items-center gap-3">
-			<span><span class="pool-legend pool-others"></span> other plans</span>
-			<span><span class="pool-legend pool-plan"></span> this plan</span>
-			<span><span class="pool-legend pool-free"></span> free</span>
-		</div>
-	} @else {
-		@if (area()) {
-			<info-note kind="warning">
-				<div class="mb-2">The limits are set from an area on the map. Remove the area to change them by hand. Weights can still be changed.</div>
-				<div class="d-flex gap-2 flex-wrap">
-					<button type="button" class="btn btn-sm btn-outline-light" (click)="showArea()"><fa-icon [icon]="faMap"></fa-icon> Show on the map</button>
-					<button type="button" class="btn btn-sm btn-outline-light" (click)="removeArea()"><fa-icon [icon]="faLockOpen"></fa-icon> Remove the area</button>
-				</div>
-			</info-note>
-		}
-		<div class="d-flex align-items-center gap-2 flex-wrap">
-			<span class="text-secondary">Raw resources</span>
+		@if (!poolStatus()) {
 			<button
 				type="button"
 				class="btn btn-sm btn-outline-secondary py-0"
@@ -114,117 +44,180 @@
 				[disabled]="area() !== null"
 				(click)="setAllEnabled(false)"
 			>None</button>
-			<span class="d-flex gap-2 flex-wrap ms-auto">
-				@if (mapAvailable()) {
-					<button
-						type="button"
-						class="btn btn-sm btn-outline-info py-0 text-nowrap"
-						tooltip="Draw an area on the map. The limits are counted from the resource nodes inside it."
-						container="body"
-						placement="top"
-						(click)="selectFromMap()"
-					><fa-icon [icon]="faDrawPolygon"></fa-icon> Select from the map</button>
-				}
-				@if (mapLimits && area() === null) {
-					<button
-						type="button"
-						class="btn btn-sm btn-outline-info py-0 text-nowrap"
-						tooltip="Limit every resource to what the map can supply. Water stays unlimited."
-						container="body"
-						placement="top"
-						(click)="setFromMapLimits()"
-					><fa-icon [icon]="faMap"></fa-icon> Set from map limits</button>
-				}
-			</span>
-		</div>
-		<table class="table table-dark table-sm align-middle mb-0 table-stack" [class.area-locked]="area() !== null">
-			<thead>
-				<tr>
-					<th style="width: 32px;"></th>
-					<th>Raw resource</th>
-					<th style="width: 260px;">Limit</th>
-					<th style="width: 120px;">Weight</th>
-					@if (folderUsage() !== null) {
-						<th class="text-end" style="width: 140px;">Used by plans</th>
-					}
-				</tr>
-			</thead>
-			<tbody>
-				@for (row of rows; track row.className) {
-					<tr
-						class="resource-row"
-						[class.table-danger]="folderOverUse(row)"
-						[class.resource-disabled]="!row.enabled"
-						(click)="onRowClick(row, $event)"
-					>
-						<td class="toggle-cell">
-							<input
-								type="checkbox"
-								class="form-check-input"
-								[ngModel]="row.enabled"
-								(ngModelChange)="setEnabled(row, $event)"
-								[disabled]="area() !== null"
-								[tooltip]="row.enabled ? 'Untick to stop mining this resource' : 'Tick to allow mining it'"
-								container="body"
-								placement="top"
-							>
-						</td>
-						<td class="stack-grow">
-							<span class="d-inline-flex align-items-center gap-2">
-								<game-icon [hash]="iconHash(row.className)" [size]="20" [alt]="row.name"></game-icon>
-								{{ row.name }}
-							</span>
-						</td>
-						<td class="stack-grow" data-label="Limit">
-							<div class="input-group input-group-sm flex-nowrap">
-								<input
-									type="number"
-									class="form-control form-control-sm bg-dark text-light border-secondary"
-									[name]="'limit-' + row.className"
-									[ngModel]="row.infinite ? null : row.limit"
-									(ngModelChange)="row.limit = $event ?? 0; sync()"
-									[disabled]="row.infinite || !row.enabled || area() !== null"
-									[placeholder]="row.infinite ? 'unlimited' : ''"
-									min="0"
-									step="any"
-								>
-								<span class="input-group-text unit-addon bg-dark text-secondary border-secondary">{{ rateUnit(row.className) }}</span>
-								<button
-									type="button"
-									class="btn btn-outline-secondary px-2"
-									[class.active]="row.infinite"
-									[disabled]="!row.enabled || area() !== null"
-									[tooltip]="row.infinite ? 'Set a limit' : 'Make unlimited'"
-									container="body"
-									placement="top"
-									(click)="toggleInfinite(row)"
-								>∞</button>
-							</div>
-						</td>
-						<td class="weight-cell" data-label="Weight">
-							@if (manual) {
-								<input
-									type="number"
-									class="form-control form-control-sm bg-dark text-light border-secondary"
-									style="min-width: 90px;"
-									[class.text-secondary]="!weightsEnabled()"
-									[name]="'weight-' + row.className"
-									[(ngModel)]="row.weight"
-									(ngModelChange)="sync()"
-									[disabled]="!row.enabled"
-									min="0"
-									step="any"
-								>
-							} @else {
-								<span class="text-nowrap" [class.text-secondary]="!weightsEnabled()">{{ weightText(row.className) }}</span>
-							}
-						</td>
-						@if (folderUsage() !== null) {
-							<td class="text-end text-nowrap" data-label="Used by plans" [class.text-danger]="folderOverUse(row)"><item-rate [amount]="folderUsageOf(row)" [item]="item(row.className)"></item-rate></td>
-						}
+			@if (mapAvailable()) {
+				<button
+					type="button"
+					class="btn btn-sm btn-outline-info py-0 text-nowrap"
+					tooltip="Draw an area on the map. The limits are counted from the resource nodes inside it."
+					container="body"
+					placement="top"
+					(click)="selectFromMap()"
+				><fa-icon [icon]="faDrawPolygon"></fa-icon> Select from the map</button>
+			}
+			@if (mapLimits && area() === null) {
+				<button
+					type="button"
+					class="btn btn-sm btn-outline-info py-0 text-nowrap"
+					tooltip="Limit every resource to what the map can supply. Water stays unlimited."
+					container="body"
+					placement="top"
+					(click)="setFromMapLimits()"
+				><fa-icon [icon]="faMap"></fa-icon> Set from map limits</button>
+			}
+		}
+		@for (option of modeOptions; track option.mode) {
+			@if (option.mode === weightMode()) {
+				<span class="pp-note mode-note">{{ option.description }}</span>
+			}
+		}
+		@if (!weightsEnabled()) {
+			<info-note kind="warning">
+				Raw resource weights are turned off in the Optimisation tab. The weights below are ignored.
+			</info-note>
+		}
+	</div>
+
+	@if (poolStatus(); as statuses) {
+		<div class="pp-stack">
+			<p class="pp-note mb-0">In a folder with a shared resource pool, this tab shows the folder limit, what other plans use and this plan's share of the pool.</p>
+			<table class="table table-dark table-sm align-middle mb-0 table-stack">
+				<thead>
+					<tr>
+						<th>Raw resource</th>
+						<th class="text-end" style="width: 120px;">Folder limit</th>
+						<th class="text-end" style="width: 120px;">This plan</th>
+						<th class="text-end" style="width: 90px;">Weight</th>
+						<th style="width: 34%;">Share of the pool</th>
 					</tr>
-				}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					@for (status of statuses; track status.item.className) {
+						<tr [class.table-danger]="status.overUse" [class.resource-disabled]="status.disabled">
+							<td class="stack-full">
+								<span class="d-inline-flex align-items-center gap-2">
+									<game-icon [hash]="status.item.icon" [size]="20" [alt]="status.item.name"></game-icon>
+									{{ status.item.name }}
+								</span>
+							</td>
+							<td class="text-end text-nowrap" data-label="Folder limit"><item-rate [amount]="status.limit" [item]="status.item"></item-rate></td>
+							<td class="text-end text-nowrap" data-label="This plan" [class.text-danger]="status.overUse"><item-rate [amount]="status.usedByPlan" [item]="status.item"></item-rate></td>
+							<td class="text-end text-nowrap" data-label="Weight" [class.text-secondary]="!weightsEnabled()">{{ weightText(status.item.className) }}</td>
+							<td class="stack-full">
+								@if (status.disabled) {
+									<small class="text-secondary">switched off by the folder</small>
+								} @else if (barSegments(status); as segments) {
+									<div class="progress pool-bar" [tooltip]="'Other plans ' + rateFormatter.rate(status.usedByOthers, status.item) + ' · this plan ' + rateFormatter.rate(status.usedByPlan, status.item) + ' · ' + (status.available === null ? '' : rateFormatter.rate(status.available - status.usedByPlan > 0 ? status.available - status.usedByPlan : 0, status.item) + ' free of ') + rateFormatter.rate(status.limit!, status.item)" container="body" placement="top">
+										<div class="progress-bar pool-others" [style.width.%]="segments.others"></div>
+										<div class="progress-bar" [class.pool-plan]="!status.overUse" [class.bg-danger]="status.overUse" [style.width.%]="segments.plan"></div>
+									</div>
+									<small class="text-secondary text-nowrap">
+										other plans {{ rateFormatter.rate(status.usedByOthers, status.item) }} · {{ status.available === null ? '∞' : rateFormatter.rate(status.available, status.item) }} available
+									</small>
+									@if (status.overUse) {
+										<small class="text-danger d-block">Uses more than its share. Recalculate this plan.</small>
+									}
+								} @else if (status.limit === 0) {
+									<small class="text-secondary">cannot be mined</small>
+								} @else {
+									<small class="text-secondary">unlimited</small>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+			<div class="pp-note pp-row legend-row">
+				<span><span class="pool-legend pool-others"></span> other plans</span>
+				<span><span class="pool-legend pool-plan"></span> this plan</span>
+				<span><span class="pool-legend pool-free"></span> free</span>
+			</div>
+		</div>
+	} @else {
+		@if (area()) {
+			<info-note kind="warning">
+				<div class="mb-2">The limits are set from an area on the map. Remove the area to change them by hand. Weights can still be changed.</div>
+				<div class="d-flex gap-2 flex-wrap">
+					<button type="button" class="btn btn-sm btn-outline-light" (click)="showArea()"><fa-icon [icon]="faMap"></fa-icon> Show on the map</button>
+					<button type="button" class="btn btn-sm btn-outline-light" (click)="removeArea()"><fa-icon [icon]="faLockOpen"></fa-icon> Remove the area</button>
+				</div>
+			</info-note>
+		}
+		<div class="pp-row res-subhead">
+			<span class="pp-title">Raw resources</span>
+			<span class="pp-note">Tick a resource to allow mining it. ∞ means no limit.</span>
+			@if (folderUsage() !== null) {
+				<span class="pp-label used-heading">Used by plans</span>
+			}
+		</div>
+		<div class="pp-cols wide res-grid" [class.area-locked]="area() !== null">
+			@for (row of rows; track row.className) {
+				<div
+					class="res-item"
+					[class.over]="folderOverUse(row)"
+					[class.off]="!row.enabled"
+					(click)="onRowClick(row, $event)"
+				>
+					<input
+						type="checkbox"
+						class="form-check-input"
+						[ngModel]="row.enabled"
+						(ngModelChange)="setEnabled(row, $event)"
+						[disabled]="area() !== null"
+						[tooltip]="row.enabled ? 'Untick to stop mining this resource' : 'Tick to allow mining it'"
+						container="body"
+						placement="top"
+					>
+					<span class="pp-item res-name">
+						<game-icon [hash]="iconHash(row.className)" [size]="20" [alt]="row.name"></game-icon>
+						<span>{{ row.name }}</span>
+					</span>
+					<div class="input-group input-group-sm flex-nowrap limit-group">
+						<input
+							type="number"
+							class="form-control form-control-sm"
+							[name]="'limit-' + row.className"
+							[ngModel]="row.infinite ? null : row.limit"
+							(ngModelChange)="row.limit = $event ?? 0; sync()"
+							[disabled]="row.infinite || !row.enabled || area() !== null"
+							[placeholder]="row.infinite ? 'unlimited' : ''"
+							min="0"
+							step="any"
+						>
+						<span class="input-group-text unit-addon">{{ rateUnit(row.className) }}</span>
+						<button
+							type="button"
+							class="btn btn-outline-secondary px-2"
+							[class.active]="row.infinite"
+							[disabled]="!row.enabled || area() !== null"
+							[tooltip]="row.infinite ? 'Set a limit' : 'Make unlimited'"
+							container="body"
+							placement="top"
+							(click)="toggleInfinite(row)"
+						>∞</button>
+					</div>
+					<span class="weight-cell">
+						<span class="w-label">weight</span>
+						@if (manual) {
+							<input
+								type="number"
+								class="form-control form-control-sm"
+								[class.text-secondary]="!weightsEnabled()"
+								[name]="'weight-' + row.className"
+								[(ngModel)]="row.weight"
+								(ngModelChange)="sync()"
+								[disabled]="!row.enabled"
+								min="0"
+								step="any"
+							>
+						} @else {
+							<span class="text-nowrap" [class.text-secondary]="!weightsEnabled()">{{ weightText(row.className) }}</span>
+						}
+					</span>
+					@if (folderUsage() !== null) {
+						<span class="used-cell text-nowrap" [class.text-danger]="folderOverUse(row)"><item-rate [amount]="folderUsageOf(row)" [item]="item(row.className)"></item-rate></span>
+					}
+				</div>
+			}
+		</div>
 	}
 </div>

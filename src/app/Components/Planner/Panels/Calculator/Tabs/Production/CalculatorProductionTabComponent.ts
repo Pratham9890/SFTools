@@ -24,6 +24,25 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 	templateUrl: './CalculatorProductionTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [FormsModule, FaIconComponent, ItemPickerComponent, InfoNoteComponent],
+	styles: [`
+		.stack { display: grid; gap: 10px; }
+		.rows { display: grid; gap: 6px; }
+		.rows .pp-row {
+			padding: 6px 8px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 8px;
+		}
+		.pick { flex: 1 1 240px; min-width: 180px; }
+		.mode { flex: none; width: 170px; }
+		.pp-amount { width: 180px; }
+		.pp-amount .form-control { padding-right: 88px; }
+		.pp-note { flex: 1 1 200px; min-width: 0; }
+		.pp-note .value { color: var(--ink); font-weight: 600; }
+		.remove { flex: none; }
+		.foot { margin-top: 4px; }
+		.foot .btn { flex: none; }
+	`],
 })
 export class CalculatorProductionTabComponent implements OnDestroy
 {

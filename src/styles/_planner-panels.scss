@@ -57,3 +57,10 @@
 .pp-amount .form-control { padding-right: 46px; text-align: right; }
 .pp-amount .pp-unit { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--dim); font-size: 13px; pointer-events: none; }
 .pp-divider { height: 1px; background: var(--rule); margin: 6px 0; }
+
+// Old templates hard-code Bootstrap's dark utilities on inputs and pickers; map them to the planner look.
+.planner-ui {
+	.form-control.bg-dark, .form-select.bg-dark, .input-group-text.bg-dark, item-picker .bg-dark, .btn.bg-dark { background-color: var(--ground) !important; color: var(--ink) !important; }
+	.border-secondary { border-color: var(--rule-strong) !important; }
+	.text-light { color: var(--ink) !important; }
+}

@@ -17,6 +17,16 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 	changeDetection: ChangeDetectionStrategy.Eager,
 	templateUrl: './PlannerInspectorComponent.html',
 	imports: [AmountNodeEditorComponent, RecipeNodeEditorComponent, SubplanNodeEditorComponent, InfoNoteComponent],
+	styles: [`
+		.panel-note {
+			display: block;
+			padding: 10px 12px;
+		}
+		.panel-note info-note {
+			flex: 1 1 320px;
+			min-width: 0;
+		}
+	`],
 })
 export class PlannerInspectorComponent
 {

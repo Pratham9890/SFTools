@@ -1,181 +1,106 @@
-<div class="p-2 d-flex flex-column gap-2">
+<div class="pp-columns block-panel">
 
-	<div class="card">
-		<div class="card-header d-flex align-items-center gap-2 py-1 px-2">
+	<div class="pp-stack block-main">
+
+		<div class="pp-row block-head">
 			<game-icon [hash]="recipeIcon" [size]="20" [alt]="node.recipe.name"></game-icon>
-			<span class="fw-semibold flex-grow-1 text-truncate" [title]="node.recipe.name">{{ node.recipe.name }}</span>
-			<span class="small text-secondary text-nowrap">{{ rateFormatter.duration(node.recipe.time) }} / craft</span>
-			<go-to-node [nodeIds]="[node.id]" placement="left"></go-to-node>
-			<button
-				class="btn btn-sm py-0 px-1"
-				[class.btn-outline-warning]="node.locked"
-				[class.btn-outline-secondary]="!node.locked"
-				type="button"
-				[tooltip]="lockTooltip" container="body" placement="left"
-				(click)="toggleLock()"
-			><fa-icon [icon]="node.locked ? faLock : faLockOpen" [fixedWidth]="true"></fa-icon></button>
-		</div>
-		<div class="card-body p-2 d-flex flex-column gap-2">
-
-			@if (machineOptions.length > 1) {
-				<div class="d-flex align-items-center gap-2">
-					<label class="form-label text-secondary mb-0 text-nowrap">Machine</label>
-					<select
-						class="form-select form-select-sm bg-dark text-light border-secondary"
-						[(ngModel)]="machineClassName"
-						(ngModelChange)="onMachineChange()"
-					>
-						@for (machine of machineOptions; track machine.className) {
-							<option [value]="machine.className">{{ machine.name }}</option>
-						}
-					</select>
-				</div>
-			} @else if (selectedMachine; as machine) {
-				<div class="d-flex flex-wrap align-items-center gap-2">
-					<span class="text-secondary">Machine</span>
-					<span class="d-inline-flex align-items-center gap-1">
-						<game-icon [hash]="machine.icon" [size]="18" [alt]="machine.name"></game-icon>
-						{{ machine.name }}
-					</span>
-				</div>
-			}
-
-			<div>
-				<div class="text-secondary small mb-1">Inputs</div>
-				<div class="io-tiles">
-					@for (input of inputRates; track input.item.className; let i = $index) {
-						<div class="io-tile">
-							<game-icon [hash]="input.item.icon" [size]="32" [alt]="input.item.name"></game-icon>
-							<span class="io-name small text-truncate" [title]="input.item.name">{{ input.item.name }}</span>
-							<span class="small text-secondary text-nowrap">{{ rateFormatter.amount(input.perCraft) }} / craft</span>
-							<div class="input-group input-group-sm flex-nowrap">
-								<input
-									type="number"
-									class="form-control form-control-sm bg-dark text-light border-secondary"
-									[(ngModel)]="input.rate"
-									(ngModelChange)="onInputRateChange(i)"
-									min="0"
-									step="any"
-								>
-								<span class="input-group-text bg-dark text-secondary border-secondary">{{ rateFormatter.unit(input.item) }}</span>
-							</div>
-						</div>
-					} @empty {
-						<div class="fst-italic text-secondary small">None</div>
+			<div class="pp-stack block-head-text">
+				<span class="pp-row block-head-line">
+					<span class="pp-title" [title]="node.recipe.name">{{ node.recipe.name }}</span>
+					@if (node.recipe.alternate) {
+						<span class="pp-tag">Alt</span>
 					}
-				</div>
+				</span>
+				<span class="pp-note block-summary">
+					<span>{{ rateFormatter.machineCount(node.amount) }} machines</span>
+					@if (outputRates[0]; as output) {
+						<span>Makes {{ rateFormatter.rate(output.rate, output.item) }}</span>
+					}
+					<span>{{ rateFormatter.duration(node.recipe.time) }} / craft</span>
+				</span>
 			</div>
+			<span class="block-head-actions">
+				<go-to-node [nodeIds]="[node.id]" placement="left"></go-to-node>
+			</span>
+		</div>
 
-			<div>
-				<div class="text-secondary small mb-1">Outputs</div>
-				<div class="io-tiles">
-					@for (output of outputRates; track output.item.className; let i = $index) {
-						<div class="io-tile">
-							<game-icon [hash]="output.item.icon" [size]="32" [alt]="output.item.name"></game-icon>
-							<span class="io-name small text-truncate" [title]="output.item.name">{{ output.item.name }}</span>
-							<span class="small text-secondary text-nowrap">{{ rateFormatter.amount(output.perCraft) }} / craft</span>
-							<div class="input-group input-group-sm flex-nowrap">
-								<input
-									type="number"
-									class="form-control form-control-sm bg-dark text-light border-secondary"
-									[(ngModel)]="output.rate"
-									(ngModelChange)="onOutputRateChange(i)"
-									min="0"
-									step="any"
-								>
-								<span class="input-group-text bg-dark text-secondary border-secondary">{{ rateFormatter.unit(output.item) }}</span>
-							</div>
-						</div>
+		@if (machineOptions.length > 1) {
+			<div class="pp-row block-machine">
+				<label class="pp-label text-nowrap">Machine</label>
+				<select
+					class="form-select form-select-sm bg-dark text-light border-secondary"
+					[(ngModel)]="machineClassName"
+					(ngModelChange)="onMachineChange()"
+				>
+					@for (machine of machineOptions; track machine.className) {
+						<option [value]="machine.className">{{ machine.name }}</option>
 					}
-				</div>
+				</select>
 			</div>
-
-		</div>
-	</div>
-
-	<div class="card">
-		<div class="card-header d-flex align-items-center gap-2 py-1 px-2">
-			<span class="fw-semibold flex-grow-1 text-truncate d-inline-flex align-items-center gap-2">Machine groups <help-button topic="planner.machine-groups"/></span>
-			<!-- container="body": the panel's overflow container would clip the menu. -->
-			<div class="btn-group flex-shrink-0" dropdown container="body" placement="bottom right">
-				<button
-					class="btn btn-sm btn-outline-primary py-0"
-					type="button"
-					[tooltip]="'Calculate machine groups (' + groupingLabel + ')'" container="body" placement="bottom"
-					(click)="calculate()"
-				>Calculate</button>
-				<button
-					class="btn btn-sm btn-outline-primary dropdown-toggle dropdown-toggle-split py-0"
-					type="button"
-					dropdownToggle
-					tooltip="Grouping mode" container="body" placement="bottom"
-				><span class="visually-hidden">Grouping mode</span></button>
-				<div *dropdownMenu class="dropdown-menu dropdown-menu-end" style="min-width: 260px;">
-					<h6 class="dropdown-header">Grouping mode</h6>
-					@for (option of groupingOptions; track option.mode) {
-						<button
-							class="dropdown-item"
-							[class.active]="groupingMode === option.mode"
-							type="button"
-							(click)="setGroupingMode(option.mode)"
-						>
-							{{ option.label }}
-							<span class="d-block text-wrap opacity-75">{{ option.description }}</span>
-						</button>
-					}
-				</div>
+		} @else if (selectedMachine; as machine) {
+			<div class="pp-row block-machine">
+				<span class="pp-label">Machine</span>
+				<span class="pp-item">
+					<game-icon [hash]="machine.icon" [size]="18" [alt]="machine.name"></game-icon>
+					{{ machine.name }}
+				</span>
 			</div>
-		</div>
+		}
 
-		<div class="d-flex flex-wrap align-items-center gap-2 p-2 pb-0">
-			<label
-				class="form-label text-secondary mb-0 text-nowrap"
-				for="node-default-clock"
-				tooltip="Used by Calculate, Autofill and new groups. Changes here affect only this node."
-				container="body"
-				placement="top"
-			>Default clock speed</label>
-			@if (!usesPlanClockSpeed) {
-				<button
-					class="btn btn-sm btn-link p-0 text-secondary flex-shrink-0"
-					type="button"
-					tooltip="Back to the plan's clock speed" container="body" placement="top"
-					(click)="resetDefaultClock()"
-				><fa-icon [icon]="faRotateLeft"></fa-icon></button>
-			}
-			<clock-speed-input
-				style="flex: 1 1 240px; min-width: 0;"
-				inputId="node-default-clock"
-				[value]="defaultClockSpeed"
-				(valueChange)="onDefaultClockChange($event)"
-			></clock-speed-input>
-		</div>
-
-		<table class="table table-dark table-sm align-middle mb-0 table-stack-sm groups-table">
-			<thead>
-				<tr>
-					<th>Machines</th>
-					<th>Clock %</th>
-					@if ((selectedMachine?.sloopSlots ?? 0) > 0) {
-						<th>Sloops</th>
-					}
-					<th style="width: 36px;"></th>
-				</tr>
-			</thead>
-			<tbody>
-				@for (group of groups; track $index) {
-					<tr>
-						<td class="stack-grow" data-label="Machines">
-							<input
-								type="number"
-								class="form-control form-control-sm bg-dark text-light border-secondary"
-								[(ngModel)]="group.machines"
-								(ngModelChange)="onGroupsChange()"
-								min="1"
-								step="1"
+		<div class="pp-section groups-section">
+			<div class="pp-row groups-head">
+				<h3 class="pp-title groups-title">Machine groups <help-button topic="planner.machine-groups"/></h3>
+				<!-- container="body": the panel's overflow container would clip the menu. -->
+				<div class="btn-group flex-shrink-0" dropdown container="body" placement="bottom right">
+					<button
+						class="btn btn-sm btn-outline-primary py-0"
+						type="button"
+						[tooltip]="'Calculate machine groups (' + groupingLabel + ')'" container="body" placement="bottom"
+						(click)="calculate()"
+					>Calculate</button>
+					<button
+						class="btn btn-sm btn-outline-primary dropdown-toggle dropdown-toggle-split py-0"
+						type="button"
+						dropdownToggle
+						tooltip="Grouping mode" container="body" placement="bottom"
+					><span class="visually-hidden">Grouping mode</span></button>
+					<div *dropdownMenu class="dropdown-menu dropdown-menu-end" style="min-width: 260px;">
+						<h6 class="dropdown-header">Grouping mode</h6>
+						@for (option of groupingOptions; track option.mode) {
+							<button
+								class="dropdown-item"
+								[class.active]="groupingMode === option.mode"
+								type="button"
+								(click)="setGroupingMode(option.mode)"
 							>
-						</td>
-						<td class="stack-grow" data-label="Clock %">
+								{{ option.label }}
+								<span class="d-block text-wrap opacity-75">{{ option.description }}</span>
+							</button>
+						}
+					</div>
+				</div>
+			</div>
+
+			<div class="group-grid" [class.has-sloops]="(selectedMachine?.sloopSlots ?? 0) > 0">
+				<div class="group-head pp-note">
+					<span>Machines</span>
+					<span>Clock speed</span>
+					@if ((selectedMachine?.sloopSlots ?? 0) > 0) {
+						<span>Somersloops</span>
+					}
+					<span></span>
+				</div>
+				@for (group of groups; track $index) {
+					<div class="group-row">
+						<input
+							type="number"
+							class="form-control form-control-sm bg-dark text-light border-secondary"
+							[(ngModel)]="group.machines"
+							(ngModelChange)="onGroupsChange()"
+							min="1"
+							step="1"
+						>
+						<div class="group-clock">
 							<input
 								type="number"
 								class="form-control form-control-sm bg-dark text-light border-secondary"
@@ -186,61 +111,164 @@
 								step="any"
 							>
 							@if (rateFormatter.clockFraction(group.clockSpeed); as fraction) {
-								<div class="small text-secondary text-nowrap">= {{ fraction }}</div>
+								<span class="pp-note">= {{ fraction }}</span>
 							}
-						</td>
+						</div>
 						@if ((selectedMachine?.sloopSlots ?? 0) > 0) {
-							<td class="stack-grow" data-label="Sloops">
-								<input
-									type="number"
-									class="form-control form-control-sm bg-dark text-light border-secondary"
-									[(ngModel)]="group.sloops"
-									(ngModelChange)="onGroupsChange()"
-									min="0"
-									[max]="selectedMachine?.sloopSlots ?? 0"
-									step="1"
-								>
-							</td>
+							<input
+								type="number"
+								class="form-control form-control-sm bg-dark text-light border-secondary"
+								[(ngModel)]="group.sloops"
+								(ngModelChange)="onGroupsChange()"
+								min="0"
+								[max]="selectedMachine?.sloopSlots ?? 0"
+								step="1"
+							>
 						}
-						<td>
-							<button
-								class="btn btn-sm btn-outline-danger px-2"
-								type="button"
-								tooltip="Remove machine group" container="body" placement="left"
-								[disabled]="groups.length === 1"
-								(click)="removeGroup($index)"
-							><fa-icon [icon]="faXmark"></fa-icon></button>
-						</td>
-					</tr>
+						<button
+							class="btn btn-sm btn-outline-danger group-remove"
+							type="button"
+							tooltip="Remove machine group" container="body" placement="left"
+							[disabled]="groups.length === 1"
+							(click)="removeGroup($index)"
+						><fa-icon [icon]="faXmark"></fa-icon></button>
+					</div>
 				}
-			</tbody>
-			<tfoot>
-				<tr>
-					<td [attr.colspan]="(selectedMachine?.sloopSlots ?? 0) > 0 ? 4 : 3" class="text-secondary">
-						Efficiency <span class="text-light">{{ rateFormatter.percent(efficiency) }}</span>
-					</td>
-				</tr>
-			</tfoot>
-		</table>
+				<div class="group-foot pp-note">
+					<span>Efficiency</span>
+					<span class="group-value">{{ rateFormatter.percent(efficiency) }}</span>
+				</div>
+			</div>
 
-		<div class="card-footer p-2 d-flex flex-column gap-2">
-			<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addGroup()">
+			<button class="btn btn-sm btn-outline-success add-group" type="button" (click)="addGroup()">
 				+ Add machine group
 			</button>
+
+			<div class="pp-row groups-clock">
+				<label
+					class="form-label pp-label mb-0 text-nowrap"
+					for="node-default-clock"
+					tooltip="Used by Calculate, Autofill and new groups. Changes here affect only this node."
+					container="body"
+					placement="top"
+				>Default clock speed</label>
+				@if (!usesPlanClockSpeed) {
+					<button
+						class="btn btn-sm btn-link p-0 text-secondary flex-shrink-0"
+						type="button"
+						tooltip="Back to the plan's clock speed" container="body" placement="top"
+						(click)="resetDefaultClock()"
+					><fa-icon [icon]="faRotateLeft"></fa-icon></button>
+				}
+				<clock-speed-input
+					style="flex: 1 1 240px; min-width: 0;"
+					inputId="node-default-clock"
+					[value]="defaultClockSpeed"
+					(valueChange)="onDefaultClockChange($event)"
+				></clock-speed-input>
+			</div>
+
 			@if (hasCapacityShortage) {
-				<info-note kind="warning">
-					Not enough machines to reach the target.
-				</info-note>
-				<button
-					class="btn btn-sm btn-outline-primary w-100"
-					type="button"
-					[tooltip]="'Add the missing machines (' + groupingLabel + ')'" container="body" placement="bottom"
-					(click)="autofill()"
-				>Autofill</button>
+				<div class="pp-row groups-autofill">
+					<info-note kind="warning" class="flex-grow-1">
+						Not enough machines to reach the target.
+					</info-note>
+					<button
+						class="btn btn-sm btn-outline-primary flex-shrink-0"
+						type="button"
+						[tooltip]="'Add the missing machines (' + groupingLabel + ')'" container="body" placement="bottom"
+						(click)="autofill()"
+					>Autofill</button>
+				</div>
 			}
+
+			<div class="pp-row block-state">
+				<span class="pp-item block-state-built">
+					@if (node.done) {
+						<span class="pp-tag good">Built</span>
+					} @else {
+						<span class="pp-note">Not built yet</span>
+					}
+				</span>
+				<button
+					class="btn btn-sm block-lock"
+					[class.btn-outline-warning]="node.locked"
+					[class.btn-outline-secondary]="!node.locked"
+					type="button"
+					[tooltip]="lockTooltip" container="body" placement="left"
+					(click)="toggleLock()"
+				>
+					<fa-icon [icon]="node.locked ? faLock : faLockOpen" [fixedWidth]="true"></fa-icon>
+					<span>{{ node.locked ? 'Locked' : 'Not locked' }}</span>
+				</button>
+			</div>
 		</div>
+
 	</div>
 
-	<node-belts [node]="node"></node-belts>
+	<div class="pp-stack block-side">
+
+		<div class="pp-section">
+			<h3 class="pp-title">Inputs</h3>
+			<div class="io-tiles">
+				@for (input of inputRates; track input.item.className; let i = $index) {
+					<div class="io-tile">
+						<game-icon [hash]="input.item.icon" [size]="32" [alt]="input.item.name"></game-icon>
+						<span class="io-name pp-note" [title]="input.item.name">{{ input.item.name }}</span>
+						<span class="io-rate">{{ rateFormatter.rate(input.rate, input.item) }}</span>
+						<span class="io-craft pp-note">{{ rateFormatter.amount(input.perCraft) }} / craft</span>
+						<div class="input-group input-group-sm flex-nowrap">
+							<input
+								type="number"
+								class="form-control form-control-sm bg-dark text-light border-secondary"
+								[(ngModel)]="input.rate"
+								(ngModelChange)="onInputRateChange(i)"
+								min="0"
+								step="any"
+							>
+							<span class="input-group-text bg-dark text-secondary border-secondary">{{ rateFormatter.unit(input.item) }}</span>
+						</div>
+					</div>
+				} @empty {
+					<div class="fst-italic pp-note">None</div>
+				}
+			</div>
+		</div>
+
+		<div class="pp-section">
+			<h3 class="pp-title">Outputs</h3>
+			<div class="io-tiles">
+				@for (output of outputRates; track output.item.className; let i = $index) {
+					<div class="io-tile">
+						<game-icon [hash]="output.item.icon" [size]="32" [alt]="output.item.name"></game-icon>
+						<span class="io-name pp-note" [title]="output.item.name">{{ output.item.name }}</span>
+						<span class="io-rate">{{ rateFormatter.rate(output.rate, output.item) }}</span>
+						<span class="io-craft pp-note">{{ rateFormatter.amount(output.perCraft) }} / craft</span>
+						<div class="input-group input-group-sm flex-nowrap">
+							<input
+								type="number"
+								class="form-control form-control-sm bg-dark text-light border-secondary"
+								[(ngModel)]="output.rate"
+								(ngModelChange)="onOutputRateChange(i)"
+								min="0"
+								step="any"
+							>
+							<span class="input-group-text bg-dark text-secondary border-secondary">{{ rateFormatter.unit(output.item) }}</span>
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+
+		<div class="pp-row block-power">
+			<span class="pp-label">Power</span>
+			@if (node.powerDraw(); as draw) {
+				<span class="pp-note">{{ draw.isVariable() ? rateFormatter.powerRange(draw.min, draw.max) : rateFormatter.power(draw.average) }}</span>
+			}
+		</div>
+
+		<node-belts [node]="node"></node-belts>
+
+	</div>
 
 </div>

@@ -21,6 +21,39 @@ const LARGE_BELT_VIEW_BLOCKS = 600;
 	templateUrl: './CalculatorLogisticsTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [InfoNoteComponent],
+	styles: [`
+		.pp-columns { padding-top: 0; }
+		.pp-columns > * { flex: 0 1 auto; }
+		.col-switches { min-width: 260px; max-width: 320px; }
+		.col-rates { min-width: 220px; max-width: 280px; }
+		.col-lines { min-width: 260px; max-width: 340px; }
+		.col-belts { flex: 1 1 300px; min-width: 280px; max-width: 400px; }
+		.switch-text { display: grid; gap: 2px; min-width: 0; }
+		.switch-text small { display: block; color: var(--dim); line-height: 1.35; }
+		.pp-switch { cursor: pointer; }
+		.pp-switch .form-check-input { flex: none; margin: 0; }
+		.modes { display: grid; gap: 6px; }
+		.modes .check {
+			display: flex;
+			align-items: flex-start;
+			gap: 8px;
+			margin: 0;
+			padding: 6px 8px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 8px;
+			cursor: pointer;
+		}
+		.modes .check:hover { border-color: var(--rule-strong); }
+		.modes .check .form-check-input { flex: none; margin-top: 3px; }
+		.modes .check .pp-label { display: block; }
+		.belt-management { border: 0; padding: 0; margin: 0; }
+		.belt-management.is-off > :not(h3) { opacity: .55; }
+		.belt-management.is-off .modes .check { cursor: default; }
+		.range-label { display: flex; justify-content: space-between; gap: 12px; margin: 0; }
+		.range-value { color: var(--ink-2); font-weight: 600; }
+		.pp-note { margin: 0; }
+	`],
 })
 export class CalculatorLogisticsTabComponent
 {

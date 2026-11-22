@@ -1,19 +1,17 @@
 @if (connections(); as view) {
 	@if (view.connections.length > 0) {
-		<div class="card">
-			<div class="card-header d-flex align-items-center gap-2 py-1 px-2">
-				<span class="fw-semibold flex-grow-1 text-truncate">Belts</span>
-			</div>
-			<div class="card-body p-2 d-flex flex-column gap-2">
+		<div class="pp-section belts-section">
+			<h3 class="pp-title">Belts</h3>
+			<div class="pp-stack belts-list">
 				@for (connection of view.connections; track connection.index) {
-					<div class="d-flex flex-column gap-1">
-						<div class="small fw-semibold">{{ connection.header }}</div>
+					<div class="pp-stack belt-connection">
+						<div class="belt-header">{{ connection.header }}</div>
 						@for (belt of connection.belts; track belt.index) {
-							<div class="d-flex flex-column gap-1">
-								<div class="belt-line small">
-									<span class="text-nowrap">{{ connection.lineName }} {{ belt.index }}</span>
-									<span class="text-secondary text-nowrap">{{ belt.load }}</span>
-									<span class="text-nowrap">{{ belt.percent }}%</span>
+							<div class="pp-stack belt-block">
+								<div class="belt-line">
+									<span class="pp-note text-nowrap">{{ connection.lineName }} {{ belt.index }}</span>
+									<span class="text-nowrap">{{ belt.load }}</span>
+									<span class="text-nowrap belt-percent">{{ belt.percent }}%</span>
 									<div
 										class="progress belt-bar flex-grow-1"
 										role="progressbar"
@@ -24,8 +22,9 @@
 										<div class="progress-bar" [style.width.%]="belt.percent"></div>
 									</div>
 								</div>
-								<div class="small text-secondary">
-									<span>from {{ belt.from }} · to {{ belt.to }}</span>
+								<div class="pp-note belt-ends">
+									<span>from {{ belt.from }}</span>
+									<span>to {{ belt.to }}</span>
 									@if (belt.manifold) {
 										<span>{{ belt.manifold }}</span>
 									}
@@ -33,8 +32,8 @@
 							</div>
 						}
 						@if (connection.proposal; as proposal) {
-							<div class="d-flex align-items-center gap-2">
-								<div class="small text-secondary fst-italic flex-grow-1">Suggestion: {{ connection.suggestion }}</div>
+							<div class="pp-row belt-proposal">
+								<div class="pp-note fst-italic flex-grow-1">Suggestion: {{ connection.suggestion }}</div>
 								<span [tooltip]="proposal.disabledReason ?? 'Apply this suggestion'" container="body" placement="left">
 									<button
 										class="btn btn-sm btn-outline-success text-nowrap"
@@ -49,7 +48,7 @@
 				}
 				@if (view.manifold; as manifold) {
 					<div
-						class="small text-secondary border-top pt-1"
+						class="pp-note belt-manifold"
 						title="Minimum for a manifold: one splitter or merger per machine, except the last one on each belt."
 					>{{ manifold }}</div>
 				}

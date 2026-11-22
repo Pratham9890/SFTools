@@ -13,6 +13,16 @@ import {SpecialClasses} from '@src/Model/Planner/SpecialClasses';
 	templateUrl: './CalculatorSloopsTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [GameIconComponent, InfoNoteComponent],
+	styles: [`
+		:host { display: block; }
+		.pp-sloop-count { flex: 0 0 auto; }
+		.pp-num { flex: none; width: 100px; }
+		.pp-accuracy { flex: 1 1 520px; max-width: 760px; }
+		.pp-accuracy-options { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+		.pp-sloop-notes { flex: 1 1 300px; max-width: 420px; }
+		.pp-warns { display: grid; gap: 6px; }
+		.pp-warns .pp-warn { padding-left: 10px; border-left: 3px solid var(--warn); }
+	`],
 })
 export class CalculatorSloopsTabComponent
 {

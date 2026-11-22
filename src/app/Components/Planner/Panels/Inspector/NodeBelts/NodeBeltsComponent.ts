@@ -78,18 +78,50 @@ interface BeltBreakdownView
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [AppTooltipDirective],
 	styles: [`
+		.belt-header {
+			font-weight: 700;
+			color: var(--ink);
+		}
 		.belt-line {
 			display: flex;
 			align-items: center;
 			flex-wrap: wrap;
-			gap: 0.35rem;
+			gap: 8px;
+		}
+		.belt-percent {
+			color: var(--ink-2);
+			font-variant-numeric: tabular-nums;
+			min-width: 3em;
+			text-align: right;
 		}
 		.belt-bar {
 			height: 8px;
 			min-width: 4rem;
-			background: #1d2833;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 4px;
 		}
-		.belt-bar .progress-bar { background: #5bc0de; }
+		.belt-bar .progress-bar { background: var(--accent); }
+		.belt-ends {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 2px 10px;
+		}
+		.belt-proposal {
+			gap: 10px;
+			padding: 8px 10px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 8px;
+		}
+		.belt-manifold {
+			padding-top: 8px;
+			border-top: 1px solid var(--rule);
+		}
+		@container panel (max-width: 720px) {
+			.belt-bar { flex-basis: 100%; order: 4; }
+			.belt-percent { margin-left: auto; }
+		}
 	`],
 })
 export class NodeBeltsComponent

@@ -1,72 +1,68 @@
-<div class="p-2 d-flex flex-column gap-2">
+<div class="p-2 stack">
 	<info-note>Items you already have, for example from another factory. The plan uses up to this amount.</info-note>
+
 	@if (!weightsEnabled()) {
 		<info-note kind="warning">
 			Input weights are turned off in the Optimisation tab. Every input is free and the weights below are ignored.
 		</info-note>
 	}
-	<table class="table table-dark table-sm align-middle mb-0 table-stack">
-		<thead>
-			<tr>
-				<th>Item</th>
-				<th style="width: 130px;">Amount</th>
-				<th style="width: 110px;">Weight</th>
-				<th style="width: 36px;"></th>
-			</tr>
-		</thead>
-		<tbody>
-			@for (row of rows; track $index; let i = $index) {
-				<tr>
-					<td class="stack-full">
-						<item-picker
-							[options]="itemOptions"
-							[value]="row.itemClassName"
-							placeholder="- select item -"
-							(valueChange)="onItemChange(row, $event)"
-						></item-picker>
-					</td>
-					<td class="stack-grow" data-label="Amount">
-						<div class="input-group input-group-sm flex-nowrap">
-							<input
-								type="number"
-								class="form-control form-control-sm bg-dark text-light border-secondary"
-								[name]="'input-amount-' + i"
-								[(ngModel)]="row.amount"
-								(ngModelChange)="sync()"
-								min="0"
-								step="any"
-							>
-							<span class="input-group-text bg-dark text-secondary border-secondary">/min</span>
-						</div>
-					</td>
-					<td class="stack-grow" data-label="Weight">
-						<input
-							type="number"
-							class="form-control form-control-sm bg-dark text-light border-secondary"
-							[class.text-secondary]="!weightsEnabled()"
-							[name]="'input-weight-' + i"
-							[(ngModel)]="row.weight"
-							(ngModelChange)="sync()"
-							[title]="'Default ' + defaultWeightFor(row.itemClassName) + (weightsEnabled() ? '' : '. Ignored while input weights are off.')"
-							min="0"
-							step="any"
-						>
-					</td>
-					<td>
-						<button
-							class="btn btn-sm btn-outline-danger px-2"
-							type="button"
-							(click)="removeRow(i)"
-						><fa-icon [icon]="faXmark"></fa-icon></button>
-					</td>
-				</tr>
-			} @empty {
-				<tr><td colspan="4" class="text-secondary fst-italic text-center">No inputs yet.</td></tr>
-			}
-		</tbody>
-	</table>
 
-	<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addRow()">
-		+ Add Input
-	</button>
+	<div class="rows">
+		@for (row of rows; track $index; let i = $index) {
+			<div class="pp-row">
+				<item-picker
+					class="pick"
+					[options]="itemOptions"
+					[value]="row.itemClassName"
+					placeholder="- select item -"
+					(valueChange)="onItemChange(row, $event)"
+				></item-picker>
+
+				<span class="pp-note label">Amount</span>
+				<div class="pp-amount">
+					<input
+						type="number"
+						class="form-control form-control-sm"
+						[name]="'input-amount-' + i"
+						[(ngModel)]="row.amount"
+						(ngModelChange)="sync()"
+						min="0"
+						step="any"
+					>
+					<span class="pp-unit">/min</span>
+				</div>
+
+				<span class="pp-note label">Weight</span>
+				<div class="pp-amount narrow">
+					<input
+						type="number"
+						class="form-control form-control-sm"
+						[class.text-secondary]="!weightsEnabled()"
+						[name]="'input-weight-' + i"
+						[(ngModel)]="row.weight"
+						(ngModelChange)="sync()"
+						[title]="'Default ' + defaultWeightFor(row.itemClassName) + (weightsEnabled() ? '' : '. Ignored while input weights are off.')"
+						min="0"
+						step="any"
+					>
+				</div>
+
+				<span class="pp-note used">Using up to {{ row.amount }}/min</span>
+
+				<button
+					class="btn btn-sm btn-outline-danger px-2 remove"
+					type="button"
+					(click)="removeRow(i)"
+				><fa-icon [icon]="faXmark"></fa-icon></button>
+			</div>
+		} @empty {
+			<div class="pp-note empty">No inputs yet.</div>
+		}
+	</div>
+
+	<div class="pp-row foot">
+		<button class="btn btn-sm btn-outline-success" type="button" (click)="addRow()">
+			+ Add Input
+		</button>
+	</div>
 </div>

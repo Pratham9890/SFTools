@@ -1,15 +1,15 @@
 @if (readOnly()) {
-	<div class="px-2 pt-2">
+	<div class="pp-row panel-note">
 		<info-note>{{ readOnlyNote() }}</info-note>
 	</div>
 }
 @if (selectedNodes().length === 0) {
-	<div class="p-2">
-		<info-note>Click a node in the graph to see its details.</info-note>
+	<div class="pp-row panel-note">
+		<info-note>Click a block in the chart to see its details.</info-note>
 	</div>
 } @else if (selectedNodes().length > 1) {
-	<div class="p-2">
-		<info-note>{{ selectedNodes().length }} nodes selected. Select one node to edit it.</info-note>
+	<div class="pp-row panel-note">
+		<info-note>{{ selectedNodes().length }} blocks selected. Select one block to edit it.</info-note>
 	</div>
 } @else if (singleRecipeNode(); as node) {
 	<fieldset class="border-0 p-0 m-0" [disabled]="readOnly()">
@@ -23,11 +23,11 @@
 		<amount-node-editor [node]="node"></amount-node-editor>
 	</fieldset>
 } @else if (isAugmenterNode()) {
-	<div class="p-2">
+	<div class="pp-row panel-note">
 		<info-note>Alien power augmenters are set in the Power tab.</info-note>
 	</div>
 } @else {
-	<div class="p-2">
+	<div class="pp-row panel-note">
 		<info-note>This kind of node cannot be edited yet.</info-note>
 	</div>
 }

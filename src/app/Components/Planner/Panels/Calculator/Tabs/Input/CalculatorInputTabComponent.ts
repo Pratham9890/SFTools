@@ -21,6 +21,27 @@ import {ResourceWeightResolver} from '@src/Model/Planner/ResourceWeightResolver'
 	templateUrl: './CalculatorInputTabComponent.html',
 	changeDetection: ChangeDetectionStrategy.Eager,
 	imports: [FormsModule, FaIconComponent, ItemPickerComponent, InfoNoteComponent],
+	styles: [`
+		.stack { display: grid; gap: 10px; }
+		.rows { display: grid; gap: 6px; }
+		.rows .pp-row {
+			padding: 6px 8px;
+			background: var(--ground);
+			border: 1px solid var(--rule);
+			border-radius: 8px;
+		}
+		.pick { flex: 1 1 240px; min-width: 180px; }
+		.pp-note.label { white-space: nowrap; }
+		.pp-amount { width: 140px; }
+		.pp-amount.narrow { width: 100px; }
+		.pp-amount .form-control { padding-right: 46px; }
+		.pp-amount.narrow .form-control { padding-right: 10px; }
+		.used { flex: 1 1 160px; min-width: 0; }
+		.empty { padding: 6px 8px; font-style: italic; }
+		.remove { flex: none; }
+		.foot { margin-top: 4px; }
+		.foot .btn { flex: none; }
+	`],
 })
 export class CalculatorInputTabComponent implements OnDestroy
 {

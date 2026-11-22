@@ -1,100 +1,93 @@
-<div class="p-2">
-	<table class="table table-dark table-sm align-middle mb-2 table-stack">
-		<thead>
-			<tr>
-				<th>Item</th>
-				<th style="width: 300px;">Rate</th>
-				<th style="width: 36px;"></th>
-			</tr>
-		</thead>
-		<tbody>
-			@for (row of rows; track $index; let i = $index) {
-				<tr>
-					<td class="stack-full">
-						<item-picker
-							[options]="itemOptions"
-							[value]="row.itemClassName"
-							placeholder="- select item -"
-							(valueChange)="onItemChange(row, $event)"
-						></item-picker>
-					</td>
-					<td class="stack-grow">
-						<div class="input-group input-group-sm flex-nowrap">
-							@if (modeOf(row) === 'rate') {
-								@if (row.itemClassName === powerTargetClass) {
-									<input
-										type="number"
-										class="form-control form-control-sm bg-dark text-light border-secondary"
-										[name]="'rate-' + i"
-										[ngModel]="powerRateOf(row)"
-										(ngModelChange)="setPowerRate(row, $event)"
-										min="0"
-										step="any"
-									>
-								} @else {
-									<input
-										type="number"
-										class="form-control form-control-sm bg-dark text-light border-secondary"
-										[name]="'rate-' + i"
-										[(ngModel)]="row.ratePerMinute"
-										(ngModelChange)="sync()"
-										min="0"
-										step="any"
-									>
-								}
-							} @else {
-								<span
-									class="input-group-text bg-dark text-secondary border-secondary flex-grow-1"
-									[title]="achievedFor(row) === null ? 'Shown after the next calculation' : 'Result of the last calculation'"
-								>{{ achievedFor(row) ?? '?' }}</span>
-							}
-							@if (row.itemClassName === powerTargetClass) {
-								<select
-									class="form-select bg-dark text-light border-secondary"
-									style="flex: 0 0 auto; width: auto;"
-									[name]="'mode-' + i"
-									[ngModel]="powerSelectionOf(row)"
-									(ngModelChange)="setPowerSelection(row, $event)"
-								>
-									<option value="MW">MW</option>
-									<option value="GW">GW</option>
-									<option value="TW">TW</option>
-									<option value="maximise" [disabled]="maximiseDisabled(row)">maximise</option>
-								</select>
-							} @else {
-								<select
-									class="form-select bg-dark text-light border-secondary"
-									style="flex: 0 0 auto; width: auto;"
-									[name]="'mode-' + i"
-									[ngModel]="modeOf(row)"
-									(ngModelChange)="setMode(row, $event)"
-								>
-									<option value="rate">{{ rateUnit(row.itemClassName) }}</option>
-									<option value="maximise" [disabled]="maximiseDisabled(row)">maximise</option>
-								</select>
-							}
+<div class="p-2 stack">
+	<div class="rows">
+		@for (row of rows; track $index; let i = $index) {
+			<div class="pp-row">
+				<item-picker
+					class="pick"
+					[options]="itemOptions"
+					[value]="row.itemClassName"
+					placeholder="- select item -"
+					(valueChange)="onItemChange(row, $event)"
+				></item-picker>
+
+				@if (row.itemClassName === powerTargetClass) {
+					<select
+						class="form-select form-select-sm mode"
+						[name]="'mode-' + i"
+						[ngModel]="powerSelectionOf(row)"
+						(ngModelChange)="setPowerSelection(row, $event)"
+					>
+						<option value="MW">MW</option>
+						<option value="GW">GW</option>
+						<option value="TW">TW</option>
+						<option value="maximise" [disabled]="maximiseDisabled(row)">maximise</option>
+					</select>
+				} @else {
+					<select
+						class="form-select form-select-sm mode"
+						[name]="'mode-' + i"
+						[ngModel]="modeOf(row)"
+						(ngModelChange)="setMode(row, $event)"
+					>
+						<option value="rate">{{ rateUnit(row.itemClassName) }}</option>
+						<option value="maximise" [disabled]="maximiseDisabled(row)">maximise</option>
+					</select>
+				}
+
+				@if (modeOf(row) === 'rate') {
+					@if (row.itemClassName === powerTargetClass) {
+						<div class="pp-amount">
+							<input
+								type="number"
+								class="form-control form-control-sm"
+								[name]="'rate-' + i"
+								[ngModel]="powerRateOf(row)"
+								(ngModelChange)="setPowerRate(row, $event)"
+								min="0"
+								step="any"
+							>
+							<span class="pp-unit">{{ powerSelectionOf(row) }}</span>
 						</div>
-					</td>
-					<td>
-						<button
-							class="btn btn-sm btn-outline-danger px-2"
-							type="button"
-							(click)="removeRow(i)"
-						><fa-icon [icon]="faXmark"></fa-icon></button>
-					</td>
-				</tr>
-			}
-		</tbody>
-	</table>
+					} @else {
+						<div class="pp-amount">
+							<input
+								type="number"
+								class="form-control form-control-sm"
+								[name]="'rate-' + i"
+								[(ngModel)]="row.ratePerMinute"
+								(ngModelChange)="sync()"
+								min="0"
+								step="any"
+							>
+							<span class="pp-unit">{{ rateUnit(row.itemClassName) }}</span>
+						</div>
+					}
+				}
 
-	<button class="btn btn-sm btn-outline-success w-100" type="button" (click)="addRow()">
-		+ Add Item
-	</button>
+				<span
+					class="pp-note"
+					[title]="achievedFor(row) === null ? 'Shown after the next calculation' : 'Result of the last calculation'"
+				>Made last time: <span class="value">{{ achievedFor(row) ?? '?' }}</span></span>
 
-	@if (showSloopWarning) {
-		<info-note kind="warning" class="mt-2">
-			Somersloops with a maximised item make the calculation much slower.
-			It can take a very long time.
-		</info-note>
-	}
+				<button
+					class="btn btn-sm btn-outline-danger px-2 remove"
+					type="button"
+					(click)="removeRow(i)"
+				><fa-icon [icon]="faXmark"></fa-icon></button>
+			</div>
+		}
+	</div>
+
+	<div class="pp-row foot">
+		<button class="btn btn-sm btn-outline-success" type="button" (click)="addRow()">
+			+ Add Item
+		</button>
+
+		@if (showSloopWarning) {
+			<info-note kind="warning">
+				Somersloops with a maximised item make the calculation much slower.
+				It can take a very long time.
+			</info-note>
+		}
+	</div>
 </div>
