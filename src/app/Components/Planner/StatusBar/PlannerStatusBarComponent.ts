@@ -38,20 +38,20 @@ import {WarningKindFilter} from '@src/Components/Planner/StatusBar/WarningKindFi
 			min-width: 0;
 			padding: 0 16px;
 			overflow: hidden;
-			background: #1b2834;
-			border-top: 1px solid #34475a;
+			background: var(--ground);
+			border-top: 1px solid var(--rule);
 			font-size: 1rem;
-			color: #9fb0c0;
+			color: var(--dim);
 			user-select: none;
 			container-type: inline-size;
 		}
 		.stat { white-space: nowrap; flex-shrink: 0; }
-		.stat b { color: #dfe5ec; font-weight: 600; }
+		.stat b { color: var(--ink); font-weight: 600; }
 		.stat-icon { display: none; opacity: 0.8; }
 		.stat .abbr { display: none; }
-		.stat .range { margin-left: 4px; font-size: 0.8em; color: #6f8599; }
-		.stat b.production { color: #7bc98a; }
-		.stat b.deficit { color: #e0b56a; }
+		.stat .range { margin-left: 4px; font-size: 0.8em; color: var(--dim); }
+		.stat b.production { color: var(--good); }
+		.stat b.deficit { color: var(--warn); }
 		.right {
 			margin-left: auto;
 			display: inline-flex;
@@ -91,29 +91,30 @@ import {WarningKindFilter} from '@src/Components/Planner/StatusBar/WarningKindFi
 			.state .dot { margin-right: 0; }
 			.stat.zero { display: none; }
 		}
-		.state-solved { color: #7bc98a; }
-		.state-solved .dot { background: #4f9d69; }
-		.state-modified { color: #e0b56a; }
-		.state-modified .dot { background: #c9962e; }
-		.state-busy { color: #d0a45e; }
-		.state-busy .dot { background: #d0a45e; }
-		.state-error { color: #e58a72; }
-		.state-error .dot { background: #d4663f; }
-		.state-idle .dot { background: #4a5d71; }
+		.state-solved { color: var(--good); }
+		.state-solved .dot { background: var(--good); }
+		.state-modified { color: var(--warn); }
+		.state-modified .dot { background: var(--warn); }
+		.state-busy { color: var(--warn); }
+		.state-busy .dot { background: var(--warn); }
+		.state-error { color: #e8705f; }
+		.state-error .dot { background: #e8705f; }
+		.state-idle .dot { background: var(--dim); }
 		.warnings-toggle {
 			display: inline-flex;
 			align-items: center;
 			gap: 6px;
-			background: rgba(224, 181, 106, 0.12);
-			border: 1px solid rgba(224, 181, 106, 0.35);
+			background: transparent;
+			border: 1px solid var(--warn);
+			border-radius: var(--radius);
 			padding: 1px 10px;
 			font-size: 0.95rem;
 			font-weight: 600;
 			line-height: 1.4;
-			color: #e0b56a;
+			color: var(--warn);
 			cursor: pointer;
 		}
-		.warnings-toggle:hover { background: rgba(224, 181, 106, 0.2); color: #f0cd8b; }
+		.warnings-toggle:hover { background: var(--surface-2); }
 
 		/* Rendered into the body (container="body"), so everything is addressed by class - no :host descendants. */
 		.warnings-menu {

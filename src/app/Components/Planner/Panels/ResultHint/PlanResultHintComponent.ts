@@ -35,7 +35,7 @@ export class PlanResultHintComponent
 		if (this.planManager.activeSettings()?.calculationMode !== 'automatic') {
 			return `Press Calculate to see ${this.subject}.`;
 		}
-		return 'Nothing calculated yet. See the Production request panel.';
+		return 'Nothing calculated yet. See the Produce tab.';
 	}
 
 }

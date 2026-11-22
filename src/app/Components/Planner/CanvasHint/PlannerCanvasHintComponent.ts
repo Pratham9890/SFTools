@@ -23,9 +23,9 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 			max-width: 24rem;
 			padding: 0.75rem 1rem;
 			text-align: center;
-			color: #c5d0db;
-			background: rgba(var(--bs-dark-rgb), 0.85);
-			border: 1px dashed #6a7d91;
+			color: var(--ink-2);
+			background: var(--surface); border-radius: 10px;
+			border: 1px dashed var(--rule-strong);
 		}
 	`,
 })
@@ -38,13 +38,13 @@ export class PlannerCanvasHintComponent
 		}
 		const plan = this.planManager.activePlan();
 		if (!plan) {
-			return 'Pick what you want to make in the Production request panel. The factory shows up here. ' + this.byHandText();
+			return 'Pick what you want to make in the Produce tab. The factory shows up here. ' + this.byHandText();
 		}
 		if ((plan.graph?.nodes.length ?? 0) > 0) {
 			return null;
 		}
 		if (!plan.requests.some(request => request.itemClassName !== '')) {
-			return 'Add an item in the Production request panel and the factory shows up here. ' + this.byHandText();
+			return 'Add an item in the Produce tab and the factory shows up here. ' + this.byHandText();
 		}
 		if (this.planManager.activeSettings()?.calculationMode !== 'automatic') {
 			return 'Press Calculate to build the factory.';
@@ -62,7 +62,7 @@ export class PlannerCanvasHintComponent
 	private byHandText(): string
 	{
 		const key = this.hotkeys.label('graph.addNode');
-		return key === '' ? 'Or right‑click here to add nodes by hand.' : `Or press ${key} or right‑click here to add nodes by hand.`;
+		return key === '' ? 'Or right‑click here to add blocks by hand.' : `Or press ${key} or right‑click here to add blocks by hand.`;
 	}
 
 }

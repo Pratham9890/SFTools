@@ -19,33 +19,34 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 		:host {
 			display: flex;
 			flex-direction: column;
-			background: #1b2834;
-			border: 1px solid #34475a;
+			background: var(--surface);
+			border: 1px solid var(--rule);
+			border-radius: 10px;
 			overflow: hidden;
 		}
 		.zb {
-			width: 30px;
-			height: 28px;
+			width: 36px;
+			height: 36px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			border: none;
-			border-bottom: 1px solid #34475a;
+			border-bottom: 1px solid var(--rule);
 			background: transparent;
-			color: #9fb0c0;
+			color: var(--ink-2);
 			font-size: 15px;
 			line-height: 1;
 			cursor: pointer;
 		}
 		.zb:last-child { border-bottom: none; }
-		.zb:hover:not(:disabled) { background: rgba(255,255,255,0.08); color: #fff; }
-		.zb:disabled { color: #4a5d71; cursor: default; }
+		.zb:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+		.zb:disabled { color: var(--dim); cursor: default; }
 		/* Rearrange sits after Fit, apart from the zoom pair it does not belong to. */
-		.zb-separated { border-top: 1px solid #34475a; }
+		.zb-separated { border-top: 1px solid var(--rule); }
 		.zb-rearrange {
 			width: auto;
 			gap: 5px;
-			padding: 0 8px;
+			padding: 0 10px;
 			font-size: 11px;
 			font-weight: 600;
 		}
