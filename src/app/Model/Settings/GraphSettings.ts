@@ -14,6 +14,12 @@ export interface GraphSettings
 
 	readonly addBendPointsByClick: boolean;
 
+	/** Flow chart: 'free' packs rows near straight lines, 'grid' puts every port, lane and bend on one line grid. */
+	readonly layoutMode: 'free' | 'grid';
+
+	/** One colour per item across the chart; off gives one neutral colour, fluids stay blue. */
+	readonly colourLinesByItem: boolean;
+
 	/** "100/3" instead of "33.3334" for clock speeds that are really thirds, sixths and so on. */
 	readonly showClockFractions: boolean;
 

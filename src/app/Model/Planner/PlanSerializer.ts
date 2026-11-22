@@ -79,6 +79,9 @@ export class PlanSerializer
 		return {
 			nodes: rawNodes.map(n => this.deserializeNode(n, data)),
 			edges: rawEdges,
+			// 2 = flow-layout routes; older plans have none and are re-laid out when opened.
+			...(typeof raw['layoutVersion'] === 'number' ? {layoutVersion: raw['layoutVersion']} : {}),
+			...(raw['layoutHeights'] && typeof raw['layoutHeights'] === 'object' ? {layoutHeights: raw['layoutHeights'] as Record<string, number>} : {}),
 		};
 	}
 

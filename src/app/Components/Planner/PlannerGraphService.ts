@@ -3,9 +3,9 @@ import {faCircleCheck, faLock, faTriangleExclamation, IconDefinition} from '@for
 import {Cell, Edge as X6Edge, EdgeToolNativeItem, EdgeView, Export, Graph as X6Graph, Node as X6Node, Selection} from '@antv/x6';
 import type {Metadata as PortsMetadata, PortMetadata} from '@antv/x6/lib/model/port';
 import type {Handle as VertexHandle} from '@antv/x6/lib/registry/tool/vertices';
-import ELK from 'elkjs/lib/elk.bundled.js';
-import type {ElkExtendedEdge, ElkNode} from 'elkjs';
 import {GraphPoint} from '@src/Model/Planner/Graph/GraphPoint';
+import {FlowLayoutEdge, FlowLayoutNode, FlowLayoutOptions, layoutFlow} from '@src/Model/Planner/Layout/FlowLayout';
+import {collectFlowJunctions, FlowLinePalette} from '@src/Components/Planner/Graph/FlowLinePalette';
 import {Observable, Subject, Subscription} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
 import {GraphContextMenuRequest} from '@src/Components/Planner/GraphContextMenuRequest';
@@ -28,7 +28,8 @@ import {GraphEdge} from '@src/Model/Planner/Graph/GraphEdge';
 import {GraphEdgeBuilder} from '@src/Model/Planner/Graph/GraphEdgeBuilder';
 import {GraphLayoutResolver} from '@src/Model/Planner/GraphLayoutResolver';
 import {GraphLayoutSettings} from '@src/Model/Planner/GraphLayoutSettings';
-import {BeltGraphPlan, BeltPlanner, EdgeBeltPlan} from '@src/Model/Planner/BeltPlanner';
+import {GraphDirection} from '@src/Model/Planner/GraphDirection';
+import {BeltGraphPlan, BeltPlanner} from '@src/Model/Planner/BeltPlanner';
 import {ConveyorCapacity} from '@src/Model/Planner/ConveyorCapacity';
 import {ExtractorCapacity} from '@src/Model/Planner/ExtractorCapacity';
 import {GraphMetrics} from '@src/Model/Planner/Graph/GraphMetrics';
@@ -62,20 +63,7 @@ import {ZoomedOutNameLayout} from '@src/Components/Planner/ZoomedOutNameLayout';
 const NODE_WIDTH = GraphMetrics.NODE_WIDTH;
 const NODE_HEIGHT = GraphMetrics.NODE_HEIGHT;
 
-const LABEL_CHAR_WIDTH = 7.4;
-const LABEL_NAME_CHAR_WIDTH = 7.9;
-const LABEL_PADDING_X = 20;
-const LABEL_HEIGHT = 46;
-const LABEL_FONT_SIZE = 13;
-const LABEL_NAME_FONT_SIZE = 14;
-const LABEL_NAME_Y = -9;
-const LABEL_RATE_Y = 11;
-// Each connection label gets its own layout column as wide as its widest label, so long names wrap to keep columns narrow.
-const LABEL_NAME_WRAP_WIDTH = 102;
-const LABEL_NAME_LINE_HEIGHT = 17;
 
-const EDGE_ICON_SIZE = 24;
-const EDGE_ICON_GAP = 4;
 const NODE_ICON_SIZE = 30;
 const LEFT_ICON_SIZE = 40;
 const LEFT_ICON_X = 12;
@@ -150,34 +138,49 @@ const STAT_SLOOP_MAX_LINES = 8;
 const STAT_SLOOP_CENTER_OFFSET = 5.5;
 const CORNER_PREVIEW_SNAP = 10;
 const EDGE_STROKE = '#5c718a';
-const EDGE_STROKE_WIDTH = 1.5;
+// Flow chart lines: the mock-up's Look C line, a casing in the chart colour so crossings break visibly.
+const FLOW_LINE_WIDTH = 2.6;
+const FLOW_CASING_WIDTH = FLOW_LINE_WIDTH + 5;
+const FLOW_HIT_WIDTH = 14;
+const FLOW_CASING_COLOUR = '#121315';
+const FLOW_BEND_RADIUS = 8;
+const FLOW_JUNCTION_RADIUS = FLOW_LINE_WIDTH + 2;
+const FLOW_WARN_COLOUR = '#e0b56a';
+const FLOW_LABEL_HEIGHT = 24;
+const FLOW_LABEL_PAD_X = 9;
+const FLOW_LABEL_ICON = 19;
+const FLOW_LABEL_ICON_GAP = 4;
+const FLOW_LABEL_FILL = '#1a1c1f';
+const FLOW_LABEL_TEXT_FILL = '#f4f2ee';
+const FLOW_LABEL_RADIUS = 12;
+const FLOW_LABEL_STROKE = 1.5;
+/** Unfocused connections and blocks on hover/selection. */
+const FLOW_FADE_OPACITY = 0.25;
+// Layout units: the mock-up's Look C (port spacing 30, lane gap 17).
+const FLOW_PORT_GAP = 30;
+const FLOW_LANE_GAP = 17;
+const FLOW_NODE_GAP_FLOOR = 34;
+const FLOW_LABEL_GAP = 12;
 // Amber like the status bar's warnings: a dark-canvas constant, readable in both themes.
-const EDGE_OVER_LIMIT_STROKE = '#e0b56a';
-const PARALLEL_EDGE_GAP = 40;
 // Belt view: one line per belt, spaced wide enough for each line's own rate label to fit between neighbours.
-const BELT_LINE_GAP = 26;
 // Perpendicular label offset: with the 14px name font the baseline then sits ~8px above the line.
-const BELT_LABEL_OFFSET = 13;
 // Room beyond the outermost belt line, which itself sits (belts - 1) / 2 gaps from the node centre.
-const BELT_NODE_PADDING = 20;
-const BELT_DASH = '6 4';
 const SELECTED_STROKE = '#f0ad4e';
 const EXPORT_MARGIN = 40;
 // Fitting a plan with one or a few nodes would otherwise blow them up to fill the canvas.
 const FIT_MAX_SCALE = 1;
 const EXPORT_SAMPLE_MARGIN = 12;
 const SELECTED_STROKE_WIDTH = 3;
-const SELECTED_EDGE_STROKE_WIDTH = 2.5;
 // Hover styles live in styles.scss; the highlight class opts an edge out of the hover look.
 const EDGE_LINE_CLASS = 'pg-edge-line';
-const EDGE_HOVER_CLASS = 'pg-edge-hovered';
+const EDGE_CASING_CLASS = 'pg-edge-casing';
+const EDGE_HIT_CLASS = 'pg-edge-hit';
 const EDGE_HIGHLIGHT_CLASS = 'pg-edge-highlighted';
 const LABEL_BOX_CLASS = 'pg-label-box';
 const LABEL_BOX_HIGHLIGHT_CLASS = 'pg-label-box-highlighted';
 // Pill, darker than the canvas, edge-coloured outline: nodes are lighter than the canvas with square-ish corners.
 const LABEL_BOX_FILL = '#08111c';
 const LABEL_BOX_STROKE = EDGE_STROKE;
-const LABEL_BOX_PILL_PAD = 6;
 const LABEL_BOX_STROKE_WIDTH = 1;
 const LABEL_TEXT_FILL = '#dde4ef';
 const LABEL_BOX_RADIUS = 4;
@@ -451,9 +454,19 @@ export class PlannerGraphService implements OnDestroy
 	private readonly baseZIndexById = new Map<string, number>();
 	private readonly pendingZChanges = new Map<string, {cell: Cell; zIndex: number | null}>();
 	private zChangeScheduled = false;
-	private parallelOffsets = new Map<GraphEdge, GraphPoint>();
 	private renderedGraph: Graph | null = null;
-	private renderedBeltView = false;
+	/** Heights the flow layout gave each block; taller blocks have more room for input ports. */
+	private readonly flowLayoutHeights = new Map<string, number>();
+	/** Edge arrays the flow layout produced, so a restore recognises its own routes. */
+	private readonly laidOutEdges = new WeakSet<GraphEdge[]>();
+	private renderedLayoutMode: 'free' | 'grid' | null = null;
+	private linePalette: FlowLinePalette | null = null;
+	private junctionLayer: SVGGElement | null = null;
+	private junctionCircles: Array<{circle: SVGCircleElement; x: number; y: number}> = [];
+	private hoveredEdgeIds = new Set<string>();
+	private focusedNodeIds = new Set<string>();
+	/** Last pointer position, so a connection's tooltip can open next to the cursor rather than the line's bounding box. */
+	private lastPointerClient: {x: number; y: number} | null = null;
 
 	private readonly selectedNodesSignal = signal<Node[]>([]);
 	public readonly selectedNodes: Signal<Node[]> = this.selectedNodesSignal.asReadonly();
@@ -541,90 +554,413 @@ export class PlannerGraphService implements OnDestroy
 		}
 
 		const edges = this.edgeBuilder.build(response.nodes);
-		await this.layout(response.nodes, edges, settings);
-		const graph: Graph = {nodes: response.nodes, edges};
+		this.layoutFlowGraph(response.nodes, edges, settings);
+		const graph: Graph = {nodes: response.nodes, edges, layoutVersion: 2, layoutHeights: this.layoutHeightsOfEdges.get(edges)};
 		this.restore(container, graph);
 		return graph;
 	}
 
 	public async layout(nodes: Node[], edges: GraphEdge[], layoutSettings?: GraphLayoutSettings): Promise<void>
 	{
+		this.layoutFlowGraph(nodes, edges, layoutSettings);
+	}
+
+	/** Synchronous: layoutFlow is pure, so a restore can lay out a legacy plan before drawing it. */
+	private layoutFlowGraph(nodes: Node[], edges: GraphEdge[], layoutSettings?: GraphLayoutSettings): void
+	{
 		if (nodes.length === 0) {
 			return;
 		}
-		// Belt view grows nodes to hold their per-belt lines, so their size must be known before ELK lays out.
+		// Belt view grows nodes to hold their per-belt lines, so their size must be known before the layout runs.
 		if (this.beltViewEnabled()) {
 			this.refreshBeltPlan({nodes, edges});
 		}
 		const settings = this.graphLayout.resolve(layoutSettings);
+		const direction = settings.direction;
+		const vertical = this.isVertical(direction);
+		// Right and up are the flow reversed: lay out left-to-right/down and mirror so the lines run the other way.
+		const mirror = direction === 'right' || direction === 'up';
 
 		const nodeIds = new Set(nodes.map(node => node.id));
-		const layoutEdges = edges.filter(e => nodeIds.has(e.sourceId) && nodeIds.has(e.targetId));
-
-		const elkEdges: ElkExtendedEdge[] = layoutEdges.map((e, i) => {
-			const label = this.labelTextFor(e);
-			const size = this.labelSizeFor(label);
+		const layoutEdges = edges.filter(edge => nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId));
+		const edgeIds = new Map<GraphEdge, string>();
+		const flowEdges: FlowLayoutEdge[] = layoutEdges.map((edge, i) => {
+			const id = `e${i}`;
+			edgeIds.set(edge, id);
 			return {
-				id: `e${i}`,
-				sources: [e.sourceId],
-				targets: [e.targetId],
-				labels: [{
-					id: `e${i}-label`,
-					text: `${label.name}\n${label.rate}`,
-					width: size.width,
-					height: size.height,
-					layoutOptions: {'elk.edgeLabels.inline': 'true'},
-				}],
+				id,
+				sourceId: edge.sourceId,
+				targetId: edge.targetId,
+				itemKey: edge.itemClassName,
+				labelWidth: this.labelPillFor(edge).width,
 			};
 		});
 
-		const elkGraph: ElkNode = {
-			id: 'root',
-			layoutOptions: {
-				'elk.algorithm': 'layered',
-				'elk.direction': ({left: 'RIGHT', down: 'DOWN', right: 'LEFT', up: 'UP'} as const)[settings.direction] ?? 'RIGHT',
-				'elk.edgeRouting': 'POLYLINE',
-				'elk.spacing.edgeLabel': '10',
-				'elk.spacing.nodeNode': String(settings.nodeSpacing),
-				'elk.layered.spacing.nodeNodeBetweenLayers': String(settings.layerSpacing),
-				'elk.layered.spacing.edgeNodeBetweenLayers': '4',
-				// The polyline router widens each gap in proportion to this, times how far lines travel sideways; top-to-bottom graphs are wide.
-				'elk.layered.spacing.edgeEdgeBetweenLayers': settings.direction === 'down' || settings.direction === 'up' ? '2' : '4',
-			},
-			children: nodes.map(node => ({
+		const flowNodes: FlowLayoutNode[] = nodes.map(node => {
+			const size = this.sizeFor(node);
+			return {
 				id: node.id,
-				...this.sizeFor(node),
-			})),
-			edges: elkEdges,
-		};
-
-		const elk = new ELK();
-		const laid = await elk.layout(elkGraph);
-
-		const posMap = new Map<string, {x: number; y: number}>();
-		(laid.children ?? []).forEach(laidNode => {
-			posMap.set(laidNode.id!, {x: laidNode.x ?? 0, y: laidNode.y ?? 0});
+				kind: this.flowKindFor(node),
+				width: size.width,
+				minHeight: size.height,
+				orderHint: node.y,
+			};
 		});
+
+		const options: FlowLayoutOptions = {
+			grid: this.settings.graph().layoutMode === 'grid',
+			direction: vertical ? 'down' : 'right',
+			portGap: FLOW_PORT_GAP * this.nodeScale(),
+			laneGap: FLOW_LANE_GAP,
+			nodeGap: Math.max(FLOW_NODE_GAP_FLOOR, settings.nodeSpacing),
+			minGapWidth: Math.max(FLOW_LANE_GAP * 2, settings.layerSpacing),
+		};
+		const result = layoutFlow(flowNodes, flowEdges, options);
+
+		// Mirroring keeps block sizes; blocks are placed by top-left corner, so the far edge becomes the near one.
+		const mirrorAxis = vertical ? result.height : result.width;
+		const mx = (x: number): number => mirror && !vertical ? mirrorAxis - x : x;
+		const my = (y: number): number => mirror && vertical ? mirrorAxis - y : y;
+		const byId = new Map(nodes.map(node => [node.id, node]));
+		this.flowLayoutHeights.clear();
+		const heights: Record<string, number> = {};
 
 		nodes.forEach((node, i) => {
-			const pos = posMap.get(node.id) ?? {x: i * (NODE_WIDTH + 60), y: 0};
-			node.x = pos.x;
-			node.y = pos.y;
+			const placement = result.nodes.get(node.id);
+			if (!placement) {
+				node.x = i * (NODE_WIDTH + 60);
+				node.y = 0;
+				return;
+			}
+			node.x = mirror ? mx(placement.x + placement.width) : placement.x;
+			node.y = mirror && vertical ? my(placement.y + placement.height) : placement.y;
+			this.flowLayoutHeights.set(node.id, placement.height);
 		});
 
-		const laidEdgeById = new Map((laid.edges ?? []).map(laidEdge => [laidEdge.id, laidEdge]));
-		layoutEdges.forEach((edge, i) => {
-			const laidEdge = laidEdgeById.get(`e${i}`);
-			if (laidEdge) {
-				edge.vertices = settings.edgeShape === 'straight' ? [] : this.elkEdgeVertices(laidEdge);
-				edge.autoRouted = settings.edgeShape !== 'straight';
-				edge.labelDistance = this.elkLabelDistance(laidEdge);
+		layoutEdges.forEach(edge => {
+			const route = result.edges.get(edgeIds.get(edge) as string);
+			const source = byId.get(edge.sourceId);
+			const target = byId.get(edge.targetId);
+			if (!route || route.points.length < 2 || source === undefined || target === undefined) {
+				edge.vertices = [];
+				edge.autoRouted = false;
+				return;
 			}
+			const points = route.points.map(point => ({x: mx(point.x), y: my(point.y)}));
+			const first = points[0];
+			const last = points[points.length - 1];
+			edge.sourcePortDy = Math.round((vertical ? first.x - source.x : first.y - source.y) * 100) / 100;
+			edge.targetPortDy = Math.round((vertical ? last.x - target.x : last.y - target.y) * 100) / 100;
+			// Inner points only: x6 draws from the output port to the first one and from the last one to the input port.
+			edge.vertices = points.slice(1, -1);
+			edge.autoRouted = true;
+			// Negative pixels from the target end: x6 stops at the layout's label point, 12 px before the block.
+			edge.labelDistance = -FLOW_LABEL_GAP;
 		});
+
+		// Saved with the plan, so a reload draws the same tall blocks without re-running the layout.
+		this.flowLayoutHeights.forEach((height, id) => heights[id] = height);
+		this.layoutHeightsOfEdges.set(edges, heights);
+		this.laidOutEdges.add(edges);
+	}
+
+	/** The height map a layout produced, written onto the graph when the caller owns a mutable graph. */
+	private layoutHeightsOfEdges = new WeakMap<GraphEdge[], Record<string, number>>();
+
+	private applyLayoutHeights(graph: Graph): void
+	{
+		const heights = graph.layoutHeights ?? this.layoutHeightsOfEdges.get(graph.edges);
+		this.flowLayoutHeights.clear();
+		if (heights === undefined) {
+			return;
+		}
+		Object.entries(heights).forEach(([id, height]) => this.flowLayoutHeights.set(id, height));
+	}
+
+	/**
+	 * Rebuilds the height map from the saved ports: the layout centred its ports on each block and spaced them one
+	 * port gap apart, so the block was tall enough for its outermost port on both sides of the middle.
+	 */
+	private deriveLayoutHeights(graph: Graph): Record<string, number>
+	{
+		const gap = FLOW_PORT_GAP * this.nodeScale();
+		const lowest = new Map<string, number>();
+		const highest = new Map<string, number>();
+		const see = (nodeId: string, dy: number): void => {
+			lowest.set(nodeId, Math.max(lowest.get(nodeId) ?? 0, dy));
+			highest.set(nodeId, Math.min(highest.get(nodeId) ?? Infinity, dy));
+		};
+		for (const edge of graph.edges) {
+			if (edge.targetPortDy !== undefined) {
+				see(edge.targetId, edge.targetPortDy);
+			}
+			if (edge.sourcePortDy !== undefined) {
+				see(edge.sourceId, edge.sourcePortDy);
+			}
+		}
+		const heights: Record<string, number> = {};
+		for (const node of graph.nodes) {
+			const low = lowest.get(node.id);
+			const high = highest.get(node.id);
+			const base = this.sizeFor(node).height;
+			heights[node.id] = low === undefined || high === undefined
+				? base
+				// Port offsets run from the block's top and sit centred on it, so the space above the first port
+				// equals the space below the last one.
+				: Math.max(base, low + high);
+		}
+		return heights;
+	}
+
+	/**
+	 * A plan saved before the flow layout carries ELK routes (relative label distances, 0-1): it gets the flow layout
+	 * once, then is stamped and saved. A layout-mode change re-routes the open plan the same way.
+	 */
+	private ensureFlowLayout(graph: Graph): void
+	{
+		const mode = this.settings.graph().layoutMode;
+		const modeChanged = this.renderedLayoutMode !== null && this.renderedLayoutMode !== mode;
+		this.renderedLayoutMode = mode;
+		if (graph.nodes.length === 0) {
+			return;
+		}
+		// Freshly laid out by layout() a moment ago, only the marker is missing.
+		const fresh = this.laidOutEdges.has(graph.edges);
+		// A fresh layout (a calculation or Rearrange) brings new heights; the graph may still carry the old ones.
+		if (fresh && !modeChanged) {
+			graph.layoutVersion = 2;
+			graph.layoutHeights = this.layoutHeightsOfEdges.get(graph.edges) ?? graph.layoutHeights;
+			return;
+		}
+		if (graph.layoutVersion === 2 && !modeChanged) {
+			// Ports need the room the layout left for them; a graph rebuilt without the heights gets them back
+			// from its own routes instead of the layout running again.
+			if (graph.layoutHeights === undefined) {
+				graph.layoutHeights = this.deriveLayoutHeights(graph);
+			}
+			return;
+		}
+		this.layoutFlowGraph(graph.nodes, graph.edges, this.planManager.activePlan()?.settings.graph);
+		graph.layoutVersion = 2;
+		graph.layoutHeights = this.layoutHeightsOfEdges.get(graph.edges);
+		const plan = this.planManager.activePlan();
+		if (plan !== null && !this.planManager.isReadOnlyPlan(plan.id)) {
+			this.planManager.setGraph(plan.id, graph);
+		}
+	}
+
+	/** Source blocks feed the chart from the left; products close it on the right. */
+	private flowKindFor(node: Node): 'source' | 'product' | 'normal'
+	{
+		if (node instanceof MineNode || node instanceof InputNode) {
+			return 'source';
+		}
+		return node instanceof ProductNode ? 'product' : 'normal';
+	}
+
+	private isVertical(direction: GraphDirection): boolean
+	{
+		return direction === 'down' || direction === 'up';
+	}
+
+	/** Gives hand-made or missing ports a place on the block edge and an orthogonal route, so nothing draws diagonally. */
+	private prepareFlowEdges(graph: Graph): void
+	{
+		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
+		const nodes = new Map(graph.nodes.map(node => [node.id, node]));
+		const gap = FLOW_PORT_GAP * this.nodeScale();
+		const incoming = new Map<string, GraphEdge[]>();
+		const outgoing = new Map<string, GraphEdge[]>();
+		for (const edge of graph.edges) {
+			const target = incoming.get(edge.targetId);
+			if (target) target.push(edge); else incoming.set(edge.targetId, [edge]);
+			const source = outgoing.get(edge.sourceId);
+			if (source) source.push(edge); else outgoing.set(edge.sourceId, [edge]);
+		}
+		const stacked = (node: Node, index: number, count: number): number => {
+			// Centre the ports on the block, in room the block actually has for them.
+			const height = Math.max(this.nodeSizeForDraw(node).height, count * gap + 18);
+			return height / 2 + (index - (count - 1) / 2) * gap;
+		};
+		incoming.forEach((list, nodeId) => {
+			const node = nodes.get(nodeId);
+			if (!node) {
+				return;
+			}
+			list.forEach((edge, index) => {
+				if (edge.targetPortDy === undefined) {
+					edge.targetPortDy = stacked(node, index, list.length);
+				}
+			});
+		});
+		outgoing.forEach((list, nodeId) => {
+			const node = nodes.get(nodeId);
+			if (!node) {
+				return;
+			}
+			// One output per item: every line of the same item leaves at the same height.
+			const itemIndex = new Map<string, number>();
+			list.forEach(edge => {
+				if (!itemIndex.has(edge.itemClassName)) {
+					itemIndex.set(edge.itemClassName, itemIndex.size);
+				}
+			});
+			list.forEach(edge => {
+				if (edge.sourcePortDy === undefined) {
+					edge.sourcePortDy = stacked(node, itemIndex.get(edge.itemClassName) ?? 0, itemIndex.size);
+				}
+			});
+		});
+		for (const edge of graph.edges) {
+			if (edge.autoRouted === true && edge.vertices !== undefined) {
+				continue;
+			}
+			const source = nodes.get(edge.sourceId);
+			const target = nodes.get(edge.targetId);
+			if (!source || !target || edge.sourcePortDy === undefined || edge.targetPortDy === undefined) {
+				continue;
+			}
+			edge.vertices = this.straightRoute(source, target, edge.sourcePortDy, edge.targetPortDy);
+			edge.autoRouted = true;
+			if (edge.labelDistance === undefined || (edge.labelDistance > 0 && edge.labelDistance <= 1)) {
+				edge.labelDistance = -FLOW_LABEL_GAP;
+			}
+		}
+	}
+
+	/** Two- or four-corner route between the two ports, right-angled whichever way the chart runs. */
+	private straightRoute(source: Node, target: Node, sourceOffset: number, targetOffset: number): GraphPoint[]
+	{
+		const from = this.portPoint(source, 'out', sourceOffset);
+		const to = this.portPoint(target, 'in', targetOffset);
+		const fromX = source.x + from.x;
+		const fromY = source.y + from.y;
+		const toX = target.x + to.x;
+		const toY = target.y + to.y;
+		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
+		if (this.isVertical(direction)) {
+			if (Math.abs(fromX - toX) < 0.5) {
+				return [];
+			}
+			const middle = Math.round((fromY + toY) / 2);
+			return [{x: fromX, y: middle}, {x: toX, y: middle}];
+		}
+		if (Math.abs(fromY - toY) < 0.5) {
+			return [];
+		}
+		const middle = Math.round((fromX + toX) / 2);
+		return [{x: middle, y: fromY}, {x: middle, y: toY}];
+	}
+
+	private buildLinePalette(graph: Graph): void
+	{
+		const data = this.versionManager.activeVersionData();
+		const fluids = new Set<string>();
+		if (data !== null) {
+			for (const edge of graph.edges) {
+				if (ConveyorCapacity.isFluid(data.searchItemByClassName(edge.itemClassName) ?? null)) {
+					fluids.add(edge.itemClassName);
+				}
+			}
+		}
+		this.linePalette = FlowLinePalette.forGraph(graph, this.settings.graph().colourLinesByItem, fluids);
+	}
+
+	private lineColourFor(itemClassName: string): string
+	{
+		return this.linePalette?.colourFor(itemClassName) ?? FLOW_CASING_COLOUR;
+	}
+
+	/** Junction dots in the stage, so they pan, zoom and export with the cells. */
+	private drawFlowJunctions(): void
+	{
+		const x6Graph = this.x6Graph;
+		const graph = this.renderedGraph;
+		if (!x6Graph) {
+			return;
+		}
+		if (!this.junctionLayer) {
+			const layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+			layer.setAttribute('class', 'pg-flow-junctions');
+			layer.style.pointerEvents = 'none';
+			x6Graph.view.stage.appendChild(layer);
+			this.junctionLayer = layer;
+		}
+		this.junctionCircles.forEach(entry => entry.circle.remove());
+		this.junctionCircles = [];
+		if (!graph) {
+			return;
+		}
+		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
+		const runsRight = !this.isVertical(direction);
+		for (const junction of collectFlowJunctions(graph, runsRight)) {
+			const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+			circle.setAttribute('cx', String(junction.x));
+			circle.setAttribute('cy', String(junction.y));
+			circle.setAttribute('r', String(FLOW_JUNCTION_RADIUS));
+			circle.setAttribute('fill', this.lineColourFor(junction.itemClassName));
+			this.junctionLayer.appendChild(circle);
+			this.junctionCircles.push({circle, x: junction.x, y: junction.y});
+		}
+	}
+
+	/**
+	 * Hovering a line or selecting a block lights up every connection of that link and fades the rest.
+	 * Opacity sits on the cell view containers, not the attrs, so done-fades and selection strokes survive.
+	 */
+	private applyConnectionFocus(edges: ReadonlySet<GraphEdge>): void
+	{
+		const x6Graph = this.x6Graph;
+		if (!x6Graph) {
+			return;
+		}
+		const active = edges.size > 0;
+		const nodeIds = new Set<string>();
+		edges.forEach(edge => {
+			nodeIds.add(edge.sourceId);
+			nodeIds.add(edge.targetId);
+		});
+		x6Graph.getEdges().forEach(cell => {
+			const modelEdge = this.edgeById.get(cell.id);
+			const focused = modelEdge !== undefined && edges.has(modelEdge);
+			this.setCellOpacity(cell, active && !focused ? FLOW_FADE_OPACITY : 1);
+			this.applyFlowEdgeStyle(cell, modelEdge, focused);
+		});
+		x6Graph.getNodes().forEach(cell => this.setCellOpacity(cell, active && !nodeIds.has(cell.id) ? FLOW_FADE_OPACITY : 1));
+	}
+
+	private setCellOpacity(cell: Cell, opacity: number): void
+	{
+		const view = this.x6Graph?.findViewByCell(cell);
+		const container = view?.container;
+		if (container instanceof SVGElement) {
+			container.style.opacity = opacity === 1 ? '' : String(opacity);
+		}
+	}
+
+	/** Line widths and label pill follow the focus; colours stay the item's. */
+	private applyFlowEdgeStyle(cell: X6Edge, modelEdge: GraphEdge | undefined, focused: boolean): void
+	{
+		if (modelEdge === undefined) {
+			return;
+		}
+		const width = focused ? FLOW_LINE_WIDTH + 1.6 : FLOW_LINE_WIDTH;
+		cell.attr('line/strokeWidth', width);
+		cell.attr('casing/strokeWidth', focused ? width + 5 : FLOW_CASING_WIDTH);
+		cell.attr('line/stroke', this.lineColourFor(modelEdge.itemClassName));
+		if (cell.getLabelAt(0)) {
+			cell.prop('labels/0/attrs/rect/strokeWidth', focused ? FLOW_LABEL_STROKE + 1 : FLOW_LABEL_STROKE);
+			cell.prop('labels/0/attrs/rect/stroke', this.lineColourFor(modelEdge.itemClassName));
+		}
 	}
 
 	public restore(container: HTMLElement, graph: Graph, fit = true): void
 	{
+		// Plans saved with the old router get the flow layout before anything is drawn.
+		this.ensureFlowLayout(graph);
+		// The caller stores this graph, so its heights must travel with it.
+		graph.layoutHeights ??= this.layoutHeightsOfEdges.get(graph.edges);
+
 		const previous = this.x6Graph && !fit
 			? {zoom: this.x6Graph.zoom(), translate: this.x6Graph.translate()}
 			: null;
@@ -633,12 +969,16 @@ export class PlannerGraphService implements OnDestroy
 		this.addExtractorWarnings(this.warningsById, graph);
 		const x6Graph = this.createGraph(container);
 		this.renderedGraph = graph;
+		// Before the nodes: ports and routes read the rendered graph and its blocks.
+		this.nodeById.clear();
+		graph.nodes.forEach(node => this.nodeById.set(node.id, node));
 		this.refreshBeltPlan(graph);
-		this.renderedBeltView = this.beltViewEnabled();
+		this.buildLinePalette(graph);
+		this.applyLayoutHeights(graph);
+		this.prepareFlowEdges(graph);
 
 		// Before addEdge, so edges between done nodes fade too.
 		this.doneNodeIds = new Set(graph.nodes.filter(node => node.done).map(node => node.id));
-		this.parallelOffsets = this.computeParallelOffsets(graph);
 
 		graph.nodes.forEach(node => this.addNode(x6Graph, node));
 		// A saved edge whose node is gone would make x6 throw in its async render.
@@ -650,6 +990,7 @@ export class PlannerGraphService implements OnDestroy
 		});
 		this.warningEntriesSignal.set(this.buildWarningEntries(graph));
 		this.edgesSignal.set([...new Set(this.edgeById.values())]);
+		this.drawFlowJunctions();
 
 		if (previous) {
 			x6Graph.zoom(previous.zoom, {absolute: true});
@@ -681,6 +1022,11 @@ export class PlannerGraphService implements OnDestroy
 		this.movedNodeIds.clear();
 		this.hoveredEdgeView = null;
 		this.touchedEdgeId = null;
+		this.junctionLayer = null;
+		this.junctionCircles = [];
+		this.hoveredEdgeIds.clear();
+		this.focusedNodeIds.clear();
+		this.flowLayoutHeights.clear();
 		this.connectGesture = null;
 		this.markedPorts = [];
 		this.dimmedNodeIds = [];
@@ -876,22 +1222,30 @@ export class PlannerGraphService implements OnDestroy
 	/** Drops the saved bend points so the connection follows its automatic route again; all of its lines move together. */
 	public straightenEdge(edge: GraphEdge): void
 	{
-		if (this.readOnly || !edge.vertices || edge.vertices.length === 0) {
+		if (this.readOnly) {
+			return;
+		}
+		const source = this.renderedGraph?.nodes.find(node => node.id === edge.sourceId);
+		const target = this.renderedGraph?.nodes.find(node => node.id === edge.targetId);
+		if (source === undefined || target === undefined) {
 			return;
 		}
 		// Snapshot first, like a drag: the model edge still holds the pre-change vertices.
 		this.graphEditStartSubject.next();
-		// One snapshot for the whole change; the per-line handler below must not take one for each belt edge.
+		// One snapshot for the whole change; the per-edge handler below must not take one for each cell.
 		this.vertexGestureActive = true;
-		edge.vertices = [];
-		edge.autoRouted = false;
+		// Back to the plain two-corner route between the two ports, which is still right-angled.
+		const vertices = this.straightRoute(source, target, edge.sourcePortDy ?? 0, edge.targetPortDy ?? 0);
+		edge.vertices = vertices;
+		edge.autoRouted = true;
 		const x6Graph = this.x6Graph;
 		x6Graph?.getEdges().forEach(cell => {
 			if (this.edgeById.get(cell.id) === edge) {
-				cell.setVertices([]);
+				cell.setVertices([...vertices], {autoRoute: true});
 			}
 		});
 		this.graphChangedSubject.next();
+		this.drawFlowJunctions();
 	}
 
 	/** x6's zoomToFit centers on the full canvas, so the padding asymmetry is applied as a translation. */
@@ -972,9 +1326,9 @@ export class PlannerGraphService implements OnDestroy
 		const clonedMarkers = new Set<string>();
 		svg.querySelectorAll(`path.${EDGE_HIGHLIGHT_CLASS}`).forEach(line => {
 			const cellId = line.closest('[data-cell-id]')?.getAttribute('data-cell-id') ?? '';
-			const stroke = this.edgeStrokeForCell(cellId, this.edgeById.get(cellId));
-			line.setAttribute('stroke', stroke);
-			line.setAttribute('stroke-width', String(EDGE_STROKE_WIDTH));
+			const modelEdge = this.edgeById.get(cellId);
+			line.setAttribute('stroke', modelEdge ? this.lineColourFor(modelEdge.itemClassName) : EDGE_STROKE);
+			line.setAttribute('stroke-width', String(FLOW_LINE_WIDTH));
 			line.setAttribute('class', EDGE_LINE_CLASS);
 			// x6 keeps one <marker> per arrowhead colour, so a highlighted edge points at an orange one. Cloned per
 			// colour: over-limit lines and normal ones can share that marker in the same export.
@@ -987,6 +1341,7 @@ export class PlannerGraphService implements OnDestroy
 				if (marker === null) {
 					return;
 				}
+				const stroke = line.getAttribute('stroke') ?? EDGE_STROKE;
 				const cloneId = `${markerId}-export-${stroke.slice(1)}`;
 				if (!clonedMarkers.has(cloneId)) {
 					const clone = marker.cloneNode(true) as Element;
@@ -1002,9 +1357,18 @@ export class PlannerGraphService implements OnDestroy
 			});
 		});
 		svg.querySelectorAll(`rect.${LABEL_BOX_HIGHLIGHT_CLASS}`).forEach(box => {
-			box.setAttribute('stroke', LABEL_BOX_STROKE);
-			box.setAttribute('stroke-width', String(LABEL_BOX_STROKE_WIDTH));
+			const cellId = box.closest('[data-cell-id]')?.getAttribute('data-cell-id') ?? '';
+			const modelEdge = this.edgeById.get(cellId);
+			box.setAttribute('stroke', modelEdge ? this.lineColourFor(modelEdge.itemClassName) : EDGE_STROKE);
+			box.setAttribute('stroke-width', String(FLOW_LABEL_STROKE));
 			box.setAttribute('class', LABEL_BOX_CLASS);
+		});
+		// Focus fades live on the cell view's style; an export should show the whole chart.
+		svg.querySelectorAll<SVGGElement>('.x6-cell').forEach(cell => {
+			cell.style.removeProperty('opacity');
+			if (cell.getAttribute('style') === '') {
+				cell.removeAttribute('style');
+			}
 		});
 		this.svgCleaner.clean(svg);
 	}
@@ -1030,6 +1394,11 @@ export class PlannerGraphService implements OnDestroy
 		this.movedNodeIds.clear();
 		this.hoveredEdgeView = null;
 		this.touchedEdgeId = null;
+		// The junction layer lived in the disposed graph's stage.
+		this.junctionLayer = null;
+		this.junctionCircles = [];
+		this.hoveredEdgeIds.clear();
+		this.focusedNodeIds.clear();
 		this.touchGestures?.detach();
 		this.touchGestures = null;
 		this.x6Graph?.dispose();
@@ -1266,7 +1635,7 @@ export class PlannerGraphService implements OnDestroy
 		}
 
 		const style = this.styleFor(node);
-		const size = this.sizeFor(node);
+		const size = this.nodeSizeForDraw(node);
 		const sloopIcon = this.sloopIconFor(node);
 		const sloopGlow = sloopIcon !== '' && this.settings.graph().sloopGlow;
 		const cornerSloop = sloopIcon !== '' && this.settings.graph().showSloopCornerIcon ? sloopIcon : '';
@@ -1337,13 +1706,14 @@ export class PlannerGraphService implements OnDestroy
 	private addSubplanNode(x6Graph: X6Graph, node: SubplanNode): void
 	{
 		const style = this.baseStyleFor(node);
-		const size = this.sizeFor(node);
+		const size = this.nodeSizeForDraw(node);
+		const baseSize = this.sizeFor(node);
 		const ioInset = this.settings.graph().showSubplanItemIcons ? SUBPLAN_IO_COLUMN_WIDTH + 4 : ZOOMED_OUT_NAME_PAD_RIGHT;
 		const attrs: Record<string, Record<string, string | number>> = {
 			body: {fill: style.bodyFill, stroke: style.bodyStroke, strokeWidth: NODE_STROKE_WIDTH, rx: 5, ry: 5},
 			name: {text: this.subplanDisplayName(node), ...this.textFill(style, NODE_DARK_NAME_TEXT)},
 			stats: {text: this.subplanStats(node), ...this.textFill(style, NODE_DARK_STATS_TEXT)},
-			zoomedOutName: {...this.zoomedOutNameAttrs(this.subplanDisplayName(node), size, ioInset, ioInset), ...this.textFill(style, NODE_DARK_NAME_TEXT)},
+			zoomedOutName: {...this.zoomedOutNameAttrs(this.subplanDisplayName(node), baseSize, ioInset, ioInset), ...this.textFill(style, NODE_DARK_NAME_TEXT)},
 			lock: this.iconAttrs(this.lockIconUri),
 		};
 		this.applySubplanIoIcons(attrs, 'in', node.inputs);
@@ -1412,15 +1782,10 @@ export class PlannerGraphService implements OnDestroy
 
 	private portsFor(node: Node): Partial<PortsMetadata>
 	{
-		if (this.readOnly) {
-			return {};
-		}
-		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
-		const markup = [
+		const scale = this.nodeScale();		const markup = [
 			{tagName: 'circle', selector: 'portBody'},
 			{tagName: 'image', selector: 'portIcon'},
 		];
-		const scale = this.nodeScale();
 		const attrs = {
 			portBody: {
 				r: PORT_RADIUS * scale,
@@ -1439,33 +1804,105 @@ export class PlannerGraphService implements OnDestroy
 			},
 		};
 		return {
+			// Ports sit at the layouts' absolute offsets, so 'absolute' takes the pixel positions from each port's args.
 			groups: {
-				in: {position: ({left: 'left', down: 'top', right: 'right', up: 'bottom'} as const)[direction] ?? 'left', markup, attrs},
-				out: {position: ({left: 'right', down: 'bottom', right: 'left', up: 'top'} as const)[direction] ?? 'right', markup, attrs},
+				in: {position: {name: 'absolute', args: {x: 0, y: '50%'}}, markup, attrs},
+				out: {position: {name: 'absolute', args: {x: '50%', y: 0}}, markup, attrs},
 			},
 			items: [
-				...this.portItemsFor(node.inputs, 'in'),
-				...this.portItemsFor(node.outputs, 'out'),
+				...this.portItemsFor(node, 'in'),
+				...this.portItemsFor(node, 'out'),
 			],
 		};
 	}
 
-	private portItemsFor(ios: NodeIO[], group: 'in' | 'out'): PortMetadata[]
-	{
-		const seen = new Set<string>();
+	/**
+	 * One input per incoming connection (so each line arrives at its own port) and one output per item.
+	 * The id is `side|itemClassName|offset`: the item stays readable and the offset keeps ids unique.
+	 */
+	private portItemsFor(node: Node, group: 'in' | 'out'): PortMetadata[]
+	{		const size = this.nodeSizeForDraw(node);
+		const edges = this.renderedEdges();
 		const items: PortMetadata[] = [];
-		ios.forEach(io => {
-			if (seen.has(io.item.className)) {
+		const seen = new Set<string>();
+		const add = (itemClassName: string, dy: number): void => {
+			const portId = `${group}|${itemClassName}|${Math.round(dy * 100)}`;
+			if (seen.has(portId)) {
 				return;
 			}
-			seen.add(io.item.className);
+			seen.add(portId);
+			const point = this.portPoint(node, group, dy);
 			items.push({
-				id: `${group}|${io.item.className}`,
+				id: portId,
 				group,
-				attrs: {portIcon: this.iconAttrs(this.iconUrls.url(io.item.icon, 64) ?? '')},
+				// Relative to the node's box: the port about to be drawn on the edge its line reaches.
+				// Nudged off (0, 1): x6 reads a bare number strictly between them as a fraction of the box.
+				args: {x: PlannerGraphService.portUnit(point.x), y: PlannerGraphService.portUnit(point.y)},
+				attrs: {portIcon: this.iconAttrs(this.itemIconUrl(itemClassName))},
 			});
+		};
+
+		if (group === 'in') {
+			const incoming = edges.filter(edge => edge.targetId === node.id);
+			incoming.forEach((edge, index) => {
+				add(edge.itemClassName, edge.targetPortDy ?? (size.height / 2 + (index - (incoming.length - 1) / 2) * FLOW_PORT_GAP * this.nodeScale()));
+			});
+			// An input the model lists but nothing feeds yet keeps its hover text.
+			(node.inputs ?? []).forEach(io => {
+				if (!incoming.some(edge => edge.itemClassName === io.item.className)) {
+					add(io.item.className, size.height / 2);
+				}
+			});
+			return items;
+		}
+
+		const byItem = new Map<string, number>();
+		edges.forEach(edge => {
+			if (edge.sourceId === node.id && !byItem.has(edge.itemClassName)) {
+				byItem.set(edge.itemClassName, edge.sourcePortDy ?? size.height / 2);
+			}
 		});
+		(node.outputs ?? []).forEach(io => {
+			if (!byItem.has(io.item.className)) {
+				byItem.set(io.item.className, size.height / 2);
+			}
+		});		byItem.forEach((dy, itemClassName) => add(itemClassName, dy));
 		return items;
+	}
+
+	/** Relative to the node's box: the port about to be drawn on the edge its line reaches. */
+	private portPoint(node: Node, group: 'in' | 'out', dy: number): GraphPoint
+	{
+		const size = this.nodeSizeForDraw(node);
+		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
+		const vertical = this.isVertical(direction);
+		const mirrored = direction === 'right' || direction === 'up';
+		// Mirrored charts run the other way: an output leaves the far edge and an input arrives at the near one.
+		const atEnd = (group === 'out') !== mirrored;
+		if (vertical) {
+			return {x: dy, y: atEnd ? size.height : 0};
+		}
+		return {x: atEnd ? size.width : 0, y: dy};
+	}
+
+	/** x6's absolute port layout reads a bare number in (0, 1) as a fraction of the box; such sizes must stay pixels. */
+	private static portUnit(value: number): number
+	{
+		if (value > 0 && value < 1) {
+			return value < 0.5 ? 0 : 1;
+		}
+		return value;
+	}
+
+	private portIdFor(group: 'in' | 'out', edge: GraphEdge): string
+	{
+		const dy = (group === 'in' ? edge.targetPortDy : edge.sourcePortDy) ?? 0;
+		return `${group}|${edge.itemClassName}|${Math.round(dy * 100)}`;
+	}
+
+	private itemIconUrl(itemClassName: string): string
+	{		const item = this.versionManager.activeVersionData()?.searchItemByClassName(itemClassName) ?? null;
+		return this.iconUrls.url(item?.icon ?? null, 64) ?? '';
 	}
 
 	private portInfo(portId: string | null): {side: 'in' | 'out'; itemClassName: string} | null
@@ -1473,12 +1910,15 @@ export class PlannerGraphService implements OnDestroy
 		if (!portId) {
 			return null;
 		}
-		const separator = portId.indexOf('|');
-		const side = portId.slice(0, separator);
-		if (separator < 0 || (side !== 'in' && side !== 'out')) {
+		const first = portId.indexOf('|');
+		const side = portId.slice(0, first);
+		if (first < 0 || (side !== 'in' && side !== 'out')) {
 			return null;
 		}
-		return {side, itemClassName: portId.slice(separator + 1)};
+		// `side|itemClassName|offset`: the offset suffix is optional for ids saved before it existed.
+		const second = portId.indexOf('|', first + 1);
+		const itemClassName = second < 0 ? portId.slice(first + 1) : portId.slice(first + 1, second);
+		return {side, itemClassName};
 	}
 
 	private portIdOf(magnet: Element | null | undefined): string | null
@@ -1689,153 +2129,95 @@ export class PlannerGraphService implements OnDestroy
 		return ios.some(io => io.item.className === gesture.itemClassName);
 	}
 
-	/** Perpendicular from the lower-id-first orientation so both directions split to opposite sides; sorted so edges keep their side across re-renders. */
-	private computeParallelOffsets(graph: Graph): Map<GraphEdge, GraphPoint>
-	{
-		const centers = new Map<string, GraphPoint>();
-		graph.nodes.forEach(node => {
-			const size = this.sizeFor(node);
-			centers.set(node.id, {x: node.x + size.width / 2, y: node.y + size.height / 2});
-		});
-
-		const groups = new Map<string, GraphEdge[]>();
-		graph.edges.forEach(edge => {
-			if (edge.vertices && edge.vertices.length > 0) {
-				return;
-			}
-			const key = edge.sourceId < edge.targetId
-				? `${edge.sourceId}|${edge.targetId}`
-				: `${edge.targetId}|${edge.sourceId}`;
-			const group = groups.get(key);
-			if (group) {
-				group.push(edge);
-			} else {
-				groups.set(key, [edge]);
-			}
-		});
-
-		const offsets = new Map<GraphEdge, GraphPoint>();
-		groups.forEach(group => {
-			if (group.length < 2) {
-				return;
-			}
-			const [lowId, highId] = [group[0].sourceId, group[0].targetId].sort();
-			const a = centers.get(lowId);
-			const b = centers.get(highId);
-			if (!a || !b) {
-				return;
-			}
-			const length = Math.hypot(b.x - a.x, b.y - a.y);
-			if (length < 1) {
-				return;
-			}
-			const perpX = -(b.y - a.y) / length;
-			const perpY = (b.x - a.x) / length;
-			group.sort((e1, e2) => `${e1.sourceId}|${e1.itemClassName}`.localeCompare(`${e2.sourceId}|${e2.itemClassName}`));
-			group.forEach((edge, i) => {
-				const delta = (i - (group.length - 1) / 2) * PARALLEL_EDGE_GAP;
-				offsets.set(edge, {x: perpX * delta, y: perpY * delta});
-			});
-		});
-		return offsets;
-	}
-
 	private addEdge(x6Graph: X6Graph, edge: GraphEdge, index: number): void
 	{
-		const plan = this.beltPlanSignal().get(index);
-		if (this.beltViewEnabled() && plan !== undefined && plan.layout.belts.length >= 2) {
-			this.addBeltEdges(x6Graph, edge, index, plan);
-			return;
-		}
-		this.addEdgeCell(
-			x6Graph,
-			edge,
-			`edge-${index}`,
-			this.labelTextFor(edge, index),
-			edge.labelDistance ?? 0.5,
-			this.parallelOffsets.get(edge) ?? null,
-		);
+		const id = `edge-${index}`;
+		this.edgeById.set(id, edge);
+		const sourceCell = x6Graph.getCellById(edge.sourceId);
+		const targetCell = x6Graph.getCellById(edge.targetId);
+		const usePorts = sourceCell?.isNode() === true && targetCell?.isNode() === true;
+		const sourcePort = usePorts ? this.portIdFor('out', edge) : '';
+		const targetPort = usePorts ? this.portIdFor('in', edge) : '';
+		const source = sourcePort !== '' && (sourceCell as X6Node).hasPort(sourcePort)
+			? {cell: edge.sourceId, port: sourcePort}
+			: edge.sourceId;
+		const target = targetPort !== '' && (targetCell as X6Node).hasPort(targetPort)
+			? {cell: edge.targetId, port: targetPort}
+			: edge.targetId;
+		this.addEdgeCell(x6Graph, edge, id, source, target);
 	}
 
-	/** Belt view: one clearly separate arrow per belt, spaced on the connection's normal, each labelled with its own rate. */
-	private addBeltEdges(x6Graph: X6Graph, edge: GraphEdge, index: number, plan: EdgeBeltPlan): void
-	{
-		const item = this.itemFor(edge);
-		const belts = plan.layout.belts;
-		const count = belts.length;
-		const scale = this.edgeScale();
-		const baseOffset = this.parallelOffsets.get(edge) ?? {x: 0, y: 0};
-		// A user-routed connection keeps its saved vertices on every line; offsets only work on auto-routed edges.
-		const normal = edge.vertices && edge.vertices.length > 0 ? {x: 0, y: 0} : this.edgeNormal(edge);
-		// Every belt labels the same spot along the line, so the labels sit directly above their own arrows.
-		const distance = edge.labelDistance ?? 0.5;
-		belts.forEach((belt, beltIndex) => {
-			const number = beltIndex + 1;
-			const step = number - (count + 1) / 2;
-			const delta = step * BELT_LINE_GAP * scale;
-			const offset = normal.x !== 0 || normal.y !== 0 || baseOffset.x !== 0 || baseOffset.y !== 0
-				? {x: baseOffset.x + normal.x * delta, y: baseOffset.y + normal.y * delta}
-				: null;
-			const percent = Math.round(belt.fill * 100);
-			const rate = this.rateFormatter.rate(belt.load, item);
-			this.addEdgeCell(
-				x6Graph,
-				edge,
-				`edge-${index}-belt-${number}`,
-				{
-					name: percent < 100 ? `${rate} · ${percent}%` : rate,
-					rate: '',
-					iconUrl: number === 1 ? this.iconUrls.url(item?.icon ?? null, 64) : null,
-				},
-				distance,
-				offset,
-				belt.fill < 1 ? {strokeDasharray: BELT_DASH} : {},
-				true,
-			);
-		});
-	}
-
+	/**
+	 * Flow chart connection: a dark casing under the item-coloured line and a wide transparent hit path, all
+	 * three on the same route, so a line on top visibly breaks one underneath. The label is a pill pinned
+	 * just before the target.
+	 */
 	private addEdgeCell(
 		x6Graph: X6Graph,
 		edge: GraphEdge,
 		id: string,
-		label: {name: string; rate: string; iconUrl: string | null},
-		distance: number,
-		offset: GraphPoint | null,
-		lineAttrs: Record<string, string | number> = {},
-		beltLabel = false,
+		source: string | {cell: string; port: string},
+		target: string | {cell: string; port: string},
 	): void
 	{
-		const size = this.labelSizeFor(label);
-		// Belt labels hug their own line on the line's normal instead of stacking far away from it.
-		const labelOffset = beltLabel ? BELT_LABEL_OFFSET * this.edgeScale() : 0;
-		this.edgeById.set(id, edge);
-		const hasIcon = label.iconUrl !== null && this.settings.graph().showEdgeItemIcons;
+		const label = this.labelPillFor(edge);
+		const colour = this.lineColourFor(edge.itemClassName);
 		const scale = this.edgeScale();
-		const textShift = hasIcon ? (EDGE_ICON_SIZE + EDGE_ICON_GAP) * scale / 2 : 0;
-		const showBox = !beltLabel && this.settings.graph().showEdgeLabelBoxes;
-		// Only labels with an icon swap to it when zoomed out; text-only labels keep their text.
-		const detailClass = hasIcon ? EDGE_DETAIL_CLASS : '';
-		const zoomedOutIconSize = (LABEL_HEIGHT - 2 * ZOOMED_OUT_EDGE_ICON_PAD) * scale;
-		const wrapShift = (label.name.split('\n').length - 1) * LABEL_NAME_LINE_HEIGHT / 2;
-		const boxPad = showBox ? LABEL_BOX_PILL_PAD * scale : 0;
+		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
 		const fade = this.doneNodeIds.has(edge.sourceId) && this.doneNodeIds.has(edge.targetId)
 			? {opacity: DONE_OPACITY}
 			: {};
-		const anchor = offset ? {name: 'center', args: {dx: offset.x, dy: offset.y}} : undefined;
+		// Negative pixels from the target end: the pill's near edge lands 12 px before the block.
+		const distance = edge.labelDistance !== undefined && edge.labelDistance < 0
+			? edge.labelDistance
+			: -FLOW_LABEL_GAP;
+		const vertices = edge.vertices && edge.vertices.length > 0 ? [...edge.vertices] : [];
 
 		x6Graph.addEdge({
 			id,
 			zIndex: EDGE_BASE_Z,
-			source: anchor ? {cell: edge.sourceId, anchor} : edge.sourceId,
-			target: anchor ? {cell: edge.targetId, anchor} : edge.targetId,
+			source,
+			target,
+			vertices,
+			// Three paths on one route: casing under the line, wide transparent hit path on top.
+			markup: [
+				{tagName: 'path', selector: 'casing', groupSelector: 'lines'},
+				{tagName: 'path', selector: 'line', groupSelector: 'lines'},
+				{tagName: 'path', selector: 'hit', groupSelector: 'lines'},
+			],
+			// The layout's vertices are the route; the rounded connector turns each corner without moving it.
+			router: {name: 'normal'},
+			connector: {name: 'rounded', args: {radius: FLOW_BEND_RADIUS}},
 			attrs: {
+				// Makes x6 write the routed path into every path in the group.
+				lines: {connection: true},
+				casing: {
+					class: EDGE_CASING_CLASS,
+					fill: 'none',
+					stroke: FLOW_CASING_COLOUR,
+					strokeWidth: FLOW_CASING_WIDTH,
+					strokeLinejoin: 'round',
+					pointerEvents: 'none',
+					...fade,
+				},
 				line: {
 					class: EDGE_LINE_CLASS,
-					stroke: this.edgeStrokeForCell(id, edge),
-					strokeWidth: EDGE_STROKE_WIDTH,
-					...lineAttrs,
+					fill: 'none',
+					stroke: colour,
+					strokeWidth: FLOW_LINE_WIDTH,
+					strokeLinejoin: 'round',
+					pointerEvents: 'none',
+					// The mock-up has no arrowheads; the default `edge` shape would otherwise add one.
+					sourceMarker: null,
+					targetMarker: null,
 					...fade,
+				},
+				hit: {
+					class: EDGE_HIT_CLASS,
+					fill: 'none',
+					stroke: 'transparent',
+					strokeWidth: FLOW_HIT_WIDTH,
+					cursor: 'pointer',
 				},
 			},
 			defaultLabel: EDGE_DEFAULT_LABEL,
@@ -1843,176 +2225,133 @@ export class PlannerGraphService implements OnDestroy
 				markup: [
 					{tagName: 'rect', selector: 'rect'},
 					{tagName: 'image', selector: 'icon'},
-					{tagName: 'text', selector: 'name'},
 					{tagName: 'text', selector: 'rate'},
+					{tagName: 'text', selector: 'extra'},
 					{tagName: 'image', selector: 'zoomedOutIcon'},
 				],
-				position: labelOffset !== 0 ? {distance, offset: labelOffset} : {distance},
+				position: {distance},
 				attrs: {
-					name: {
-						text: label.name,
-						class: detailClass,
-						fill: LABEL_TEXT_FILL,
-						fontSize: LABEL_NAME_FONT_SIZE * scale,
-						fontWeight: 'bold',
-						textAnchor: 'middle',
-						textVerticalAnchor: 'middle',
-						x: textShift,
-						y: (beltLabel ? 0 : LABEL_NAME_Y * scale),
-						lineHeight: LABEL_NAME_LINE_HEIGHT * scale,
-						...fade,
-					},
-					rate: {
-						text: label.rate,
-						class: detailClass,
-						fill: LABEL_TEXT_FILL,
-						fontSize: LABEL_FONT_SIZE * scale,
-						textAnchor: 'middle',
-						textVerticalAnchor: 'middle',
-						x: textShift,
-						y: (LABEL_RATE_Y + wrapShift) * scale,
-						...fade,
-					},
-					icon: hasIcon
+					icon: label.showIcon && label.iconUrl !== null
 						? {
-							class: detailClass,
+							class: EDGE_DETAIL_CLASS,
 							'xlink:href': label.iconUrl,
-							width: EDGE_ICON_SIZE * scale,
-							height: EDGE_ICON_SIZE * scale,
-							x: -size.width / 2 + 6 * scale,
-							y: -EDGE_ICON_SIZE * scale / 2,
+							width: FLOW_LABEL_ICON,
+							height: FLOW_LABEL_ICON,
+							// Right edge on the anchor: the pill sits just before the block in every direction.
+							x: this.labelAnchorX(label.width, direction) + FLOW_LABEL_PAD_X - 2,
+							y: -FLOW_LABEL_ICON / 2,
 							...fade,
 						}
 						: {'xlink:href': '', width: 0, height: 0},
-					zoomedOutIcon: hasIcon
+					rate: {
+						text: label.rate,
+						class: EDGE_DETAIL_CLASS,
+						fill: FLOW_LABEL_TEXT_FILL,
+						fontSize: 13 * scale,
+						fontWeight: 'bold',
+						textAnchor: 'start',
+						textVerticalAnchor: 'middle',
+						x: this.labelAnchorX(label.width, direction) + label.textLeft,
+						...fade,
+					},
+					extra: label.extra === '' ? {text: '', display: 'none'} : {
+						text: label.extra,
+						class: EDGE_DETAIL_CLASS,
+						fill: FLOW_WARN_COLOUR,
+						fontSize: 12 * scale,
+						fontWeight: 'bold',
+						textAnchor: 'start',
+						textVerticalAnchor: 'middle',
+						x: this.labelAnchorX(label.width, direction) + label.extraX,
+						...fade,
+					},
+					zoomedOutIcon: label.showIcon && label.iconUrl !== null
 						? {
 							class: EDGE_ZOOMED_OUT_ICON_CLASS,
 							'xlink:href': label.iconUrl,
-							width: zoomedOutIconSize,
-							height: zoomedOutIconSize,
-							x: -zoomedOutIconSize / 2,
-							y: -zoomedOutIconSize / 2,
+							width: FLOW_LABEL_HEIGHT - 2 * ZOOMED_OUT_EDGE_ICON_PAD,
+							height: FLOW_LABEL_HEIGHT - 2 * ZOOMED_OUT_EDGE_ICON_PAD,
+							x: this.labelAnchorX(label.width, direction) + FLOW_LABEL_PAD_X,
+							y: -(FLOW_LABEL_HEIGHT - 2 * ZOOMED_OUT_EDGE_ICON_PAD) / 2,
 							display: 'none',
 							...fade,
 						}
 						: {'xlink:href': '', width: 0, height: 0, display: 'none'},
-					// Sized explicitly: the default rect follows the text bbox, which drifts with font metrics and load timing. Hidden stays transparent to keep the hit area.
+					// Sized explicitly: the default rect follows the text bbox, which drifts with font metrics and load timing.
 					rect: {
-						class: showBox ? LABEL_BOX_CLASS : '',
+						class: LABEL_BOX_CLASS,
 						ref: null,
 						refX: null,
 						refY: null,
 						refWidth: null,
 						refHeight: null,
-						x: -size.width / 2 - boxPad,
-						y: -size.height / 2,
-						width: size.width + boxPad * 2,
-						height: size.height,
-						fill: showBox ? LABEL_BOX_FILL : 'transparent',
-						stroke: showBox ? LABEL_BOX_STROKE : 'none',
-						strokeWidth: showBox ? LABEL_BOX_STROKE_WIDTH : 0,
-						rx: size.height / 2,
-						ry: size.height / 2,
-						// Belt labels are text only, and their box is taller than the belt gap: keep it from eating clicks on the neighbouring lines.
-						...(beltLabel ? {pointerEvents: 'none'} : {}),
+						x: this.labelAnchorX(label.width, direction),
+						y: -FLOW_LABEL_HEIGHT / 2,
+						width: label.width,
+						height: FLOW_LABEL_HEIGHT,
+						fill: FLOW_LABEL_FILL,
+						stroke: colour,
+						strokeWidth: FLOW_LABEL_STROKE,
+						rx: FLOW_LABEL_RADIUS,
+						ry: FLOW_LABEL_RADIUS,
 						...fade,
 					},
 				},
 			}],
-			...(edge.vertices && edge.vertices.length > 0 ? {
-				vertices: [...edge.vertices],
-				router: {name: 'normal'},
-				connector: {name: 'normal'},
-			} : {}),
 		});
 	}
 
-	/** Same orientation as computeParallelOffsets, so belt lines stay on a stable side across renders. */
-	private edgeNormal(edge: GraphEdge): GraphPoint
+	/**
+	 * Where the pill sits relative to the label anchor (12 px before the target port). Left-to-right charts end the
+	 * pill on the anchor; right-to-left charts start it there. Up/down charts centre it on the line, the way the mock-up
+	 * does, and the 12 px gap keeps it clear of the block edge.
+	 */
+	private labelAnchorX(width: number, direction: GraphDirection): number
 	{
-		const graph = this.renderedGraph;
-		if (graph === null) {
-			return {x: 0, y: 0};
+		if (direction === 'down' || direction === 'up') {
+			return -width / 2;
 		}
-		const [lowId, highId] = [edge.sourceId, edge.targetId].sort();
-		const low = graph.nodes.find(node => node.id === lowId);
-		const high = graph.nodes.find(node => node.id === highId);
-		if (!low || !high) {
-			return {x: 0, y: 0};
+		return direction === 'right' ? 0 : -width;
+	}
+
+	/** Label pill contents and measured size; the rate carries the over-limit belt count in amber beside it. */
+	private labelPillFor(edge: GraphEdge): {width: number; rate: string; extra: string; extraX: number; textLeft: number; iconUrl: string | null; showIcon: boolean}
+	{
+		const item = this.itemFor(edge);
+		const scale = this.edgeScale();
+		const rate = this.rateFormatter.rate(edge.amount, item);
+		const count = this.overLimitCount(edge, item);
+		const extra = count > 1 ? `${count} ${ConveyorCapacity.isFluid(item) ? 'pipes' : 'belts'}` : '';
+		const showIcon = this.settings.graph().showEdgeItemIcons;
+		const iconUrl = this.iconUrls.url(item?.icon ?? null, 64);
+		const textLeft = FLOW_LABEL_PAD_X + (iconUrl !== null && showIcon ? FLOW_LABEL_ICON + FLOW_LABEL_ICON_GAP : 0);
+		const rateWidth = rate.length * 7.4 * scale;
+		const extraWidth = extra === '' ? 0 : extra.length * 6.9 * scale + 4 * scale;
+		return {
+			width: textLeft + rateWidth + extraWidth + FLOW_LABEL_PAD_X,
+			rate,
+			extra,
+			extraX: textLeft + rateWidth,
+			textLeft,
+			iconUrl,
+			showIcon,
+		};
+	}
+
+	/** How many belts or pipes this connection needs; 1 when no limit is set. */
+	private overLimitCount(edge: GraphEdge, item: Item | null): number
+	{
+		const limit = this.planManager.activeSettings()?.conveyorLimit;
+		if (limit === undefined) {
+			return 1;
 		}
-		const lowSize = this.sizeFor(low);
-		const highSize = this.sizeFor(high);
-		const ax = low.x + lowSize.width / 2;
-		const ay = low.y + lowSize.height / 2;
-		const bx = high.x + highSize.width / 2;
-		const by = high.y + highSize.height / 2;
-		const length = Math.hypot(bx - ax, by - ay);
-		if (length < 1) {
-			return {x: 0, y: 0};
-		}
-		return {x: -(by - ay) / length, y: (bx - ax) / length};
+		const fluid = ConveyorCapacity.isFluid(item);
+		return ConveyorCapacity.countNeeded(edge.amount, ConveyorCapacity.capacity(limit, fluid));
 	}
 
 	private itemFor(edge: GraphEdge): Item | null
 	{
 		return this.versionManager.activeVersionData()?.searchItemByClassName(edge.itemClassName) ?? null;
-	}
-
-	private labelTextFor(edge: GraphEdge, index?: number): {name: string; rate: string; iconUrl: string | null}
-	{
-		const item = this.itemFor(edge);
-		const rate = this.rateFormatter.rate(edge.amount, item);
-		const overLimit = this.overLimitLabelFor(edge, item);
-		const fills = this.beltFillsLabelFor(index);
-		const suffix = [overLimit, fills].filter((part): part is string => part !== null).join(' · ');
-		return {
-			name: this.wrapLabelName(item?.name ?? edge.itemClassName),
-			rate: suffix === '' ? rate : `${rate} · ${suffix}`,
-			iconUrl: this.iconUrls.url(item?.icon ?? null, 64),
-		};
-	}
-
-	/** One-belt connections keep today's label; multi-belt ones gain each belt's fill, e.g. "100/100/100/25%". */
-	private beltFillsLabelFor(index: number | undefined): string | null
-	{
-		if (index === undefined) {
-			return null;
-		}
-		const plan = this.beltPlanSignal().get(index);
-		if (plan === undefined || plan.layout.belts.length < 2) {
-			return null;
-		}
-		return `${plan.layout.belts.map(belt => Math.round(belt.fill * 100)).join('/')}%`;
-	}
-
-	/** Appended to the rate label only when the connection needs more than one line. */
-	private overLimitLabelFor(edge: GraphEdge, item: Item | null): string | null
-	{
-		const limit = this.planManager.activeSettings()?.conveyorLimit;
-		if (limit === undefined) {
-			return null;
-		}
-		const fluid = ConveyorCapacity.isFluid(item);
-		const count = ConveyorCapacity.countNeeded(edge.amount, ConveyorCapacity.capacity(limit, fluid));
-		return count > 1 ? ConveyorCapacity.label(limit, fluid, count) : null;
-	}
-
-	private edgeStrokeFor(edge: GraphEdge | undefined): string
-	{
-		return edge !== undefined && this.overLimitLabelFor(edge, this.itemFor(edge)) !== null
-			? EDGE_OVER_LIMIT_STROKE
-			: EDGE_STROKE;
-	}
-
-	/** Belt lines are each within capacity, so the connection's over-limit amber does not apply to them. */
-	private edgeStrokeForCell(cellId: string, edge: GraphEdge | undefined): string
-	{
-		return this.isBeltLineId(cellId) ? EDGE_STROKE : this.edgeStrokeFor(edge);
-	}
-
-	private isBeltLineId(cellId: string): boolean
-	{
-		return /^edge-\d+-belt-\d+$/.test(cellId);
 	}
 
 	private beltViewEnabled(): boolean
@@ -2021,44 +2360,26 @@ export class PlannerGraphService implements OnDestroy
 		return settings?.conveyorLimit !== undefined && settings.beltLayout?.beltView === true;
 	}
 
-	/** Re-labels the rendered edges in place: a limit or belt-mode change must not re-solve or re-lay out the graph. */
+	/** Re-labels the rendered edges in place: a limit change must not re-solve or re-lay out the graph. */
 	public refreshConveyorLimits(): void
 	{
-		if (!this.x6Graph) {
+		const x6Graph = this.x6Graph;
+		if (!x6Graph) {
 			return;
 		}
-		// Belt view changes how many x6 edges exist, so labels cannot be edited in place in either direction.
-		if (this.beltViewEnabled() || this.renderedBeltView) {
-			const graph = this.renderedGraph;
-			if (graph === null) {
-				return;
-			}
-			const selectedIds = this.selectedNodes().map(node => node.id);
-			this.restore(this.x6Graph.container, graph, false);
-			if (selectedIds.length > 0) {
-				this.selectNodesById(selectedIds);
-			}
+		// Restoring clears the selection; keep it so the inspector stays on the node being looked at.
+		if (this.renderedGraph === null) {
 			return;
 		}
-		this.refreshBeltPlan(this.renderedGraph);
-		const scale = this.edgeScale();
-		const boxPad = this.settings.graph().showEdgeLabelBoxes ? LABEL_BOX_PILL_PAD * scale : 0;
-		this.x6Graph.getEdges().forEach(cell => {
-			const edge = this.edgeById.get(cell.id);
-			if (edge === undefined) {
-				return;
-			}
-			const index = this.renderedGraph?.edges.indexOf(edge);
-			const label = this.labelTextFor(edge, index !== undefined && index >= 0 ? index : undefined);
-			const size = this.labelSizeFor(label);
-			cell.prop('labels/0/attrs/rate/text', label.rate);
-			cell.prop('labels/0/attrs/rect/x', -size.width / 2 - boxPad);
-			cell.prop('labels/0/attrs/rect/width', size.width + boxPad * 2);
-			this.applyEdgeStyle(cell as X6Edge);
-		});
+		// The over-limit text and the ayout's label widths both read the limit, so the whole chart is redrawn.
+		const selectedIds = this.selectedNodes().map(node => node.id);
+		this.restore(x6Graph.container, this.renderedGraph, false);
+		if (selectedIds.length > 0) {
+			this.selectNodesById(selectedIds);
+		}
 	}
 
-	/** Recomputes the cached plan for the rendered graph; labels and the inspector both read the same map. */
+	/** Recomputes the cached belt plan for the rendered graph; the inspector reads the same map. */
 	private refreshBeltPlan(graph: Graph | null): void
 	{
 		const settings = this.planManager.activeSettings();
@@ -2071,38 +2392,6 @@ export class PlannerGraphService implements OnDestroy
 			return;
 		}
 		this.beltPlanSignal.set(BeltPlanner.planGraph(graph, settings.conveyorLimit, settings.beltLayout, data));
-	}
-
-	private labelSizeFor(label: {name: string; rate: string; iconUrl: string | null}): {width: number; height: number}
-	{
-		const nameLines = label.name.split('\n');
-		const textWidth = Math.max(...nameLines.map(line => line.length * LABEL_NAME_CHAR_WIDTH), label.rate.length * LABEL_CHAR_WIDTH);
-		const iconWidth = label.iconUrl ? EDGE_ICON_SIZE + EDGE_ICON_GAP : 0;
-		const scale = this.edgeScale();
-		return {
-			width: (textWidth + LABEL_PADDING_X + iconWidth) * scale,
-			height: (LABEL_HEIGHT + (nameLines.length - 1) * LABEL_NAME_LINE_HEIGHT) * scale,
-		};
-	}
-
-	private wrapLabelName(name: string): string
-	{
-		if (name.length * LABEL_NAME_CHAR_WIDTH <= LABEL_NAME_WRAP_WIDTH) {
-			return name;
-		}
-		const words = name.split(' ');
-		let best = name;
-		let bestLongest = name.length;
-		for (let split = 1; split < words.length; split++) {
-			const first = words.slice(0, split).join(' ');
-			const second = words.slice(split).join(' ');
-			const longest = Math.max(first.length, second.length);
-			if (longest < bestLongest) {
-				best = `${first}\n${second}`;
-				bestLongest = longest;
-			}
-		}
-		return best;
 	}
 
 	private onSelectionChanged(x6Graph: X6Graph, selected: Cell[]): void
@@ -2228,6 +2517,7 @@ export class PlannerGraphService implements OnDestroy
 
 	private onEdgeHoverMove(e: MouseEvent): void
 	{
+		this.lastPointerClient = {x: e.clientX, y: e.clientY};
 		if (this.tooltipAnchor && !this.tooltipAnchor.contains(e.target as Element | null)) {
 			this.hideTooltip();
 		}
@@ -2305,53 +2595,107 @@ export class PlannerGraphService implements OnDestroy
 		return circle;
 	}
 
-	private isEdgeHighlighted(edge: X6Edge): boolean
+	/** Every connection touching the selected blocks, or the hovered connection; empty when nothing is focused. */
+	private focusedEdges(): Set<GraphEdge>
 	{
-		const selection = this.selection;
-		return selection !== null
-			&& (selection.isSelected(edge.getSourceCellId()) || selection.isSelected(edge.getTargetCellId()));
+		const focused = new Set<GraphEdge>();
+		if (this.hoveredEdgeIds.size > 0) {
+			this.edgeById.forEach((edge, id) => {
+				if (this.hoveredEdgeIds.has(id)) {
+					focused.add(edge);
+				}
+			});
+			return focused;
+		}
+		if (this.focusedNodeIds.size === 0) {
+			return focused;
+		}
+		[...new Set(this.edgeById.values())].forEach(edge => {
+			if (this.focusedNodeIds.has(edge.sourceId) || this.focusedNodeIds.has(edge.targetId)) {
+				focused.add(edge);
+			}
+		});
+		return focused;
+	}
+
+	/** Redraws the whole-chart focus: focused connections full strength and thicker, everything else a quarter opaque. */
+	private refreshConnectionFocus(): void
+	{
+		const focused = this.focusedEdges();
+		this.applyConnectionFocus(focused);
+		this.x6Graph?.getEdges().forEach(cell => {
+			const modelEdge = this.edgeById.get(cell.id);
+			this.scheduleZChange(cell, modelEdge !== undefined && focused.has(modelEdge)
+				? EDGE_HIGHLIGHT_Z
+				: null);
+		});
 	}
 
 	private applyEdgeStyle(edge: X6Edge): void
 	{
-		const highlighted = this.isEdgeHighlighted(edge);
-
-		edge.attr('line/stroke', highlighted ? SELECTED_STROKE : this.edgeStrokeForCell(edge.id, this.edgeById.get(edge.id)));
-		edge.attr('line/strokeWidth', highlighted ? SELECTED_EDGE_STROKE_WIDTH : EDGE_STROKE_WIDTH);
-		edge.attr('line/class', highlighted ? `${EDGE_LINE_CLASS} ${EDGE_HIGHLIGHT_CLASS}` : EDGE_LINE_CLASS);
-
-		this.applyLabelBoxStyle(edge, highlighted);
-		this.scheduleZChange(edge, highlighted ? EDGE_HIGHLIGHT_Z : null);
+		const modelEdge = this.edgeById.get(edge.id);
+		const focused = modelEdge !== undefined && this.focusedEdges().has(modelEdge);
+		this.applyFlowEdgeStyle(edge, modelEdge, focused);
+		this.applyLabelBoxStyle(edge, focused);
 	}
 
-	/** Class on the view, not an attr: attr writes re-apply all attrs and re-fetch the label icon. `:hover` fails since the vertex tool covers the edge. */
+	/** Hovering a line or its label lights up the whole connection and shows the connection's tooltip. */
+	/** No hover class: styles.scss recolours `.pg-edge-hovered` lines grey, and the item colour must stay. */
 	private applyEdgeHover(view: EdgeView, edge: X6Edge, hovered: boolean): void
+	{
+		if (hovered) {
+			this.hoveredEdgeIds.add(edge.id);
+			this.showEdgeTooltip(edge);
+		} else {
+			this.hoveredEdgeIds.delete(edge.id);
+			if (this.hoveredEdgeIds.size === 0) {
+				this.hideTooltip();
+			}
+		}
+		this.refreshConnectionFocus();
+		if (!hovered && this.selection) {
+			this.focusedNodeIds = new Set(this.selection.cells.filter(cell => cell.isNode()).map(cell => cell.id));
+			this.refreshConnectionFocus();
+		}
+		// The vertex tool positions itself off the view; nothing else is read here.
+		void view;
+	}
+
+	/** "Item: rate. From X to Y", plus the belts needed when limits are shown (section 4.2 rule 10). */
+	private showEdgeTooltip(edge: X6Edge): void
 	{
 		const modelEdge = this.edgeById.get(edge.id);
 		const x6Graph = this.x6Graph;
-		const cells: X6Edge[] = modelEdge && x6Graph
-			? x6Graph.getEdges().filter(cell => this.edgeById.get(cell.id) === modelEdge)
-			: [edge];
-		cells.forEach(cell => {
-			const cellView = cell.id === edge.id ? view : x6Graph?.findViewByCell(cell);
-			if (cellView instanceof EdgeView) {
-				if (hovered) {
-					cellView.addClass(EDGE_HOVER_CLASS);
-				} else {
-					cellView.removeClass(EDGE_HOVER_CLASS);
-				}
-			}
-			this.scheduleZChange(cell, hovered || this.isEdgeHighlighted(cell) ? EDGE_HIGHLIGHT_Z : null);
-		});
-	}
-
-	private applyLabelBoxStyle(edge: X6Edge, highlighted: boolean): void
-	{
-		if (!this.settings.graph().showEdgeLabelBoxes || !edge.getLabelAt(0)) {
+		if (modelEdge === undefined || x6Graph === null) {
 			return;
 		}
-		edge.prop('labels/0/attrs/rect/stroke', highlighted ? SELECTED_STROKE : LABEL_BOX_STROKE);
-		edge.prop('labels/0/attrs/rect/strokeWidth', highlighted ? LABEL_BOX_HIGHLIGHT_STROKE_WIDTH : LABEL_BOX_STROKE_WIDTH);
+		const item = this.itemFor(modelEdge);
+		const source = this.nodeById.get(modelEdge.sourceId);
+		const target = this.nodeById.get(modelEdge.targetId);
+		const lines: string[] = [
+			`${item?.name ?? modelEdge.itemClassName}: ${this.rateFormatter.rate(modelEdge.amount, item)}.`
+			+ ` From ${source?.getDisplayName() ?? modelEdge.sourceId} to ${target?.getDisplayName() ?? modelEdge.targetId}`,
+		];
+		const count = this.overLimitCount(modelEdge, item);
+		if (count > 1) {
+			lines.push(`Needs ${count} ${ConveyorCapacity.isFluid(item) ? 'pipes' : 'belts'}.`);
+		}
+		const pointer = this.lastPointerClient;
+		if (pointer !== null) {
+			this.nodeTooltip.show({title: item?.name ?? modelEdge.itemClassName, lines}, pointer.x + 16, pointer.y + 12);
+			this.tooltipAnchor = x6Graph.container;
+		}
+	}
+
+	/** The pill carries the line's colour on its border in both states; focus only thickens it. */
+	private applyLabelBoxStyle(edge: X6Edge, highlighted: boolean): void
+	{
+		const modelEdge = this.edgeById.get(edge.id);
+		if (modelEdge === undefined || !edge.getLabelAt(0)) {
+			return;
+		}
+		edge.prop('labels/0/attrs/rect/stroke', this.lineColourFor(modelEdge.itemClassName));
+		edge.prop('labels/0/attrs/rect/strokeWidth', highlighted ? FLOW_LABEL_STROKE + 1 : FLOW_LABEL_STROKE);
 		edge.prop('labels/0/attrs/rect/class', highlighted ? `${LABEL_BOX_CLASS} ${LABEL_BOX_HIGHLIGHT_CLASS}` : LABEL_BOX_CLASS);
 	}
 
@@ -2538,12 +2882,20 @@ export class PlannerGraphService implements OnDestroy
 			}
 		});
 		// x6 notifies every selected node once the drag ends, so the first call sees them all.
-		x6Graph.on('node:moved', () => this.endNodeDrag());
+		x6Graph.on('node:moved', () => {
+			this.endNodeDrag();
+			this.drawFlowJunctions();
+		});
 	}
 
 	/**
 	 * The layout's corners follow a moved end: the corner next to it shifts with it, so the route stays right-angled
 	 * instead of collapsing into a diagonal. Both ends moving keeps the shape (x6 translates the corners).
+	 */
+/**
+	 * The layout's corners follow a moved end: the corner next to it keeps the segment into that end axis-aligned,
+	 * so the route stays right-angled instead of collapsing into a diagonal. Both ends moving keeps the shape (x6
+	 * translates the corners).
 	 */
 	private endNodeDrag(): void
 	{
@@ -2569,7 +2921,7 @@ export class PlannerGraphService implements OnDestroy
 		}
 
 		// The drag's own vertex translation usually took the snapshot; otherwise take one here, like straightenEdge.
-		// Either way it is one step for the whole change: the per-line handler must not take one for each belt edge.
+		// Either way it is one step for the whole change.
 		if (!this.vertexGestureActive) {
 			this.vertexGestureActive = true;
 			this.graphEditStartSubject.next();
@@ -2586,12 +2938,13 @@ export class PlannerGraphService implements OnDestroy
 			});
 		});
 		this.graphChangedSubject.next();
+		this.drawFlowJunctions();
 	}
 
 	/**
-	 * Shifts the corner next to the moved end along with it. The segment into that end keeps its direction (horizontal
-	 * stays horizontal), and the segment before it keeps its own, so the route stays right-angled. A corner the move
-	 * passed or landed inside the block falls back to a plain two-corner route between the blocks.
+	 * Moves the corner next to the moved end so the segment into that end stays horizontal (left/right charts) or
+	 * vertical (up/down charts). A corner the move passed or landed inside the block falls back to an even split
+	 * between the two blocks, which is still right-angled.
 	 */
 	private followMovedEnd(x6Graph: X6Graph, edge: GraphEdge, sourceMoved: boolean, starts: ReadonlyMap<string, GraphPoint>): GraphPoint[]
 	{
@@ -2604,88 +2957,50 @@ export class PlannerGraphService implements OnDestroy
 			return [];
 		}
 
+		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
+		const vertical = this.isVertical(direction);
+		const movedBox = moved.getBBox();
+		const otherBox = other.getBBox();
 		const position = moved.getPosition();
 		const dx = position.x - start.x;
 		const dy = position.y - start.y;
-		const box = moved.getBBox();
-		const center = box.getCenter();
-		const before = {x: center.x - dx, y: center.y - dy};
+		const portY = sourceMoved ? edge.sourcePortDy ?? movedBox.height / 2 : edge.targetPortDy ?? movedBox.height / 2;
+		const portX = sourceMoved ? edge.sourcePortDy ?? movedBox.width / 2 : edge.targetPortDy ?? movedBox.width / 2;
+		// Where the moved end now connects: on the block's side facing the other block.
+		const movedPoint = vertical
+			? {x: movedBox.x + portX, y: sourceMoved ? movedBox.y + movedBox.height : movedBox.y}
+			: {x: sourceMoved ? movedBox.x + movedBox.width : movedBox.x, y: movedBox.y + portY};
 		const index = sourceMoved ? 0 : vertices.length - 1;
 		const corner = vertices[index];
-		const horizontal = Math.abs(corner.y - before.y) <= Math.abs(corner.x - before.x);
-
-		if (horizontal) {
-			corner.y += dy;
-		} else {
-			corner.x += dx;
-		}
-
-		// The corner must still be outside the block, on the side it was before; otherwise the line would double back.
 		const margin = 10;
-		const clear = horizontal
-			? Math.sign(corner.x - center.x) === Math.sign(corner.x - before.x) && Math.abs(corner.x - center.x) > box.width / 2 + margin
-			: Math.sign(corner.y - center.y) === Math.sign(corner.y - before.y) && Math.abs(corner.y - center.y) > box.height / 2 + margin;
+
+		if (vertical) {
+			corner.x = movedPoint.x;
+		} else {
+			corner.y = movedPoint.y;
+		}
+		// The corner must stay outside the block, on the side it was on, or the line would double back.
+		const center = movedBox.getCenter();
+		const before = {x: center.x - dx, y: center.y - dy};
+		const clear = vertical
+			? Math.sign(corner.y - center.y) === Math.sign(corner.y - before.y)
+				&& Math.abs(corner.y - center.y) > movedBox.height / 2 + margin
+			: Math.sign(corner.x - center.x) === Math.sign(corner.x - before.x)
+				&& Math.abs(corner.x - center.x) > movedBox.width / 2 + margin;
 		if (clear) {
 			return vertices;
 		}
 
-		const source = (sourceMoved ? moved : other).getBBox().getCenter();
-		const target = (sourceMoved ? other : moved).getBBox().getCenter();
-		if (horizontal) {
-			const middle = (source.x + target.x) / 2;
-			return Math.abs(source.y - target.y) < 1 ? [] : [{x: middle, y: source.y}, {x: middle, y: target.y}];
+		// Even split between the blocks: the mid line crosses the gap, so the route stays right-angled.
+		const otherPort = sourceMoved
+			? {x: otherBox.x, y: otherBox.y + (edge.targetPortDy ?? otherBox.height / 2)}
+			: {x: otherBox.x + otherBox.width, y: otherBox.y + (edge.sourcePortDy ?? otherBox.height / 2)};
+		if (vertical) {
+			const middle = (movedPoint.y + otherPort.y) / 2;
+			return [{x: movedPoint.x, y: middle}, {x: otherPort.x, y: middle}];
 		}
-		const middle = (source.y + target.y) / 2;
-		return Math.abs(source.x - target.x) < 1 ? [] : [{x: source.x, y: middle}, {x: target.x, y: middle}];
-	}
-
-	private elkEdgeVertices(edge: ElkExtendedEdge): GraphPoint[]
-	{
-		const points: GraphPoint[] = [];
-		(edge.sections ?? []).forEach((section, i) => {
-			if (i > 0) points.push(section.startPoint);
-			(section.bendPoints ?? []).forEach(pt => points.push(pt));
-		});
-		return points;
-	}
-
-	/** 0–1 ratio along the route, as x6 positions labels. */
-	private elkLabelDistance(edge: ElkExtendedEdge): number
-	{
-		const label = edge.labels?.[0];
-		const points: GraphPoint[] = [];
-		(edge.sections ?? []).forEach(section => {
-			points.push(section.startPoint);
-			(section.bendPoints ?? []).forEach(pt => points.push(pt));
-			points.push(section.endPoint);
-		});
-		if (!label || points.length < 2) {
-			return 0.5;
-		}
-
-		const center = {
-			x: (label.x ?? 0) + (label.width ?? 0) / 2,
-			y: (label.y ?? 0) + (label.height ?? 0) / 2,
-		};
-
-		let total = 0;
-		let bestDistance = Infinity;
-		let bestAt = 0;
-		for (let i = 0; i < points.length - 1; i++) {
-			const a = points[i];
-			const b = points[i + 1];
-			const dx = b.x - a.x;
-			const dy = b.y - a.y;
-			const length = Math.hypot(dx, dy);
-			const t = length === 0 ? 0 : Math.max(0, Math.min(1, ((center.x - a.x) * dx + (center.y - a.y) * dy) / (length * length)));
-			const distance = Math.hypot(center.x - (a.x + t * dx), center.y - (a.y + t * dy));
-			if (distance < bestDistance) {
-				bestDistance = distance;
-				bestAt = total + t * length;
-			}
-			total += length;
-		}
-		return total === 0 ? 0.5 : bestAt / total;
+		const middle = (movedPoint.x + otherPort.x) / 2;
+		return [{x: middle, y: movedPoint.y}, {x: middle, y: otherPort.y}];
 	}
 
 	private styleFor(node: Node): NodeStyle
@@ -2809,41 +3124,22 @@ export class PlannerGraphService implements OnDestroy
 	{
 		const base = this.baseSizeFor(node);
 		const scale = this.nodeScale();
-		const size = {width: base.width * scale, height: base.height * scale};
-		const belts = this.beltViewEnabled() ? this.maxBeltsFor(node) : 0;
-		if (belts > 0) {
-			// The outermost belt line sits (belts - 1) / 2 gaps from the node centre, so the node must be at least that
-			// big on the axis the belts spread over, or those lines start and end beside it instead of on its side.
-			const extent = belts * BELT_LINE_GAP * this.edgeScale() + BELT_NODE_PADDING * scale;
-			if (this.beltAxisIsHeight()) {
-				size.height = Math.max(size.height, extent);
-			} else {
-				size.width = Math.max(size.width, extent);
-			}
-		}
-		return size;
+		return {width: base.width * scale, height: base.height * scale};
 	}
 
-	/** Largest belt count on one multi-belt connection touching the node; 0 when every attached connection is one belt. */
-	private maxBeltsFor(node: Node): number
+	/** A block is drawn at the height the flow layout gave it, so its ports have room on the edge. */
+	private nodeSizeForDraw(node: Node): {width: number; height: number}
 	{
-		let max = 0;
-		this.beltPlanSignal().forEach(plan => {
-			if (plan.layout.belts.length < 2) {
-				return;
-			}
-			if (plan.edge.sourceId === node.id || plan.edge.targetId === node.id) {
-				max = Math.max(max, plan.layout.belts.length);
-			}
-		});
-		return max;
+		const size = this.sizeFor(node);
+		const laidOut = this.flowLayoutHeights.get(node.id);
+		return laidOut === undefined ? size : {width: size.width, height: Math.max(size.height, laidOut)};
 	}
 
-	/** Belt lines spread on the connection normal: vertically in left/right layouts, horizontally in up/down ones. */
-	private beltAxisIsHeight(): boolean
+	/** The edges about to be drawn; ports read their layout offsets from it before the cells exist. */
+	private renderedEdges(): GraphEdge[]
 	{
-		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
-		return direction === 'left' || direction === 'right';
+		const nodeIds = new Set(this.nodeById.keys());
+		return (this.renderedGraph?.edges ?? []).filter(edge => nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId));
 	}
 
 	/** A container class rather than cell attrs: attr writes re-fetch every icon, and this runs on each zoom step. */

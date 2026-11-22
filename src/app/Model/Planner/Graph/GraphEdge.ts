@@ -11,4 +11,8 @@ export interface GraphEdge
 	/** Set when the automatic layout created the vertices; a moved node drops them. */
 	autoRouted?: boolean;
 	labelDistance?: number;
+	/** Flow layout: where this connection's output port sits on the source, measured from its top or left edge. */
+	sourcePortDy?: number;
+	/** Flow layout: where this connection's own input port sits on the target. */
+	targetPortDy?: number;
 }
