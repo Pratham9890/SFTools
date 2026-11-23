@@ -3831,6 +3831,10 @@ export class PlannerGraphService implements OnDestroy
 			const id = String(index);
 			this.dragEdgeById.set(id, edge);
 			const vertices = edge.vertices ?? [];
+			// Labels stay level in a top-to-bottom chart, so there the label's height lies along the line.
+			const labelWidth = this.labelPillFor(edge).width;
+			const labelLength = vertical ? FLOW_LABEL_HEIGHT : labelWidth;
+			const labelThickness = vertical ? labelWidth : FLOW_LABEL_HEIGHT;
 			return {
 				id,
 				group: `${edge.sourceId}|${edge.itemClassName}`,
@@ -3841,7 +3845,8 @@ export class PlannerGraphService implements OnDestroy
 				vertices: vertices.map(point => vertical ? {x: point.y, y: point.x} : {x: point.x, y: point.y}),
 				// A line without corners has no bends of the user's to keep.
 				auto: edge.autoRouted === true || vertices.length === 0,
-				labelRoom: FLOW_LABEL_GAP + this.labelPillFor(edge).width + LINE_ROUTER_PAD,
+				labelRoom: FLOW_LABEL_GAP + labelLength + LINE_ROUTER_PAD,
+				label: {width: labelLength, height: labelThickness, gap: FLOW_LABEL_GAP},
 			};
 		});
 		this.dragRouter = new DragRouter(boxes, lines, {pad: LINE_ROUTER_PAD, clearance: LINE_ROUTER_CLEARANCE, laneStep: FLOW_LANE_GAP});

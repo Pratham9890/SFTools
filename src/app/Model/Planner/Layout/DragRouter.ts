@@ -4,7 +4,8 @@
 // One router lives for one drag. Every step starts from the lines as they were when the drag began, so routes never
 // drift and dragging a block back puts every line back. A line is routed again when one of its blocks moved, or when a
 // moved block now sits on it. It keeps its old route while that is clear, then tries a single lane between the two
-// blocks, then searches for a path. Routes avoid blocks and lines of other outputs; lines of one output share a trunk.
+// blocks, then searches for a path. Routes avoid blocks and rate labels and keep their distance from other lines; lines of
+// one output share a trunk exactly or keep their distance too.
 
 export interface DragPoint
 {
@@ -36,6 +37,8 @@ export interface DragLine
 	auto: boolean;
 	/** Room kept clear before the target port for the rate label. */
 	labelRoom: number;
+	/** The rate label on the line's last leg; `gap` from its right edge to the port. */
+	label: {width: number; height: number; gap: number};
 }
 
 export interface DragRouterOptions
@@ -68,14 +71,36 @@ interface Ends
 interface Region
 {
 	boxes: DragBox[];
+	/** Other lines' rate labels. */
+	labels: DragBox[];
+	/** Other outputs' lines. */
 	segments: Segment[];
+	/** Other lines of the same output. */
+	siblings: Segment[];
+}
+
+/** Everything a line has to keep away from. */
+interface Surroundings
+{
+	boxes: readonly DragBox[];
+	labels: readonly LabelBox[];
+	segments: readonly Segment[];
+}
+
+interface LabelBox extends DragBox
+{
+	line: number;
 }
 
 /** Where the search may run: beside blocks and ports only, or beside every line too (much slower). */
 type GridDetail = 'blocks' | 'lines';
 
+/** Parallel lines keep this far apart where there is room. */
+const SPACING = 12;
 /** Two parallel lines closer than this read as one. */
 const TOO_CLOSE = 6;
+/** Lines of one output this close count as on the same trunk. */
+const SAME_TRUNK = 1;
 const OVERLAP_LENGTH = 8;
 const BEND_COST = 40;
 const CROSSING_COST = 60;
@@ -135,9 +160,10 @@ export class DragRouter
 
 		const searchUntil = live ? performance.now() + LIVE_SEARCH_MS : Infinity;
 		const routes = new Map<number, DragPoint[]>();
-		const movers = this.findMovers(boxes, shifts);
+		const labels = this.lines.map((line, index) => this.labelOf(line, index, boxes)).filter(label => label !== null);
+		const movers = this.findMovers(boxes, shifts, labels);
 		const occupied = this.baseSegments.filter(segment => !movers.has(segment.line));
-		const allBoxes = [...boxes.values()];
+		const around: Surroundings = {boxes: [...boxes.values()], labels, segments: occupied};
 		const waiting: {index: number; kept: DragPoint[] | null}[] = [];
 
 		movers.forEach(index => {
@@ -169,8 +195,8 @@ export class DragRouter
 			if (kept === null) {
 				return true;
 			}
-			const region = regionOf([ends.start, ...kept, ends.end], 40, allBoxes, occupied, index, this.lines[index].group);
-			if (!isClear([ends.start, ...kept, ends.end], region)) {
+			const region = regionOf([ends.start, ...kept, ends.end], 40, around, index, this.lines[index].group);
+			if (!isClear([ends.start, ...kept, ends.end], region, SPACING)) {
 				return true;
 			}
 			settle(index, kept, ends);
@@ -181,7 +207,7 @@ export class DragRouter
 			const ends = this.endsOf(this.lines[index], boxes) as Ends;
 			return {index, kept, ends, length: Math.abs(ends.end.x - ends.start.x) + Math.abs(ends.end.y - ends.start.y)};
 		}).sort((a, b) => a.length - b.length || a.index - b.index).forEach(({index, kept, ends}) => {
-			settle(index, this.route(index, ends, kept, allBoxes, occupied, live, searchUntil), ends);
+			settle(index, this.route(index, ends, kept, around, live, searchUntil), ends);
 		});
 
 		const result = new Map<string, DragPoint[]>();
@@ -195,8 +221,20 @@ export class DragRouter
 		return result;
 	}
 
-	/** Lines of moved blocks, and layout lines a moved block or one of its ports now sits on. */
-	private findMovers(boxes: ReadonlyMap<string, DragBox>, shifts: ReadonlyMap<string, DragPoint>): Set<number>
+	private labelOf(line: DragLine, index: number, boxes: ReadonlyMap<string, DragBox>): LabelBox | null
+	{
+		const ends = this.endsOf(line, boxes);
+		return ends === null ? null : {
+			line: index,
+			x: ends.end.x - line.label.gap - line.label.width,
+			y: ends.end.y - line.label.height / 2,
+			width: line.label.width,
+			height: line.label.height,
+		};
+	}
+
+	/** Lines of moved blocks, and layout lines a moved block, one of its ports or one of its rate labels now sits on. */
+	private findMovers(boxes: ReadonlyMap<string, DragBox>, shifts: ReadonlyMap<string, DragPoint>, labels: readonly LabelBox[]): Set<number>
 	{
 		const movers = new Set<number>();
 		const movedBoxes: DragBox[] = [];
@@ -213,9 +251,11 @@ export class DragRouter
 				}
 			});
 		});
+		const movedLabels = labels.filter(label => shifts.has(this.lines[label.line].targetId));
 		for (const segment of this.baseSegments) {
 			if (!movers.has(segment.line) && this.lines[segment.line].auto
-				&& (movedBoxes.some(box => hitsBox(segment, box)) || stubs.some(stub => overlaps(segment, stub)))) {
+				&& (movedBoxes.some(box => hitsBox(segment, box)) || stubs.some(stub => overlaps(segment, stub, SPACING))
+					|| movedLabels.some(label => label.line !== segment.line && hitsBox(segment, label)))) {
 				movers.add(segment.line);
 			}
 		}
@@ -312,34 +352,43 @@ export class DragRouter
 		return points;
 	}
 
-	private route(index: number, ends: Ends, kept: DragPoint[] | null, boxes: readonly DragBox[], occupied: readonly Segment[], live: boolean, searchUntil: number): DragPoint[]
+	private route(index: number, ends: Ends, kept: DragPoint[] | null, around: Surroundings, live: boolean, searchUntil: number): DragPoint[]
 	{
 		const line = this.lines[index];
-		const lane = this.singleLane(index, ends, boxes, occupied);
+		const lane = this.singleLane(index, ends, around);
 		if (lane !== null) {
 			return lane;
 		}
 		if (performance.now() > searchUntil) {
 			return kept ?? this.straightAcross(ends);
 		}
-		const look = (room: number, reach: number, grid: GridDetail, allowOverlap: boolean): DragPoint[] | null =>
-			this.search(index, ends, room, reach, grid, allowOverlap, boxes, occupied);
+		const look = (room: number, reach: number, grid: GridDetail, spacing: number, allowOverlap = false): DragPoint[] | null =>
+			this.search(index, ends, room, reach, grid, spacing, allowOverlap, around);
 		const [near, far, farthest] = SEARCH_REACH;
-		const quick = look(line.labelRoom, near, 'blocks', false)
-			?? look(this.options.pad, near, 'blocks', false);
+		const {labelRoom} = line;
+		const quick = look(labelRoom, near, 'blocks', SPACING);
 		if (quick !== null) {
 			return quick;
 		}
 		if (live) {
-			return look(this.options.pad, near, 'blocks', true) ?? kept ?? this.straightAcross(ends);
+			return look(labelRoom, near, 'blocks', TOO_CLOSE)
+				?? look(this.options.pad, near, 'blocks', TOO_CLOSE, true)
+				?? kept
+				?? this.straightAcross(ends);
 		}
-		// Nothing free in the end: run along another line rather than through a block.
-		return look(line.labelRoom, far, 'blocks', false)
-			?? look(this.options.pad, far, 'blocks', false)
-			?? look(this.options.pad, near, 'lines', false)
-			?? look(this.options.pad, farthest, 'blocks', false)
-			?? look(this.options.pad, far, 'blocks', true)
-			?? look(this.options.pad, farthest, 'blocks', true)
+		return look(labelRoom, far, 'blocks', SPACING)
+			?? look(labelRoom, near, 'lines', SPACING)
+			?? look(labelRoom, farthest, 'blocks', SPACING)
+			?? look(labelRoom, far, 'lines', SPACING)
+			// No room for the full distance: closer together, then under the label.
+			?? look(labelRoom, near, 'lines', TOO_CLOSE)
+			?? look(labelRoom, far, 'blocks', TOO_CLOSE)
+			?? look(this.options.pad, far, 'blocks', SPACING)
+			?? look(this.options.pad, near, 'lines', TOO_CLOSE)
+			?? look(this.options.pad, farthest, 'blocks', TOO_CLOSE)
+			// Nothing free in the end: run along another line rather than through a block.
+			?? look(this.options.pad, far, 'blocks', TOO_CLOSE, true)
+			?? look(this.options.pad, farthest, 'blocks', TOO_CLOSE, true)
 			?? kept
 			?? this.straightAcross(ends);
 	}
@@ -351,21 +400,28 @@ export class DragRouter
 	}
 
 	/** Straight, or one lane between the blocks, when the target is in front; the cheapest clear one. */
-	private singleLane(index: number, ends: Ends, boxes: readonly DragBox[], occupied: readonly Segment[]): DragPoint[] | null
+	private singleLane(index: number, ends: Ends, around: Surroundings): DragPoint[] | null
 	{
 		const line = this.lines[index];
-		const region = regionOf([ends.start, ends.end], 40, boxes, occupied, index, line.group);
+		const region = regionOf([ends.start, ends.end], 40, around, index, line.group);
 		if (Math.abs(ends.start.y - ends.end.y) < 0.5 && ends.start.x < ends.end.x) {
-			return isClear([ends.start, ends.end], region) ? [] : null;
+			return isClear([ends.start, ends.end], region, SPACING) ? [] : null;
 		}
 		let best: DragPoint[] | null = null;
 		let bestCost = Infinity;
 		const minLane = ends.start.x + this.options.pad;
+		const lanes = region.siblings.filter(sibling => sibling.vertical).map(sibling => sibling.c);
 		for (let x = ends.end.x - line.labelRoom; x >= minLane; x -= this.options.laneStep) {
+			lanes.push(x);
+		}
+		for (const x of lanes) {
+			if (x < minLane || x > ends.end.x - line.labelRoom) {
+				continue;
+			}
 			const route = [{x, y: ends.start.y}, {x, y: ends.end.y}];
 			const points = [ends.start, ...route, ends.end];
 			// Clear first: it stops at the first block or line in the way, counting crossings never stops early.
-			if (!isClear(points, region)) {
+			if (!isClear(points, region, SPACING)) {
 				continue;
 			}
 			const cost = crossings(points, region);
@@ -378,14 +434,14 @@ export class DragRouter
 	}
 
 	/** Cheapest right-angled path (A*) over the gaps beside blocks and the lanes beside other lines. */
-	private search(index: number, ends: Ends, room: number, reach: number, detail: GridDetail, allowOverlap: boolean, boxes: readonly DragBox[], occupied: readonly Segment[]): DragPoint[] | null
+	private search(index: number, ends: Ends, room: number, reach: number, detail: GridDetail, spacing: number, allowOverlap: boolean, around: Surroundings): DragPoint[] | null
 	{
 		const line = this.lines[index];
 		const from = this.leave(ends);
 		const to = this.arrive(ends, room);
-		const region = regionOf([from, to], reach, boxes, occupied, index, line.group);
+		const region = regionOf([from, to], reach, around, index, line.group);
 		if (!isBoxFree([ends.start, from], region) || !isBoxFree([to, ends.end], region)
-			|| !allowOverlap && !isClear([to, ends.end], region)) {
+			|| !allowOverlap && !isClear([to, ends.end], region, TOO_CLOSE)) {
 			return null;
 		}
 		const minX = Math.min(from.x, to.x) - reach;
@@ -405,13 +461,23 @@ export class DragRouter
 			}
 			ys.push(box.y - clearance, box.y + box.height + clearance, box.y - clearance / 2, box.y + box.height + clearance / 2);
 		}
+		for (const label of region.labels) {
+			xs.push(label.x - laneStep);
+			ys.push(label.y - clearance / 2, label.y + label.height + clearance / 2);
+		}
 		if (detail === 'lines') {
-			for (const segment of region.segments) {
-				(segment.vertical ? xs : ys).push(segment.c - laneStep, segment.c + laneStep, segment.c - laneStep / 2, segment.c + laneStep / 2);
+			for (const segment of [...region.segments, ...region.siblings]) {
+				(segment.vertical ? xs : ys).push(segment.c - spacing - 0.5, segment.c + spacing + 0.5);
 			}
 		}
-		const gx = axis(xs, [from.x, to.x], minX, maxX);
-		const gy = axis(ys, [from.y, to.y], minY, maxY);
+		// Exactly on the lines of the same output, so a trunk is shared or left alone.
+		const fixedX = [from.x, to.x];
+		const fixedY = [from.y, to.y];
+		for (const sibling of region.siblings) {
+			(sibling.vertical ? fixedX : fixedY).push(sibling.c);
+		}
+		const gx = axis(xs, fixedX, minX, maxX);
+		const gy = axis(ys, fixedY, minY, maxY);
 		const w = gx.length;
 		const h = gy.length;
 
@@ -429,8 +495,22 @@ export class DragRouter
 		for (const box of region.boxes) {
 			markBox(box, gx, gy, right, down, w);
 		}
+		// Its own label too: the path may not overshoot under it and come back.
+		if (room >= line.labelRoom) {
+			const own = around.labels.find(label => label.line === index);
+			if (own !== undefined) {
+				markBox(own, gx, gy, right, down, w);
+			}
+		}
+		for (const label of region.labels) {
+			markBox(label, gx, gy, right, down, w, allowOverlap ? OVERLAP_COST : -1);
+		}
 		for (const segment of region.segments) {
-			markSegment(segment, gx, gy, right, down, w, allowOverlap ? OVERLAP_COST : -1);
+			markSegment(segment, gx, gy, right, down, w, spacing, allowOverlap ? OVERLAP_COST : -1);
+			markCrossings(segment, gx, gy, right, down, w);
+		}
+		for (const sibling of region.siblings) {
+			markSegment(sibling, gx, gy, right, down, w, spacing, allowOverlap ? OVERLAP_COST : -1, SAME_TRUNK);
 		}
 		const path = cheapestPath(gx, gy, right, down, gx.indexOf(from.x), gy.indexOf(from.y), gx.indexOf(to.x), gy.indexOf(to.y));
 		return path === null ? null : corners([ends.start, ...path, ends.end]);
@@ -467,14 +547,19 @@ function hitsBox(segment: Segment, box: DragBox): boolean
 		: segment.c > box.y && segment.c < box.y + box.height && segment.hi > box.x && segment.lo < box.x + box.width;
 }
 
-function overlaps(a: Segment, b: Segment): boolean
+/** Parallel, side by side for a stretch, and closer than the spacing. Lines of one output may lie exactly on each other. */
+function overlaps(a: Segment, b: Segment, spacing: number): boolean
 {
-	return a.vertical === b.vertical && a.group !== b.group
-		&& Math.abs(a.c - b.c) < TOO_CLOSE && Math.min(a.hi, b.hi) - Math.max(a.lo, b.lo) > OVERLAP_LENGTH;
+	if (a.vertical !== b.vertical) {
+		return false;
+	}
+	const gap = Math.abs(a.c - b.c);
+	return gap < spacing && (a.group !== b.group || gap > SAME_TRUNK)
+		&& Math.min(a.hi, b.hi) - Math.max(a.lo, b.lo) > OVERLAP_LENGTH;
 }
 
-/** The blocks and other outputs' lines around the points. */
-function regionOf(points: readonly DragPoint[], reach: number, boxes: readonly DragBox[], occupied: readonly Segment[], line: number, group: string): Region
+/** The blocks, rate labels and other lines around the points. */
+function regionOf(points: readonly DragPoint[], reach: number, around: Surroundings, line: number, group: string): Region
 {
 	let minX = Infinity;
 	let maxX = -Infinity;
@@ -490,12 +575,16 @@ function regionOf(points: readonly DragPoint[], reach: number, boxes: readonly D
 	maxX += reach;
 	minY -= reach;
 	maxY += reach;
-	return {
-		boxes: boxes.filter(box => box.x < maxX && box.x + box.width > minX && box.y < maxY && box.y + box.height > minY),
-		segments: occupied.filter(segment => segment.line !== line && segment.group !== group && (segment.vertical
+	const inside = (box: DragBox): boolean => box.x < maxX && box.x + box.width > minX && box.y < maxY && box.y + box.height > minY;
+	const region: Region = {boxes: around.boxes.filter(inside), labels: around.labels.filter(label => label.line !== line && inside(label)), segments: [], siblings: []};
+	for (const segment of around.segments) {
+		if (segment.line !== line && (segment.vertical
 			? segment.c > minX && segment.c < maxX && segment.hi > minY && segment.lo < maxY
-			: segment.c > minY && segment.c < maxY && segment.hi > minX && segment.lo < maxX)),
-	};
+			: segment.c > minY && segment.c < maxY && segment.hi > minX && segment.lo < maxX)) {
+			(segment.group === group ? region.siblings : region.segments).push(segment);
+		}
+	}
+	return region;
 }
 
 function isBoxFree(points: readonly DragPoint[], region: Region): boolean
@@ -503,10 +592,12 @@ function isBoxFree(points: readonly DragPoint[], region: Region): boolean
 	return segmentsOf(-1, '', points).every(segment => region.boxes.every(box => !hitsBox(segment, box)));
 }
 
-function isClear(points: readonly DragPoint[], region: Region): boolean
+function isClear(points: readonly DragPoint[], region: Region, spacing: number): boolean
 {
 	return segmentsOf(-1, '', points).every(segment => region.boxes.every(box => !hitsBox(segment, box))
-		&& region.segments.every(other => !overlaps(segment, other)));
+		&& region.labels.every(label => !hitsBox(segment, label))
+		&& region.segments.every(other => !overlaps(segment, other, spacing))
+		&& region.siblings.every(other => !overlaps(segment, {...other, group: ''}, spacing)));
 }
 
 function crossings(points: readonly DragPoint[], region: Region): number
@@ -553,8 +644,13 @@ function above(values: readonly number[], limit: number): number
 	return lo;
 }
 
-function markBox(box: DragBox, gx: readonly number[], gy: readonly number[], right: Float32Array, down: Float32Array, w: number): void
+function markBox(box: DragBox, gx: readonly number[], gy: readonly number[], right: Float32Array, down: Float32Array, w: number, cost = -1): void
 {
+	const mark = (steps: Float32Array, at: number): void => {
+		if (steps[at] >= 0) {
+			steps[at] = cost < 0 ? -1 : steps[at] + cost;
+		}
+	};
 	const x1 = box.x + box.width;
 	const y1 = box.y + box.height;
 	const firstX = Math.max(0, above(gx, box.x) - 1);
@@ -562,38 +658,46 @@ function markBox(box: DragBox, gx: readonly number[], gy: readonly number[], rig
 	for (let y = firstY; y < gy.length && gy[y] < y1; y++) {
 		for (let x = firstX; x < gx.length && gx[x] < x1; x++) {
 			if (gy[y] > box.y && x + 1 < gx.length && gx[x + 1] > box.x) {
-				right[y * w + x] = -1;
+				mark(right, y * w + x);
 			}
 			if (gx[x] > box.x && y + 1 < gy.length && gy[y + 1] > box.y) {
-				down[y * w + x] = -1;
+				mark(down, y * w + x);
 			}
 		}
 	}
 }
 
-/** Along another line costs `overlapCost` (-1: not allowed); across it costs a crossing. */
-function markSegment(segment: Segment, gx: readonly number[], gy: readonly number[], right: Float32Array, down: Float32Array, w: number, overlapCost: number): void
+/** Along another line, or too close beside it, costs `overlapCost` (-1: not allowed); within `shared` of it is free. */
+function markSegment(segment: Segment, gx: readonly number[], gy: readonly number[], right: Float32Array, down: Float32Array, w: number, spacing: number, overlapCost: number, shared = -1): void
 {
 	const along = segment.vertical ? gy : gx;
 	const across = segment.vertical ? gx : gy;
-	const alongCost = segment.vertical ? down : right;
-	const acrossCost = segment.vertical ? right : down;
-	const cell = (a: number, c: number): number => segment.vertical ? a * w + c : c * w + a;
+	const cost = segment.vertical ? down : right;
 	const first = Math.max(0, above(along, segment.lo) - 1);
-	for (let c = above(across, segment.c - TOO_CLOSE); c < across.length && across[c] < segment.c + TOO_CLOSE; c++) {
+	for (let c = above(across, segment.c - spacing); c < across.length && across[c] < segment.c + spacing; c++) {
+		if (Math.abs(across[c] - segment.c) <= shared) {
+			continue;
+		}
 		for (let a = first; a + 1 < along.length && along[a] < segment.hi; a++) {
-			const at = cell(a, c);
-			if (along[a + 1] > segment.lo && alongCost[at] >= 0) {
-				alongCost[at] = overlapCost < 0 ? -1 : alongCost[at] + overlapCost;
+			const at = segment.vertical ? a * w + c : c * w + a;
+			if (along[a + 1] > segment.lo && cost[at] >= 0) {
+				cost[at] = overlapCost < 0 ? -1 : cost[at] + overlapCost;
 			}
 		}
 	}
+}
+
+function markCrossings(segment: Segment, gx: readonly number[], gy: readonly number[], right: Float32Array, down: Float32Array, w: number): void
+{
+	const along = segment.vertical ? gy : gx;
+	const across = segment.vertical ? gx : gy;
+	const cost = segment.vertical ? right : down;
 	const c = above(across, segment.c) - 1;
 	if (c >= 0 && c + 1 < across.length) {
 		for (let a = above(along, segment.lo); a < along.length && along[a] < segment.hi; a++) {
-			const at = cell(a, c);
-			if (acrossCost[at] >= 0) {
-				acrossCost[at] += CROSSING_COST;
+			const at = segment.vertical ? a * w + c : c * w + a;
+			if (cost[at] >= 0) {
+				cost[at] += CROSSING_COST;
 			}
 		}
 	}
