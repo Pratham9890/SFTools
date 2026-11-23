@@ -41,6 +41,26 @@
 	// The flow chart's canvas: x6 fills the chart container, which carries no class of its own here.
 	.x6-graph {
 		background: var(--chart);
+
+		// Highlights fade in and out instead of switching at once: the fade on blocks and lines, the thicker
+		// focused line and the selected block's outline.
+		.x6-cell {
+			transition: opacity 180ms ease;
+		}
+		.x6-edge path {
+			transition: stroke-width 180ms ease;
+		}
+		.x6-node .pn-body {
+			transition: stroke 180ms ease, stroke-width 180ms ease, fill 180ms ease;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.x6-graph .x6-cell,
+		.x6-graph .x6-edge path,
+		.x6-graph .x6-node .pn-body {
+			transition: none;
+		}
 	}
 
 	// ---- top bar: logo, plan name, tabs, actions -------------------------------------------------

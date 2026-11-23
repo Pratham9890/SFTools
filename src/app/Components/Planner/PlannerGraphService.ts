@@ -5,6 +5,7 @@ import type {Metadata as PortsMetadata, PortMetadata} from '@antv/x6/lib/model/p
 import type {Handle as VertexHandle} from '@antv/x6/lib/registry/tool/vertices';
 import {GraphPoint} from '@src/Model/Planner/Graph/GraphPoint';
 import {FlowLayoutEdge, FlowLayoutNode, FlowLayoutOptions, layoutFlow} from '@src/Model/Planner/Layout/FlowLayout';
+import {RouterBox, rerouteLine} from '@src/Model/Planner/Layout/LineRouter';
 import {collectFlowJunctions, FlowLinePalette} from '@src/Components/Planner/Graph/FlowLinePalette';
 import {Observable, Subject, Subscription} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
@@ -248,8 +249,14 @@ const FLOW_FADE_OPACITY = 0.25;
 // Layout units: the mock-up's Look C (port spacing 30, lane gap 17).
 const FLOW_PORT_GAP = 30;
 const FLOW_LANE_GAP = 17;
+/** Space between the Alt tag and the card's right edge. */
+const ALT_RIGHT_PAD = 16;
 const FLOW_NODE_GAP_FLOOR = 34;
 const FLOW_LABEL_GAP = 12;
+/** Shortest stub out of a port before a re-routed line turns (LineRouter). */
+const LINE_ROUTER_PAD = 14;
+/** Gap a re-routed line keeps from a block it loops around. */
+const LINE_ROUTER_CLEARANCE = 20;
 // Amber like the status bar's warnings: a dark-canvas constant, readable in both themes.
 // Belt view: one line per belt, spaced wide enough for each line's own rate label to fit between neighbours.
 // Perpendicular label offset: with the 14px name font the baseline then sits ~8px above the line.
@@ -847,6 +854,7 @@ export class PlannerGraphService implements OnDestroy
 	private readonly dragStartVertices = new Map<GraphEdge, GraphPoint[]>();
 	/** A block is pressed: position changes now come from a drag, not from a layout or a remote update. */
 	private nodePressed = false;
+	private liveRerouteScheduled = false;
 	private readonly nodeById = new Map<string, Node>();
 	private doneNodeIds = new Set<string>();
 	private claimMarkers: ReadonlyMap<string, {color: string; label: string}> = new Map();
@@ -865,7 +873,8 @@ export class PlannerGraphService implements OnDestroy
 	private linePalette: FlowLinePalette | null = null;
 	private junctionLayer: SVGGElement | null = null;
 	private junctionCircles: Array<{circle: SVGCircleElement; x: number; y: number}> = [];
-	private hoveredEdgeIds = new Set<string>();
+	/** The line the user clicked: it stays lit, with the rest faded, until a click elsewhere. Hover only shows the tooltip. */
+	private pickedEdgeIds = new Set<string>();
 	private focusedNodeIds = new Set<string>();
 	/** Last pointer position, so a connection's tooltip can open next to the cursor rather than the line's bounding box. */
 	private lastPointerClient: {x: number; y: number} | null = null;
@@ -1348,7 +1357,7 @@ export class PlannerGraphService implements OnDestroy
 		}
 		const active = edges.size > 0;
 		// A selected block stays clear even when it has no connections.
-		const nodeIds = new Set<string>(this.hoveredEdgeIds.size > 0 ? [] : this.focusedNodeIds);
+		const nodeIds = new Set<string>(this.pickedEdgeIds.size > 0 ? [] : this.focusedNodeIds);
 		edges.forEach(edge => {
 			nodeIds.add(edge.sourceId);
 			nodeIds.add(edge.targetId);
@@ -1458,7 +1467,7 @@ export class PlannerGraphService implements OnDestroy
 		this.touchedEdgeId = null;
 		this.junctionLayer = null;
 		this.junctionCircles = [];
-		this.hoveredEdgeIds.clear();
+		this.pickedEdgeIds.clear();
 		this.focusedNodeIds.clear();
 		this.flowLayoutHeights.clear();
 		this.connectGesture = null;
@@ -1843,7 +1852,7 @@ export class PlannerGraphService implements OnDestroy
 		// The junction layer lived in the disposed graph's stage.
 		this.junctionLayer = null;
 		this.junctionCircles = [];
-		this.hoveredEdgeIds.clear();
+		this.pickedEdgeIds.clear();
 		this.focusedNodeIds.clear();
 		this.touchGestures?.detach();
 		this.touchGestures = null;
@@ -1961,9 +1970,16 @@ export class PlannerGraphService implements OnDestroy
 				this.showEdgeTools(view, edge);
 				this.touchedEdgeId = edge.id;
 			}
+			this.pickEdge(edge.id);
 		});
-		x6Graph.on('node:click', () => this.releaseTouchedEdge());
-		x6Graph.on('blank:click', () => this.releaseTouchedEdge());
+		x6Graph.on('node:click', () => {
+			this.releaseTouchedEdge();
+			this.pickEdge(null);
+		});
+		x6Graph.on('blank:click', () => {
+			this.releaseTouchedEdge();
+			this.pickEdge(null);
+		});
 		this.hoverMoveTarget?.removeEventListener('mousemove', this.edgeHoverListener);
 		this.hoverMoveTarget?.removeEventListener('mouseover', this.warningOverListener);
 		this.hoverMoveTarget?.removeEventListener('mouseout', this.warningOutListener);
@@ -2100,7 +2116,8 @@ export class PlannerGraphService implements OnDestroy
 		const makesY = this.recipeMakesY(clockLines) * scale;
 		const nameY = (recipe ? LOOK_C_NAME_Y : LOOK_C_ITEM_NAME_Y) * scale;
 		const nameWidth = measureTextWidth(content.name, LOOK_C_NAME_FONT * scale, true);
-		const altX = textX + nameWidth + LOOK_C_ALT_GAP * scale;
+		// The Alt tag sits at the card's right edge, on the recipe line; a long name pushes it right.
+		const altX = Math.max(textX + nameWidth + LOOK_C_ALT_GAP * scale, size.width - (LOOK_C_ALT_WIDTH + ALT_RIGHT_PAD) * scale);
 		const countX = textX + (content.countIcon === '' ? 0 : (LOOK_C_COUNT_ICON + LOOK_C_COUNT_ICON_GAP) * scale);
 		const makesX = textX + measureTextWidth('Makes ', LOOK_C_DIM_FONT * scale, false);
 		// Faded per element so the `done` check stays opaque.
@@ -2217,7 +2234,7 @@ export class PlannerGraphService implements OnDestroy
 		const textX = (content.icon === '' ? GAME_TEXT_PAD_LEFT : GAME_TEXT_INSET) * scale;
 		const nameY = GAME_NAME_Y * scale;
 		const nameWidth = measureTextWidth(content.name, GAME_NAME_FONT * scale, true, GAME_FONT_FAMILY);
-		const altX = textX + nameWidth + GAME_ALT_GAP * scale;
+		const altX = Math.max(textX + nameWidth + GAME_ALT_GAP * scale, size.width - (LOOK_C_ALT_WIDTH + ALT_RIGHT_PAD) * scale);
 		const bandIconX = GAME_BAND_PAD_LEFT;
 		const bandTitleX = bandIconX + (band.icon === '' ? 0 : GAME_BAND_ICON + GAME_BAND_ICON_GAP);
 		const rateX = size.width - GAME_BAND_RATE_PAD_RIGHT * scale;
@@ -3224,8 +3241,11 @@ export class PlannerGraphService implements OnDestroy
 			}
 		});
 
-		// The selected blocks' connections light up and the rest of the chart fades, as when hovering a line.
+		// The selected blocks' connections light up and the rest of the chart fades, as for a clicked line.
 		this.focusedNodeIds = selectedIds;
+		if (selectedIds.size > 0) {
+			this.pickedEdgeIds.clear();
+		}
 		this.refreshConnectionFocus();
 		x6Graph.getEdges().forEach(edge => this.applyEdgeStyle(edge));
 
@@ -3354,8 +3374,20 @@ export class PlannerGraphService implements OnDestroy
 		if (this.readOnly) {
 			return;
 		}
+		if (!this.settings.graph().addBendPointsByClick) {
+			return;
+		}
 		const point = this.x6Graph.clientToLocal(e.clientX, e.clientY);
 		this.moveCornerPreview(this.hoveredEdgeView, point.x, point.y);
+	}
+
+	/**
+	 * Bend handles only where the user works with bends: on lines they bent by hand, or everywhere when
+	 * "Add bends by clicking a line" is on. A layout line keeps routing itself, so its corners get no handles.
+	 */
+	private showsBendHandles(edge: X6Edge): boolean
+	{
+		return this.settings.graph().addBendPointsByClick || this.edgeById.get(edge.id)?.autoRouted !== true;
 	}
 
 	private endEdgeHover(): void
@@ -3419,9 +3451,9 @@ export class PlannerGraphService implements OnDestroy
 	private focusedEdges(): Set<GraphEdge>
 	{
 		const focused = new Set<GraphEdge>();
-		if (this.hoveredEdgeIds.size > 0) {
+		if (this.pickedEdgeIds.size > 0) {
 			this.edgeById.forEach((edge, id) => {
-				if (this.hoveredEdgeIds.has(id)) {
+				if (this.pickedEdgeIds.has(id)) {
 					focused.add(edge);
 				}
 			});
@@ -3459,23 +3491,27 @@ export class PlannerGraphService implements OnDestroy
 		this.applyLabelBoxStyle(edge, focused);
 	}
 
-	/** Hovering a line or its label lights up the whole connection and shows the connection's tooltip. */
+	/** Clicking a line lights it up and fades the rest; clicking it again, a block or the background lets go. */
+	private pickEdge(edgeId: string | null): void
+	{
+		const again = edgeId !== null && this.pickedEdgeIds.has(edgeId);
+		this.pickedEdgeIds.clear();
+		if (edgeId !== null && !again) {
+			this.pickedEdgeIds.add(edgeId);
+			this.selection?.clean();
+		}
+		this.refreshConnectionFocus();
+	}
+
+	/** Hovering a line or its label shows the connection's tooltip. */
 	/** No hover class: styles.scss recolours `.pg-edge-hovered` lines grey, and the item colour must stay. */
 	private applyEdgeHover(view: EdgeView, edge: X6Edge, hovered: boolean): void
 	{
+		// Hover only shows the tooltip: lighting up the chart on every pass made everything flicker.
 		if (hovered) {
-			this.hoveredEdgeIds.add(edge.id);
 			this.showEdgeTooltip(edge);
 		} else {
-			this.hoveredEdgeIds.delete(edge.id);
-			if (this.hoveredEdgeIds.size === 0) {
-				this.hideTooltip();
-			}
-		}
-		this.refreshConnectionFocus();
-		if (!hovered && this.selection) {
-			this.focusedNodeIds = new Set(this.selection.cells.filter(cell => cell.isNode()).map(cell => cell.id));
-			this.refreshConnectionFocus();
+			this.hideTooltip();
 		}
 		// The vertex tool positions itself off the view; nothing else is read here.
 		void view;
@@ -3577,7 +3613,7 @@ export class PlannerGraphService implements OnDestroy
 			this.releaseTouchedEdge();
 		}
 		this.hoveredEdgeView = view;
-		if (!this.readOnly && !edge.hasTools()) {
+		if (!this.readOnly && !edge.hasTools() && this.showsBendHandles(edge)) {
 			edge.addTools([this.verticesTool()]);
 		}
 		this.applyEdgeHover(view, edge, true);
@@ -3705,6 +3741,10 @@ export class PlannerGraphService implements OnDestroy
 			if (node.id === this.vertexDragAnchorId && current && previous) {
 				this.applySelectionDragToVertices(current.x - previous.x, current.y - previous.y);
 			}
+			// Lines follow the block while it moves, not only when it is dropped.
+			if (this.nodePressed) {
+				this.scheduleLiveReroute();
+			}
 		});
 		// Pressing a block may start a drag: keep the corners as they are now (a drag also starts from a touch press).
 		x6Graph.on('node:mousedown', () => {
@@ -3723,136 +3763,97 @@ export class PlannerGraphService implements OnDestroy
 		x6Graph.on('node:moved', () => {
 			this.nodePressed = false;
 			this.endNodeDrag();
-			this.drawFlowJunctions();
 		});
 	}
 
-	/**
-	 * The layout's corners follow a moved end: the corner next to it shifts with it, so the route stays right-angled
-	 * instead of collapsing into a diagonal. Both ends moving keeps the shape (x6 translates the corners).
-	 */
-/**
-	 * The layout's corners follow a moved end: the corner next to it keeps the segment into that end axis-aligned,
-	 * so the route stays right-angled instead of collapsing into a diagonal. Both ends moving keeps the shape (x6
-	 * translates the corners).
-	 */
+	/** One re-route per frame while dragging: x6 fires a position change per block per pointer move. */
+	private scheduleLiveReroute(): void
+	{
+		if (this.liveRerouteScheduled) {
+			return;
+		}
+		this.liveRerouteScheduled = true;
+		requestAnimationFrame(() => {
+			this.liveRerouteScheduled = false;
+			if (this.nodePressed) {
+				this.rerouteMovedLines();
+			}
+		});
+	}
+
+	/** The drag ended: the last route, then the split dots and a save. */
 	private endNodeDrag(): void
 	{
-		const movedIds = new Set(this.movedNodeIds);
-		const starts = new Map(this.dragStartPositions);
-		const startVertices = new Map(this.dragStartVertices);
+		const changed = this.rerouteMovedLines();
 		this.movedNodeIds.clear();
 		this.dragStartPositions.clear();
 		this.dragStartVertices.clear();
-		const x6Graph = this.x6Graph;
-		if (this.readOnly || movedIds.size === 0 || x6Graph === null) {
-			return;
+		if (changed) {
+			this.graphChangedSubject.next();
 		}
-
-		const followed = [...new Set(this.edgeById.values())].filter(edge => {
-			if (edge.autoRouted !== true) {
-				return false;
-			}
-			const sourceMoved = movedIds.has(edge.sourceId);
-			const targetMoved = movedIds.has(edge.targetId);
-			return sourceMoved !== targetMoved;
-		});
-		if (followed.length === 0) {
-			return;
-		}
-
-		// The drag's own vertex translation usually took the snapshot; otherwise take one here, like straightenEdge.
-		// Either way it is one step for the whole change.
-		if (!this.vertexGestureActive) {
-			this.vertexGestureActive = true;
-			this.graphEditStartSubject.next();
-		}
-		followed.forEach(edge => {
-			// From the corners before the drag: x6 moved them all with the block, which bent the far end diagonally.
-			const before = startVertices.get(edge);
-			if (before !== undefined) {
-				edge.vertices = before.map(point => ({x: point.x, y: point.y}));
-			}
-			const vertices = this.followMovedEnd(x6Graph, edge, movedIds.has(edge.sourceId), starts);
-			edge.vertices = vertices;
-			// Still the layout's route, so a later move adjusts it again; an empty route has nothing left to adjust.
-			edge.autoRouted = vertices.length > 0;
-			x6Graph.getEdges().forEach(cell => {
-				if (this.edgeById.get(cell.id) === edge) {
-					cell.setVertices([...vertices], {autoRoute: true});
-				}
-			});
-		});
-		this.graphChangedSubject.next();
 		this.drawFlowJunctions();
 	}
 
 	/**
-	 * Moves the corner next to the moved end so the segment into that end stays horizontal (left/right charts) or
-	 * vertical (up/down charts). A corner the move passed or landed inside the block falls back to an even split
-	 * between the two blocks, which is still right-angled.
+	 * Lines with one moved end get routed again from their corners at the start of the drag (LineRouter), so the
+	 * route never drifts. Lines with both ends moved keep their shape: x6 translates their corners. Lines the user
+	 * bent by hand keep their bends.
 	 */
-	private followMovedEnd(x6Graph: X6Graph, edge: GraphEdge, sourceMoved: boolean, starts: ReadonlyMap<string, GraphPoint>): GraphPoint[]
+	private rerouteMovedLines(): boolean
 	{
-		const vertices = (edge.vertices ?? []).map(point => ({x: point.x, y: point.y}));
-		const movedId = sourceMoved ? edge.sourceId : edge.targetId;
-		const moved = x6Graph.getCellById(movedId);
-		const other = x6Graph.getCellById(sourceMoved ? edge.targetId : edge.sourceId);
-		const start = starts.get(movedId);
-		if (!(moved instanceof X6Node) || !(other instanceof X6Node) || start === undefined) {
-			return [];
+		const x6Graph = this.x6Graph;
+		const movedIds = this.movedNodeIds;
+		if (this.readOnly || movedIds.size === 0 || x6Graph === null) {
+			return false;
 		}
+		const vertical = this.isVertical(this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction);
+		const flip = (point: GraphPoint): GraphPoint => vertical ? {x: point.y, y: point.x} : point;
+		const flipBox = (box: {x: number; y: number; width: number; height: number}): RouterBox => vertical
+			? {x: box.y, y: box.x, width: box.height, height: box.width}
+			: {x: box.x, y: box.y, width: box.width, height: box.height};
 
-		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
-		const vertical = this.isVertical(direction);
-		const movedBox = moved.getBBox();
-		const otherBox = other.getBBox();
-		const position = moved.getPosition();
-		const dx = position.x - start.x;
-		const dy = position.y - start.y;
-		const portY = sourceMoved ? edge.sourcePortDy ?? movedBox.height / 2 : edge.targetPortDy ?? movedBox.height / 2;
-		const portX = sourceMoved ? edge.sourcePortDy ?? movedBox.width / 2 : edge.targetPortDy ?? movedBox.width / 2;
-		// Where the moved end now connects: on the block's side facing the other block.
-		const movedPoint = vertical
-			? {x: movedBox.x + portX, y: sourceMoved ? movedBox.y + movedBox.height : movedBox.y}
-			: {x: sourceMoved ? movedBox.x + movedBox.width : movedBox.x, y: movedBox.y + portY};
-		// A straight line has no corner to move; it gets the even split below, so it does not turn diagonal.
-		if (vertices.length > 0) {
-			const index = sourceMoved ? 0 : vertices.length - 1;
-			const corner = vertices[index];
-			const margin = 10;
-
-			if (vertical) {
-				corner.x = movedPoint.x;
-			} else {
-				corner.y = movedPoint.y;
+		const cellsByEdge = new Map<GraphEdge, X6Edge[]>();
+		x6Graph.getEdges().forEach(cell => {
+			const modelEdge = this.edgeById.get(cell.id);
+			if (modelEdge !== undefined) {
+				cellsByEdge.set(modelEdge, [...(cellsByEdge.get(modelEdge) ?? []), cell]);
 			}
-			// The corner must stay outside the block, on the side it was on, or the line would double back.
-			const center = movedBox.getCenter();
-			const before = {x: center.x - dx, y: center.y - dy};
-			const clear = vertical
-				? Math.sign(corner.y - center.y) === Math.sign(corner.y - before.y)
-					&& Math.abs(corner.y - center.y) > movedBox.height / 2 + margin
-				: Math.sign(corner.x - center.x) === Math.sign(corner.x - before.x)
-					&& Math.abs(corner.x - center.x) > movedBox.width / 2 + margin;
-			if (clear) {
-				return vertices;
-			}
-		}
+		});
 
-		// Even split between the blocks: the mid line crosses the gap, so the route stays right-angled.
-		const otherOffset = sourceMoved ? edge.targetPortDy : edge.sourcePortDy;
-		const otherPort = vertical
-			? {x: otherBox.x + (otherOffset ?? otherBox.width / 2), y: sourceMoved ? otherBox.y : otherBox.y + otherBox.height}
-			: {x: sourceMoved ? otherBox.x : otherBox.x + otherBox.width, y: otherBox.y + (otherOffset ?? otherBox.height / 2)};
-		// Corners run from the line's start: the moved block's corner first only when it is the source.
-		const order = (near: GraphPoint, far: GraphPoint): GraphPoint[] => sourceMoved ? [near, far] : [far, near];
-		if (vertical) {
-			const middle = (movedPoint.y + otherPort.y) / 2;
-			return order({x: movedPoint.x, y: middle}, {x: otherPort.x, y: middle});
-		}
-		const middle = (movedPoint.x + otherPort.x) / 2;
-		return order({x: middle, y: movedPoint.y}, {x: middle, y: otherPort.y});
+		const boxes = new Map<string, RouterBox>();
+		x6Graph.getNodes().forEach(node => boxes.set(node.id, flipBox(node.getBBox())));
+
+		let changed = false;
+		cellsByEdge.forEach((cells, edge) => {
+			const sourceMoved = movedIds.has(edge.sourceId);
+			if (edge.autoRouted !== true || sourceMoved === movedIds.has(edge.targetId)) {
+				return;
+			}
+			const source = x6Graph.getCellById(edge.sourceId);
+			const target = x6Graph.getCellById(edge.targetId);
+			if (!(source instanceof X6Node) || !(target instanceof X6Node)) {
+				return;
+			}
+			const sourceBox = source.getBBox();
+			const targetBox = target.getBBox();
+			const before = (this.dragStartVertices.get(edge) ?? edge.vertices ?? []).map(flip);
+			const routed = rerouteLine({
+				source: flipBox(sourceBox),
+				target: flipBox(targetBox),
+				sourcePortDy: edge.sourcePortDy ?? (vertical ? sourceBox.width : sourceBox.height) / 2,
+				targetPortDy: edge.targetPortDy ?? (vertical ? targetBox.width : targetBox.height) / 2,
+			}, before, sourceMoved, {
+				labelRoom: FLOW_LABEL_GAP + this.labelPillFor(edge).width + LINE_ROUTER_PAD,
+				pad: LINE_ROUTER_PAD,
+				clearance: LINE_ROUTER_CLEARANCE,
+				laneStep: FLOW_LANE_GAP,
+				obstacles: [...boxes].filter(([id]) => id !== edge.sourceId && id !== edge.targetId).map(([, box]) => box),
+			}).map(flip);
+			edge.vertices = routed;
+			cells.forEach(cell => cell.setVertices(routed.map(point => ({...point})), {autoRoute: true}));
+			changed = true;
+		});
+		return changed;
 	}
 
 	private styleFor(node: Node): NodeStyle
