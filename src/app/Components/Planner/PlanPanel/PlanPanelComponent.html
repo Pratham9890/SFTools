@@ -128,7 +128,7 @@
 						<span class="spinner-border spinner-border-sm me-1" role="status"></span>
 						Recalculating {{ progress.done + 1 }}/{{ progress.total }}: {{ progress.currentName }}
 					</span>
-					<button class="btn btn-sm btn-danger" type="button" tooltip="Stop after the current plan" placement="bottom" (click)="cancelFolderRecalculation()"><fa-icon [icon]="faXmark"></fa-icon></button>
+					<button class="btn btn-sm btn-danger" type="button" tooltip="Stop after the current plan" placement="bottom" aria-label="Stop after the current plan" (click)="cancelFolderRecalculation()"><fa-icon [icon]="faXmark"></fa-icon></button>
 				} @else {
 					<button
 						class="btn btn-sm"

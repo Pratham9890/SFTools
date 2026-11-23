@@ -29,6 +29,7 @@
 				<label class="pp-label text-nowrap">Machine</label>
 				<select
 					class="form-select form-select-sm bg-dark text-light border-secondary"
+					aria-label="Machine"
 					[(ngModel)]="machineClassName"
 					(ngModelChange)="onMachineChange()"
 				>
@@ -95,6 +96,7 @@
 						<input
 							type="number"
 							class="form-control form-control-sm bg-dark text-light border-secondary"
+							aria-label="Machines"
 							[(ngModel)]="group.machines"
 							(ngModelChange)="onGroupsChange()"
 							min="1"
@@ -104,6 +106,7 @@
 							<input
 								type="number"
 								class="form-control form-control-sm bg-dark text-light border-secondary"
+								aria-label="Clock speed"
 								[(ngModel)]="group.clockSpeed"
 								(ngModelChange)="onGroupsChange()"
 								min="1"
@@ -118,6 +121,7 @@
 							<input
 								type="number"
 								class="form-control form-control-sm bg-dark text-light border-secondary"
+								aria-label="Somersloops"
 								[(ngModel)]="group.sloops"
 								(ngModelChange)="onGroupsChange()"
 								min="0"
@@ -128,7 +132,7 @@
 						<button
 							class="btn btn-sm btn-outline-danger group-remove"
 							type="button"
-							tooltip="Remove machine group" container="body" placement="left"
+							tooltip="Remove machine group" aria-label="Remove machine group" container="body" placement="left"
 							[disabled]="groups.length === 1"
 							(click)="removeGroup($index)"
 						><fa-icon [icon]="faXmark"></fa-icon></button>
@@ -156,7 +160,7 @@
 					<button
 						class="btn btn-sm btn-link p-0 text-secondary flex-shrink-0"
 						type="button"
-						tooltip="Back to the plan's clock speed" container="body" placement="top"
+						tooltip="Back to the plan's clock speed" aria-label="Back to the plan's clock speed" container="body" placement="top"
 						(click)="resetDefaultClock()"
 					><fa-icon [icon]="faRotateLeft"></fa-icon></button>
 				}
@@ -221,6 +225,7 @@
 							<input
 								type="number"
 								class="form-control form-control-sm bg-dark text-light border-secondary"
+								[attr.aria-label]="input.item.name"
 								[(ngModel)]="input.rate"
 								(ngModelChange)="onInputRateChange(i)"
 								min="0"
@@ -248,6 +253,7 @@
 							<input
 								type="number"
 								class="form-control form-control-sm bg-dark text-light border-secondary"
+								[attr.aria-label]="output.item.name"
 								[(ngModel)]="output.rate"
 								(ngModelChange)="onOutputRateChange(i)"
 								min="0"

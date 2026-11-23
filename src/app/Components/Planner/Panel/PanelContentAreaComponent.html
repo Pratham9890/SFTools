@@ -12,7 +12,7 @@
 					<button
 						class="tab-close"
 						type="button"
-						tooltip="Close" placement="bottom"
+						tooltip="Close" placement="bottom" aria-label="Close"
 						(pointerdown)="$event.stopPropagation()"
 						(click)="layout.closePanel(tab.id)"
 					><fa-icon [icon]="faXmark"></fa-icon></button>
@@ -26,7 +26,7 @@
 					[class.active]="overflowHasActive"
 					type="button"
 					dropdownToggle
-					tooltip="More panels" placement="left"
+					tooltip="More panels" placement="left" aria-label="More panels"
 				><fa-icon [icon]="faAnglesRight"></fa-icon></button>
 				<div *dropdownMenu class="dropdown-menu dropdown-menu-end">
 					@for (tab of overflowTabs; track tab.id) {

@@ -4,6 +4,7 @@
 		class="form-control form-control-sm bg-dark text-light border-secondary"
 		style="min-width: 80px;"
 		[id]="inputId"
+		[attr.aria-label]="inputId ? null : 'Clock speed'"
 		min="1"
 		max="250"
 		step="any"

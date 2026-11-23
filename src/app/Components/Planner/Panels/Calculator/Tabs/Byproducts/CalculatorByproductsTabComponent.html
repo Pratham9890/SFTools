@@ -6,6 +6,7 @@
 			class="form-control form-control-sm bg-dark text-light border-secondary pp-search"
 			name="byproduct-filter"
 			placeholder="Filter by item name…"
+			aria-label="Filter by item name…"
 			[(ngModel)]="filter"
 		/>
 		<button class="btn btn-sm btn-outline-secondary py-0" type="button" (click)="setAll(items, true)">All</button>

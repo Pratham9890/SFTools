@@ -121,7 +121,7 @@
 			}
 
 			@if (state() !== 'parsing') {
-				<input type="file" accept=".sav" class="form-control bg-dark text-light border-secondary" (change)="onFilePicked($event)"/>
+				<input type="file" accept=".sav" class="form-control bg-dark text-light border-secondary" (change)="onFilePicked($event)" aria-label="Choose a save file"/>
 			}
 		</div>
 		<div class="card-footer d-flex justify-content-end gap-2">

@@ -1,10 +1,10 @@
-<button class="zb" type="button" [tooltip]="'Undo' + hotkeys.suffix('planner.undo')" placement="top" container="body" [disabled]="!history.canUndo()" (click)="undo()"><fa-icon [icon]="faArrowRotateLeft"></fa-icon></button>
-<button class="zb" type="button" [tooltip]="'Redo' + hotkeys.suffix('planner.redo')" placement="top" container="body" [disabled]="!history.canRedo()" (click)="redo()"><fa-icon [icon]="faArrowRotateRight"></fa-icon></button>
-<button class="zb" type="button" [tooltip]="'Zoom in' + hotkeys.suffix('planner.zoomIn')" placement="top" container="body" (click)="zoomIn()"><fa-icon [icon]="faPlus"></fa-icon></button>
-<button class="zb" type="button" [tooltip]="'Zoom out' + hotkeys.suffix('planner.zoomOut')" placement="top" container="body" (click)="zoomOut()"><fa-icon [icon]="faMinus"></fa-icon></button>
-<button class="zb" type="button" [tooltip]="'Zoom to fit' + hotkeys.suffix('planner.zoomFit')" placement="top" container="body" (click)="zoomFit()"><fa-icon [icon]="faExpand"></fa-icon></button>
+<button class="zb" type="button" [tooltip]="'Undo' + hotkeys.suffix('planner.undo')" [attr.aria-label]="'Undo' + hotkeys.suffix('planner.undo')" placement="top" container="body" [disabled]="!history.canUndo()" (click)="undo()"><fa-icon [icon]="faArrowRotateLeft"></fa-icon></button>
+<button class="zb" type="button" [tooltip]="'Redo' + hotkeys.suffix('planner.redo')" [attr.aria-label]="'Redo' + hotkeys.suffix('planner.redo')" placement="top" container="body" [disabled]="!history.canRedo()" (click)="redo()"><fa-icon [icon]="faArrowRotateRight"></fa-icon></button>
+<button class="zb" type="button" [tooltip]="'Zoom in' + hotkeys.suffix('planner.zoomIn')" [attr.aria-label]="'Zoom in' + hotkeys.suffix('planner.zoomIn')" placement="top" container="body" (click)="zoomIn()"><fa-icon [icon]="faPlus"></fa-icon></button>
+<button class="zb" type="button" [tooltip]="'Zoom out' + hotkeys.suffix('planner.zoomOut')" [attr.aria-label]="'Zoom out' + hotkeys.suffix('planner.zoomOut')" placement="top" container="body" (click)="zoomOut()"><fa-icon [icon]="faMinus"></fa-icon></button>
+<button class="zb" type="button" [tooltip]="'Zoom to fit' + hotkeys.suffix('planner.zoomFit')" [attr.aria-label]="'Zoom to fit' + hotkeys.suffix('planner.zoomFit')" placement="top" container="body" (click)="zoomFit()"><fa-icon [icon]="faExpand"></fa-icon></button>
 <!-- Rearrange is desktop-only: the phone layout keeps exactly the controls it had. -->
 @if (!layout.isMobile()) {
 	<button class="zb zb-separated zb-rearrange" type="button" [tooltip]="'Rearrange the chart. Amounts stay the same.' + hotkeys.suffix('planner.rearrange')" placement="top" container="body" [disabled]="actions.isCalculating() || !hasGraph" (click)="relayout()"><fa-icon [icon]="faSitemap"></fa-icon> Rearrange</button>
 }
-<button class="zb zb-separated" type="button" [tooltip]="'Export as image' + hotkeys.suffix('planner.export')" placement="top" container="body" (click)="exportImage()"><fa-icon [icon]="faImage"></fa-icon></button>
+<button class="zb zb-separated" type="button" [tooltip]="'Export as image' + hotkeys.suffix('planner.export')" [attr.aria-label]="'Export as image' + hotkeys.suffix('planner.export')" placement="top" container="body" (click)="exportImage()"><fa-icon [icon]="faImage"></fa-icon></button>

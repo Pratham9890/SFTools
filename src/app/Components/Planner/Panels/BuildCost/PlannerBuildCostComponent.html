@@ -24,6 +24,7 @@
 				type="search"
 				class="form-control form-control-sm bg-dark text-light border-secondary search"
 				placeholder="Filter by building or material…"
+				aria-label="Filter by building or material…"
 				[value]="searchTerm()"
 				(input)="setSearchTerm($any($event.target).value)"
 			/>

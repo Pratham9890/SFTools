@@ -5,6 +5,7 @@
 		type="button"
 		[tooltip]="panel.label + hotkeys.suffix(panel.hotkey)"
 		placement="right"
+		[attr.aria-label]="panel.label + hotkeys.suffix(panel.hotkey)"
 		(click)="layout.toggleFromRail(panel.id)"
 	><fa-icon [icon]="panel.icon"></fa-icon></button>
 }
@@ -16,6 +17,7 @@
 	type="button"
 	[tooltip]="'New plan' + hotkeys.suffix('plans.newPlan')"
 	placement="right"
+	[attr.aria-label]="'New plan' + hotkeys.suffix('plans.newPlan')"
 	(click)="planCreator.createPlan()"
 ><fa-icon [icon]="faPlus"></fa-icon></button>
 @if (features.shareLinks) {
@@ -24,6 +26,7 @@
 			class="rail-btn rail-btn-accent"
 			type="button"
 			[disabled]="shareDialog.activeTarget() === null"
+			[attr.aria-label]="shareTooltip()"
 			(click)="shareDialog.openActive()"
 		><fa-icon [icon]="faShareNodes"></fa-icon></button>
 	</span>

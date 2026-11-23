@@ -13,6 +13,7 @@
 					<td>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
+							aria-label="Item"
 							[name]="'item-' + i"
 							[(ngModel)]="row.itemClassName"
 							(ngModelChange)="sync()"
@@ -27,6 +28,7 @@
 						<input
 							type="number"
 							class="form-control form-control-sm bg-dark text-light border-secondary"
+							aria-label="Rate/min"
 							[name]="'rate-' + i"
 							[(ngModel)]="row.ratePerMinute"
 							(ngModelChange)="sync()"
@@ -38,6 +40,7 @@
 						<button
 							class="btn btn-sm btn-outline-danger px-2"
 							type="button"
+							aria-label="Remove"
 							(click)="removeRow(i)"
 						>×</button>
 					</td>

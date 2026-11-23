@@ -18,6 +18,7 @@
 						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: direction' : 'Direction' }}</label>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
+							[attr.aria-label]="inSheet ? 'This plan: direction' : 'Direction'"
 							[ngModel]="graphSettings().direction"
 							(ngModelChange)="setDirection($event)"
 						>
@@ -32,6 +33,7 @@
 						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: connection shape' : 'Connection shape' }}</label>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
+							[attr.aria-label]="inSheet ? 'This plan: connection shape' : 'Connection shape'"
 							[ngModel]="graphSettings().edgeShape"
 							(ngModelChange)="setEdgeShape($event)"
 						>
@@ -48,6 +50,7 @@
 						<input
 							type="range"
 							class="form-range"
+							[attr.aria-label]="inSheet ? 'This plan: block spacing' : 'Block spacing'"
 							min="0"
 							max="100"
 							step="5"
@@ -64,6 +67,7 @@
 						<input
 							type="range"
 							class="form-range"
+							[attr.aria-label]="inSheet ? 'This plan: layer spacing' : 'Layer spacing'"
 							min="0"
 							max="200"
 							step="5"
@@ -88,6 +92,7 @@
 						<label class="form-label text-secondary mb-1">{{ inSheet ? 'This plan: machines per line for new blocks' : 'Machines per line for new blocks' }}</label>
 						<select
 							class="form-select form-select-sm bg-dark text-light border-secondary"
+							[attr.aria-label]="inSheet ? 'This plan: machines per line for new blocks' : 'Machines per line for new blocks'"
 							[ngModel]="defaultGroupingMode"
 							(ngModelChange)="setDefaultGroupingMode($event)"
 						>
@@ -128,6 +133,7 @@
 											<input
 												type="color"
 												class="form-control form-control-color form-control-sm d-inline-block"
+												[attr.aria-label]="machine.name + ' colour'"
 												[ngModel]="machineColor(machine)"
 												(ngModelChange)="setMachineColor(machine, $event)"
 												[title]="machine.name + ' colour'"

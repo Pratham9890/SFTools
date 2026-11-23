@@ -12,7 +12,7 @@
 				[class.btn-outline-warning]="node.locked"
 				[class.btn-outline-secondary]="!node.locked"
 				type="button"
-				[tooltip]="lockTooltip" container="body" placement="left"
+				[tooltip]="lockTooltip" [attr.aria-label]="lockTooltip" container="body" placement="left"
 				(click)="toggleLock()"
 			><fa-icon [icon]="node.locked ? faLock : faLockOpen" [fixedWidth]="true"></fa-icon></button>
 		</div>
@@ -199,7 +199,7 @@
 									<button
 										class="btn btn-sm btn-outline-danger px-2"
 										type="button"
-										tooltip="Remove extractor row" container="body" placement="left"
+										tooltip="Remove extractor row" aria-label="Remove extractor row" container="body" placement="left"
 										[disabled]="extractorRows.length === 1"
 										(click)="removeExtractorRow($index)"
 									><fa-icon [icon]="faXmark"></fa-icon></button>

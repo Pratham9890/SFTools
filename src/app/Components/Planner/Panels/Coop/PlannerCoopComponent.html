@@ -10,7 +10,7 @@
 			<h3 class="pp-title">{{ player() === null ? 'Who are you?' : 'Your name and colour' }}</h3>
 			<p class="pp-note mb-0">Shown to the other players next to what you claim. No account needed.</p>
 			<div class="pp-row">
-				<input class="form-control form-control-sm bg-dark text-light border-secondary name-field" maxlength="40" placeholder="Your name" [(ngModel)]="playerName" (keydown.enter)="savePlayer()"/>
+				<input class="form-control form-control-sm bg-dark text-light border-secondary name-field" maxlength="40" placeholder="Your name" aria-label="Your name" [(ngModel)]="playerName" (keydown.enter)="savePlayer()"/>
 				<div class="pp-row" role="radiogroup" aria-label="Colour">
 					@for (color of colors; track color) {
 						<button type="button" class="swatch" [class.selected]="color === playerColor" [style.background]="color" [attr.aria-label]="'Colour ' + color" (click)="playerColor = color"></button>
@@ -29,12 +29,12 @@
 			<section class="pp-section start">
 				<h3 class="pp-title">Start a co-op space</h3>
 				<p class="pp-note mb-0">Plans in a space are shared live with everyone who has its invite link. Your own plans stay on this device, and you can drag them in.</p>
-				<input class="form-control form-control-sm bg-dark text-light border-secondary" maxlength="100" placeholder="Space name, e.g. our save's name" [(ngModel)]="spaceName" (keydown.enter)="create()"/>
+				<input class="form-control form-control-sm bg-dark text-light border-secondary" maxlength="100" placeholder="Space name, e.g. our save's name" aria-label="Space name" [(ngModel)]="spaceName" (keydown.enter)="create()"/>
 				<button type="button" class="btn btn-success btn-sm align-self-start" [disabled]="busy()" (click)="create()">Create space</button>
 			</section>
 			<section class="pp-section join">
 				<h3 class="pp-title">Join one</h3>
-				<input class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Paste the invite link" [(ngModel)]="inviteText" (keydown.enter)="join()"/>
+				<input class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Paste the invite link" aria-label="Paste the invite link" [(ngModel)]="inviteText" (keydown.enter)="join()"/>
 				<button type="button" class="btn btn-outline-success btn-sm align-self-start" [disabled]="busy() || inviteText.trim() === ''" (click)="join()">Join</button>
 			</section>
 		</div>
@@ -55,7 +55,7 @@
 				</div>
 				<div class="pp-row space-head">
 					@if (renaming()) {
-						<input class="form-control form-control-sm bg-dark text-light border-secondary space-name" maxlength="100" [(ngModel)]="renameText" (keydown.enter)="rename()" (keydown.escape)="renaming.set(false)" (blur)="rename()"/>
+						<input class="form-control form-control-sm bg-dark text-light border-secondary space-name" aria-label="Space name" maxlength="100" [(ngModel)]="renameText" (keydown.enter)="rename()" (keydown.escape)="renaming.set(false)" (blur)="rename()"/>
 					} @else {
 						<h3 class="pp-title text-truncate" [title]="spaceTitle()">{{ spaceTitle() }}</h3>
 						<button type="button" class="btn btn-link btn-sm p-0 text-secondary" aria-label="Rename space" (click)="startRename()"><fa-icon [icon]="faPen"></fa-icon></button>
@@ -120,10 +120,10 @@
 									@if (row.holder === null) {
 										<button type="button" class="btn btn-outline-success btn-sm" (click)="claim(row)"><fa-icon [icon]="faFlag"></fa-icon> Claim</button>
 									} @else if (row.mine) {
-										<button type="button" class="btn btn-sm" [class.btn-success]="!row.done" [class.btn-outline-secondary]="row.done" (click)="toggleDone(row)" [title]="row.done ? 'Mark as not built' : 'Mark as built'">
+										<button type="button" class="btn btn-sm" [class.btn-success]="!row.done" [class.btn-outline-secondary]="row.done" (click)="toggleDone(row)" [title]="row.done ? 'Mark as not built' : 'Mark as built'" [attr.aria-label]="row.done ? 'Mark as not built' : 'Mark as built'">
 											<fa-icon [icon]="row.done ? faRotateLeft : faCheck"></fa-icon>
 										</button>
-										<button type="button" class="btn btn-outline-secondary btn-sm" (click)="unclaim(row.nodeId)" title="Unclaim"><fa-icon [icon]="faXmark"></fa-icon></button>
+										<button type="button" class="btn btn-outline-secondary btn-sm" (click)="unclaim(row.nodeId)" title="Unclaim" aria-label="Unclaim"><fa-icon [icon]="faXmark"></fa-icon></button>
 									}
 								</div>
 							} @empty {

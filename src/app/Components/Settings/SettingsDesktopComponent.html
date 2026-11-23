@@ -23,7 +23,7 @@
 			</div>
 		</div>
 		<form class="d-flex gap-2" (ngSubmit)="openLink()">
-			<input type="text" class="form-control form-control-sm" name="link" placeholder="Paste a shared plan or plan link" [(ngModel)]="linkDraft"/>
+			<input type="text" class="form-control form-control-sm" name="link" placeholder="Paste a shared plan or plan link" aria-label="Paste a shared plan or plan link" [(ngModel)]="linkDraft"/>
 			<button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0" [disabled]="linkDraft.trim() === ''">Open</button>
 		</form>
 

@@ -48,7 +48,7 @@
 						</div>
 						<div>
 							<label class="form-label small mb-1">{{ amountLabel }}</label>
-							<input type="number" min="0" step="any" class="form-control form-control-sm bg-dark text-light border-secondary" [(ngModel)]="amount" />
+							<input type="number" [attr.aria-label]="amountLabel" min="0" step="any" class="form-control form-control-sm bg-dark text-light border-secondary" [(ngModel)]="amount" />
 						</div>
 					}
 				}
@@ -67,7 +67,7 @@
 					@if (itemClassName) {
 						<div>
 							<label class="form-label small mb-1">{{ amountLabel }}</label>
-							<input type="number" min="0" step="any" class="form-control form-control-sm bg-dark text-light border-secondary" [(ngModel)]="amount" />
+							<input type="number" [attr.aria-label]="amountLabel" min="0" step="any" class="form-control form-control-sm bg-dark text-light border-secondary" [(ngModel)]="amount" />
 						</div>
 					}
 				}

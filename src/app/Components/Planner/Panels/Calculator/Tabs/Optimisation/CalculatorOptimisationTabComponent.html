@@ -48,6 +48,7 @@
 					type="number"
 					class="form-control form-control-sm"
 					style="width: 90px; flex: none;"
+					aria-label="Cost of 1 MW"
 					min="0"
 					step="any"
 					[disabled]="!powerEnabled"
@@ -78,6 +79,7 @@
 					type="number"
 					class="form-control form-control-sm"
 					style="width: 90px; flex: none;"
+					aria-label="Cost of 1 machine"
 					min="0"
 					step="any"
 					[disabled]="!machinesEnabled"
@@ -124,6 +126,7 @@
 						type="number"
 						class="form-control form-control-sm"
 						style="width: 90px; flex: none;"
+						aria-label="Cost of 1 machine"
 						min="0"
 						step="any"
 						[disabled]="!machinesEnabled"
@@ -133,6 +136,7 @@
 					<button
 						class="btn btn-sm btn-outline-danger px-2"
 						type="button"
+						aria-label="Remove"
 						[disabled]="!machinesEnabled"
 						(click)="removeMachineWeightRow(i)"
 					><fa-icon [icon]="faXmark"></fa-icon></button>

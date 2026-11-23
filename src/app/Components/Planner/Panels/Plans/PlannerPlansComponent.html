@@ -42,6 +42,7 @@
 					(keydown)="onEditKeydown($event)"
 					(blur)="commitEdit()"
 					placeholder="{{ item.mode === 'folder' ? 'Folder name' : 'Plan name' }}"
+					[attr.aria-label]="item.mode === 'folder' ? 'Folder name' : 'Plan name'"
 				/>
 			</div>
 		} @else if (item.type === 'folder') {
@@ -72,7 +73,7 @@
 				(dragDrop)="onTouchDragDrop($event)"
 				(dragCancel)="onTouchDragCancel()"
 			>
-				<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" (click)="toggleCollapse(item.id); $event.stopPropagation()">
+				<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" [attr.aria-label]="item.isOpen ? 'Collapse' : 'Expand'" (click)="toggleCollapse(item.id); $event.stopPropagation()">
 					<fa-icon [icon]="item.isOpen ? faCaretDown : faCaretRight"></fa-icon>
 				</button>
 				@if (item.isEditing) {
@@ -85,6 +86,7 @@
 						(click)="$event.stopPropagation()"
 						(keydown)="onEditKeydown($event)"
 						(blur)="commitEdit()"
+						aria-label="Folder name"
 					/>
 				} @else {
 					<plan-tree-icon kind="folder" [open]="item.isOpen"></plan-tree-icon>
@@ -127,7 +129,7 @@
 				(dragCancel)="onTouchDragCancel()"
 			>
 				@if (item.hasSubplans) {
-					<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" (click)="toggleCollapse(item.plan.id); $event.stopPropagation()">
+					<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" [attr.aria-label]="item.isOpen ? 'Collapse' : 'Expand'" (click)="toggleCollapse(item.plan.id); $event.stopPropagation()">
 						<fa-icon [icon]="item.isOpen ? faCaretDown : faCaretRight"></fa-icon>
 					</button>
 				} @else {
@@ -145,6 +147,7 @@
 						(click)="$event.stopPropagation()"
 						(keydown)="onEditKeydown($event)"
 						(blur)="commitEdit()"
+						aria-label="Plan name"
 					/>
 				} @else {
 					<span class="tree-plan-icon" [tooltip]="item.isSubplan ? 'Subplan' : ''" placement="top">
@@ -203,7 +206,7 @@
 					(dragCancel)="onTouchDragCancel()"
 				>
 					@if (item.hasChildren) {
-						<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" (click)="toggleCollapse(item.id); $event.stopPropagation()">
+						<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" [attr.aria-label]="item.isOpen ? 'Collapse' : 'Expand'" (click)="toggleCollapse(item.id); $event.stopPropagation()">
 							<fa-icon [icon]="item.isOpen ? faCaretDown : faCaretRight"></fa-icon>
 						</button>
 					} @else {
@@ -270,7 +273,7 @@
 					(dragCancel)="onTouchDragCancel()"
 				>
 					@if (shareHasChildren(share.share)) {
-						<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" (click)="toggleCollapse(share.share); $event.stopPropagation()">
+						<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" [attr.aria-label]="isShareExpanded(share.share) ? 'Collapse' : 'Expand'" (click)="toggleCollapse(share.share); $event.stopPropagation()">
 							<fa-icon [icon]="isShareExpanded(share.share) ? faCaretDown : faCaretRight"></fa-icon>
 						</button>
 					} @else {
@@ -299,7 +302,7 @@
 								(contextmenu)="onVisitedShareContextMenu($event, share)"
 							>
 								@if (item.hasChildren) {
-									<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" (click)="toggleCollapse(item.key); $event.stopPropagation()">
+									<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" [attr.aria-label]="item.isOpen ? 'Collapse' : 'Expand'" (click)="toggleCollapse(item.key); $event.stopPropagation()">
 										<fa-icon [icon]="item.isOpen ? faCaretDown : faCaretRight"></fa-icon>
 									</button>
 								} @else {
@@ -324,7 +327,7 @@
 								(contextmenu)="onVisitedShareContextMenu($event, share)"
 							>
 								@if (item.hasChildren) {
-									<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" (click)="toggleCollapse(item.key); $event.stopPropagation()">
+									<button class="btn btn-link btn-sm p-0 text-body tree-toggle" type="button" [attr.aria-label]="item.isOpen ? 'Collapse' : 'Expand'" (click)="toggleCollapse(item.key); $event.stopPropagation()">
 										<fa-icon [icon]="item.isOpen ? faCaretDown : faCaretRight"></fa-icon>
 									</button>
 								} @else {

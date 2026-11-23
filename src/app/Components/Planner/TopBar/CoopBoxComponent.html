@@ -11,7 +11,7 @@
 		@if (player() === null) {
 			<p class="pl-coop-label">Your name</p>
 			<p class="pl-coop-line">Shown to the other players next to what you claim. No account needed.</p>
-			<input class="pl-coop-field" type="text" maxlength="40" placeholder="Your name" [(ngModel)]="playerName" (keydown.enter)="savePlayer()"/>
+			<input class="pl-coop-field" type="text" maxlength="40" placeholder="Your name" aria-label="Your name" [(ngModel)]="playerName" (keydown.enter)="savePlayer()"/>
 			<div class="pl-coop-swatches" role="radiogroup" aria-label="Colour">
 				@for (color of colors; track color) {
 					<button
@@ -28,13 +28,13 @@
 		} @else {
 			<p class="pl-coop-label">Name for your co-op space</p>
 			<div class="pl-coop-row">
-				<input class="pl-coop-field" type="text" maxlength="100" placeholder="For example, our save's name" [(ngModel)]="spaceName" (keydown.enter)="create()"/>
+				<input class="pl-coop-field" type="text" maxlength="100" placeholder="For example, our save's name" aria-label="Name for your co-op space" [(ngModel)]="spaceName" (keydown.enter)="create()"/>
 				<button class="pl-coop-primary" type="button" [disabled]="busy()" (click)="create()">Start co-op</button>
 			</div>
 
 			<p class="pl-coop-label">I have an invite link</p>
 			<div class="pl-coop-row">
-				<input class="pl-coop-field" type="text" placeholder="Paste the invite link" [(ngModel)]="inviteText" (keydown.enter)="join()"/>
+				<input class="pl-coop-field" type="text" placeholder="Paste the invite link" aria-label="I have an invite link" [(ngModel)]="inviteText" (keydown.enter)="join()"/>
 				<button class="pl-coop-action" type="button" [disabled]="busy() || inviteText.trim() === ''" (click)="join()">Join</button>
 			</div>
 

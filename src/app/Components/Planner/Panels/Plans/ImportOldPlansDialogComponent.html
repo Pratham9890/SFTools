@@ -15,10 +15,11 @@
 				rows="3"
 				[(ngModel)]="linksText"
 				placeholder="https://www.satisfactorytools.com/1.0/production?share=&hellip;"
+				aria-label="Share links"
 			></textarea>
 			<div class="d-flex align-items-center gap-2">
 				<button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="linksText.trim() === '' || importing()" (click)="loadLinks()">Load links</button>
-				<input type="file" accept=".sft" class="form-control form-control-sm bg-dark text-light border-secondary" [disabled]="importing()" (change)="onFilePicked($event)"/>
+				<input type="file" accept=".sft" class="form-control form-control-sm bg-dark text-light border-secondary" [disabled]="importing()" (change)="onFilePicked($event)" aria-label="Choose an .sft file"/>
 			</div>
 
 			@if (localCount() > 0) {

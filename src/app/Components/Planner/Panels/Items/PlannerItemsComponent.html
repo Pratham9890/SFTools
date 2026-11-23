@@ -8,6 +8,7 @@
 				type="search"
 				class="form-control form-control-sm bg-dark text-light border-secondary items-search"
 				placeholder="Filter by item or producer/consumer…"
+				aria-label="Filter by item or producer/consumer…"
 				[value]="searchTerm()"
 				(input)="setSearchTerm($any($event.target).value)"
 			/>

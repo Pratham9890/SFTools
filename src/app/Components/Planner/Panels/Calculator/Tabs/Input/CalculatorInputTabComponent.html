@@ -22,6 +22,7 @@
 						type="number"
 						class="form-control form-control-sm"
 						[name]="'input-amount-' + i"
+						aria-label="Amount"
 						[(ngModel)]="row.amount"
 						(ngModelChange)="sync()"
 						min="0"
@@ -40,6 +41,7 @@
 						[(ngModel)]="row.weight"
 						(ngModelChange)="sync()"
 						[title]="'Default ' + defaultWeightFor(row.itemClassName) + (weightsEnabled() ? '' : '. Ignored while input weights are off.')"
+						aria-label="Weight"
 						min="0"
 						step="any"
 					>

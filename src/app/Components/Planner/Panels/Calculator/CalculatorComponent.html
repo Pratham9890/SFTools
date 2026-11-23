@@ -160,7 +160,7 @@
 				<button
 					class="btn btn-sm btn-danger"
 					type="button"
-					tooltip="Cancel calculation" placement="bottom"
+					tooltip="Cancel calculation" aria-label="Cancel calculation" placement="bottom"
 					(click)="cancel()"
 				><fa-icon [icon]="faXmark"></fa-icon></button>
 			} @else {
@@ -308,7 +308,7 @@
 					<button
 						class="btn btn-sm btn-danger"
 						type="button"
-						tooltip="Stop after the current plan" placement="bottom"
+						tooltip="Stop after the current plan" aria-label="Stop after the current plan" placement="bottom"
 						(click)="cancelFolderRecalculation()"
 					><fa-icon [icon]="faXmark"></fa-icon></button>
 				} @else {
@@ -493,6 +493,7 @@
 							type="button"
 							[class.active]="activeTab() === tab.id"
 							[tooltip]="tabTooltip(tab, locks)"
+							[attr.aria-label]="tabsMode() === 'full' || activeTab() === tab.id ? null : tabTooltip(tab, locks)"
 							container="body" placement="bottom"
 							(click)="setTab(tab.id)"
 						>
@@ -507,6 +508,7 @@
 							type="button"
 							[class.active]="moreTabActive()"
 							[tooltip]="moreTooltip()"
+							[attr.aria-label]="tabsMode() === 'full' ? null : moreTooltip()"
 							container="body" placement="bottom"
 							dropdownToggle
 						>

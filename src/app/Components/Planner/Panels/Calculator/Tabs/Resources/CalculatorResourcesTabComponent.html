@@ -164,6 +164,7 @@
 						(ngModelChange)="setEnabled(row, $event)"
 						[disabled]="area() !== null"
 						[tooltip]="row.enabled ? 'Untick to stop mining this resource' : 'Tick to allow mining it'"
+						[attr.aria-label]="row.name"
 						container="body"
 						placement="top"
 					>
@@ -180,6 +181,7 @@
 							(ngModelChange)="row.limit = $event ?? 0; sync()"
 							[disabled]="row.infinite || !row.enabled || area() !== null"
 							[placeholder]="row.infinite ? 'unlimited' : ''"
+							[attr.aria-label]="row.name + ' limit'"
 							min="0"
 							step="any"
 						>
@@ -190,6 +192,7 @@
 							[class.active]="row.infinite"
 							[disabled]="!row.enabled || area() !== null"
 							[tooltip]="row.infinite ? 'Set a limit' : 'Make unlimited'"
+							[attr.aria-label]="row.infinite ? 'Set a limit' : 'Make unlimited'"
 							container="body"
 							placement="top"
 							(click)="toggleInfinite(row)"
@@ -202,6 +205,7 @@
 								type="number"
 								class="form-control form-control-sm"
 								[class.text-secondary]="!weightsEnabled()"
+								aria-label="Weight"
 								[name]="'weight-' + row.className"
 								[(ngModel)]="row.weight"
 								(ngModelChange)="sync()"
