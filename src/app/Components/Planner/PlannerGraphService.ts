@@ -397,6 +397,19 @@ function measureTextWidth(text: string, fontSize: number, bold: boolean, family 
 	return textMeasureContext.measureText(text).width;
 }
 
+/** The text, cut short with an ellipsis when it is wider than the room it has. */
+function fitText(text: string, maxWidth: number, fontSize: number, bold: boolean, family?: string): string
+{
+	if (measureTextWidth(text, fontSize, bold, family) <= maxWidth) {
+		return text;
+	}
+	let cut = text.length;
+	while (cut > 1 && measureTextWidth(`${text.slice(0, cut).trimEnd()}…`, fontSize, bold, family) > maxWidth) {
+		cut--;
+	}
+	return `${text.slice(0, cut).trimEnd()}…`;
+}
+
 /**
  * Look B's band text width. SVG applies letter-spacing after every glyph including the last, and a canvas does not
  * measure it, so the tracking is added here; the spare glyphs cover SVG's per-glyph rounding. Over-measuring only
@@ -2115,9 +2128,11 @@ export class PlannerGraphService implements OnDestroy
 		const clockLines = content.dimLine === '' ? 0 : content.dimLine.split('\n').length;
 		const makesY = this.recipeMakesY(clockLines) * scale;
 		const nameY = (recipe ? LOOK_C_NAME_Y : LOOK_C_ITEM_NAME_Y) * scale;
-		const nameWidth = measureTextWidth(content.name, LOOK_C_NAME_FONT * scale, true);
-		// The Alt tag sits at the card's right edge, on the recipe line; a long name pushes it right.
-		const altX = Math.max(textX + nameWidth + LOOK_C_ALT_GAP * scale, size.width - (LOOK_C_ALT_WIDTH + ALT_RIGHT_PAD) * scale);
+		// The Alt tag sits at the card's right edge, on the recipe line; a name too long for the room left is cut short.
+		const altShown = recipe && content.alternate;
+		const altX = size.width - (LOOK_C_ALT_WIDTH + ALT_RIGHT_PAD) * scale;
+		const nameRoom = (altShown ? altX - LOOK_C_ALT_GAP * scale : size.width - ALT_RIGHT_PAD * scale) - textX;
+		const name = fitText(content.name, nameRoom, LOOK_C_NAME_FONT * scale, true);
 		const countX = textX + (content.countIcon === '' ? 0 : (LOOK_C_COUNT_ICON + LOOK_C_COUNT_ICON_GAP) * scale);
 		const makesX = textX + measureTextWidth('Makes ', LOOK_C_DIM_FONT * scale, false);
 		// Faded per element so the `done` check stays opaque.
@@ -2144,7 +2159,7 @@ export class PlannerGraphService implements OnDestroy
 					...fade,
 				},
 				stripe: {...stripeAttrs(LOOK_C_RADIUS * scale, LOOK_C_STRIPE * scale), fill: style.accent},
-				name: {text: content.name, x: textX, y: nameY, ...fade},
+				name: {text: name, x: textX, y: nameY, ...fade},
 				altTag: {...this.altTagAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
 				altText: {...this.altTextAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
 				machines: {
@@ -2233,8 +2248,10 @@ export class PlannerGraphService implements OnDestroy
 		const clockLines = content.dimLine === '' ? 0 : content.dimLine.split('\n').length;
 		const textX = (content.icon === '' ? GAME_TEXT_PAD_LEFT : GAME_TEXT_INSET) * scale;
 		const nameY = GAME_NAME_Y * scale;
-		const nameWidth = measureTextWidth(content.name, GAME_NAME_FONT * scale, true, GAME_FONT_FAMILY);
-		const altX = Math.max(textX + nameWidth + GAME_ALT_GAP * scale, size.width - (LOOK_C_ALT_WIDTH + ALT_RIGHT_PAD) * scale);
+		const altShown = recipe && content.alternate;
+		const altX = size.width - (LOOK_C_ALT_WIDTH + ALT_RIGHT_PAD) * scale;
+		const nameRoom = (altShown ? altX - GAME_ALT_GAP * scale : size.width - ALT_RIGHT_PAD * scale) - textX;
+		const name = fitText(content.name, nameRoom, GAME_NAME_FONT * scale, true, GAME_FONT_FAMILY);
 		const bandIconX = GAME_BAND_PAD_LEFT;
 		const bandTitleX = bandIconX + (band.icon === '' ? 0 : GAME_BAND_ICON + GAME_BAND_ICON_GAP);
 		const rateX = size.width - GAME_BAND_RATE_PAD_RIGHT * scale;
@@ -2297,7 +2314,7 @@ export class PlannerGraphService implements OnDestroy
 					opacity: 0.7,
 					...fade,
 				},
-				name: {text: content.name, x: textX, y: nameY, ...fade},
+				name: {text: name, x: textX, y: nameY, ...fade},
 				altTag: {...this.altTagAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
 				altText: {...this.altTextAttrs(recipe && content.alternate, altX, nameY, scale), ...fade},
 				stats: {
