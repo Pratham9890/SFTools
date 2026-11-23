@@ -22,6 +22,9 @@ export interface FlowLayoutEdge {
 	targetId: string;
 	itemKey: string;
 	labelWidth: number;
+	/** Not what its block is there to make; loops are closed over these first. */
+	byproduct?: boolean;
+	amount?: number;
 }
 
 export interface FlowLayoutOptions {
@@ -91,12 +94,17 @@ interface WorkEdge {
 	targetId: string;
 	itemKey: string;
 	labelWidth: number;
+	byproduct: boolean;
+	amount: number;
 	index: number;
 	source: WorkNode;
 	target: WorkNode;
 	outPort: WorkPort;
 	inDy: number;
 	segs: WorkSeg[];
+	/** Lines that go back: the lane out of the block and the lane into the target. */
+	exit: LaneGroup | null;
+	entry: LaneGroup | null;
 }
 
 interface WorkItem {
@@ -131,8 +139,11 @@ interface LaneGroup {
 	min: number;
 	max: number;
 	bends: boolean;
+	/** The lane also runs to a row below the chart. Its lane in from such a row has y0 = Infinity. */
+	down: boolean;
 	laneX: number | null;
 }
+
 interface GapInfo {
 	groups: LaneGroup[];
 	tracks: LaneGroup[];
@@ -144,8 +155,8 @@ const GEOM_EPS = 0.011;
 const SIDE_PAD = 26;
 const END_PAD = 16;
 const LABEL_ROOM = 22;
-// Two horizontals further apart than this never read as one line.
-const ROW_CLEAR = 6;
+// The distance DragRouter keeps between lines too.
+const ROW_CLEAR = 12;
 // Outweighs any crossing count, so the same-row rule always wins.
 const ROW_PENALTY = 1000;
 
@@ -213,6 +224,59 @@ function pairsGreater(as: readonly number[], bs: readonly number[]): number {
 	return total;
 }
 
+// The lines that have to go back so the rest has no loops. Lines carrying what
+// a block is there to make keep running forward, larger ones first.
+function loopClosers(nodes: readonly WorkNode[], edges: readonly WorkEdge[]): Set<WorkEdge> {
+	const back = new Set<WorkEdge>();
+	const core = new Set(nodes.filter(n => n.kind !== 'source'));
+	// Blocks that nothing in the core feeds, or that feed nothing in it, are in no loop.
+	const counts = (next: 'ins' | 'outs'): Map<WorkNode, number> => new Map([...core].map(n => [n, n[next].length]));
+	for (const [from, to] of [['ins', 'outs'], ['outs', 'ins']] as const) {
+		const left = counts(from);
+		for (const n of core) {
+			for (const e of n[from]) {
+				const other = from === 'ins' ? e.source : e.target;
+				if (!core.has(other)) left.set(n, (left.get(n) as number) - 1);
+			}
+		}
+		const queue = [...core].filter(n => left.get(n) === 0);
+		for (let i = 0; i < queue.length; i++) {
+			core.delete(queue[i]);
+			for (const e of queue[i][to]) {
+				const other = to === 'outs' ? e.target : e.source;
+				if (!core.has(other)) continue;
+				const d = (left.get(other) as number) - 1;
+				left.set(other, d);
+				if (d === 0) queue.push(other);
+			}
+		}
+	}
+	const kept = new Map<WorkNode, WorkNode[]>();
+	for (const n of core) kept.set(n, []);
+	const reaches = (from: WorkNode, goal: WorkNode): boolean => {
+		const seen = new Set([from]);
+		const stack = [from];
+		while (stack.length) {
+			const n = stack.pop() as WorkNode;
+			if (n === goal) return true;
+			for (const t of kept.get(n) as WorkNode[]) {
+				if (!seen.has(t)) {
+					seen.add(t);
+					stack.push(t);
+				}
+			}
+		}
+		return false;
+	};
+	const inCore = edges.filter(e => core.has(e.source) && core.has(e.target));
+	inCore.sort((a, b) => Number(a.byproduct) - Number(b.byproduct) || b.amount - a.amount || a.index - b.index);
+	for (const e of inCore) {
+		if (reaches(e.target, e.source)) back.add(e);
+		else (kept.get(e.source) as WorkNode[]).push(e.target);
+	}
+	return back;
+}
+
 function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayoutEdge[], options: FlowLayoutOptions): FlowLayoutResult {
 	const portGap = Number.isFinite(options.portGap) && options.portGap > 0 ? options.portGap : 1;
 	const laneGap = Number.isFinite(options.laneGap) && options.laneGap > 0 ? options.laneGap : 1;
@@ -256,7 +320,8 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		const w: WorkEdge = {
 			id: e.id, sourceId: e.sourceId, targetId: e.targetId, itemKey: e.itemKey,
 			labelWidth: Number.isFinite(e.labelWidth) ? Math.max(0, e.labelWidth) : 0,
-			index: workEdges.length, source: s, target: t, outPort: port, inDy: 0, segs: [],
+			byproduct: e.byproduct === true, amount: Number.isFinite(e.amount) ? e.amount as number : 0,
+			index: workEdges.length, source: s, target: t, outPort: port, inDy: 0, segs: [], exit: null, entry: null,
 		};
 		s.outs.push(w);
 		t.ins.push(w);
@@ -272,8 +337,9 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 	for (const n of workNodes) resize(n);
 
 	// ---------- columns ----------
-	// Longest path over non-source predecessors; sources go one column before
-	// their first user. Kahn's queue keeps cycles from recursing forever.
+	// Longest path over non-source predecessors, with the lines that close a loop
+	// left out; sources go one column before their first user.
+	const goesBack = loopClosers(workNodes, workEdges);
 	const nonSources = workNodes.filter(n => n.kind !== 'source');
 	const indeg = new Map<WorkNode, number>();
 	const succ = new Map<WorkNode, WorkNode[]>();
@@ -286,7 +352,7 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		const list = succ.get(n) as WorkNode[];
 		for (const e of n.outs) {
 			const t = e.target;
-			if (t.kind === 'source') continue;
+			if (t.kind === 'source' || goesBack.has(e)) continue;
 			list.push(t);
 			indeg.set(t, (indeg.get(t) as number) + 1);
 		}
@@ -306,7 +372,10 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		}
 		for (const n of nonSources) if (n.layer > maxL) maxL = n.layer;
 	}
-	for (const n of workNodes) if (n.kind === 'product') n.layer = maxL;
+	// What leaves the factory closes the chart: products, byproducts, sinks and generators.
+	for (const n of workNodes) {
+		if (n.kind !== 'source' && !n.outs.length && (n.ins.length || n.kind === 'product')) n.layer = maxL;
+	}
 	for (const n of workNodes) {
 		if (n.kind !== 'source') continue;
 		let first = Infinity;
@@ -351,7 +420,10 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		const s = e.source;
 		const t = e.target;
 		e.segs = [];
-		if (t.layer <= s.layer) continue;
+		if (t.layer <= s.layer || goesBack.has(e)) {
+			goesBack.add(e);
+			continue;
+		}
 		let prev = nodeItems.get(s.id) as WorkItem;
 		for (let l = s.layer + 1; l < t.layer; l++) {
 			const key = `d|${s.id}|${e.itemKey}|${l}`;
@@ -382,6 +454,14 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 			rightOf.set(seg.a, r);
 		}
 		r.push(seg);
+	}
+
+	// Lines that go back run below the chart, so their outputs sit under the others.
+	for (const n of workNodes) {
+		const ahead = new Set<WorkPort>();
+		for (const e of n.outs) if (!goesBack.has(e)) ahead.add(e.outPort);
+		n.outPorts = [...n.outPorts.filter(p => ahead.has(p)), ...n.outPorts.filter(p => !ahead.has(p))];
+		resize(n);
 	}
 
 	// Initial order per column, then barycentre sweeps.
@@ -436,8 +516,8 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 	// Input ports follow the order of what feeds them.
 	for (const n of workNodes) {
 		n.ins.sort((a, b) => {
-			const pa = a.segs.length ? a.segs[a.segs.length - 1].a.pos : -1;
-			const pb = b.segs.length ? b.segs[b.segs.length - 1].a.pos : -1;
+			const pa = a.segs.length ? a.segs[a.segs.length - 1].a.pos : Number.MAX_SAFE_INTEGER;
+			const pb = b.segs.length ? b.segs[b.segs.length - 1].a.pos : Number.MAX_SAFE_INTEGER;
 			return pa - pb || a.index - b.index;
 		});
 		resize(n);
@@ -565,7 +645,8 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 					const sg = e.segs[e.segs.length - 1];
 					y = sg.a.kind === 'node' ? sg.a.y + e.outPort.dy : sg.a.y + sg.a.h / 2;
 				} else {
-					y = e.source.y + e.outPort.dy;
+					// Comes up from below the chart.
+					y = Number.MAX_SAFE_INTEGER;
 				}
 				return {e, y};
 			}).sort((a, b) => a.y - b.y || a.e.index - b.e.index);
@@ -582,9 +663,17 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 	}
 
 	// ---------- routing: one lane per output, split there ----------
-	const gaps: GapInfo[] = [];
-	for (let l = 0; l < maxCol; l++) {
-		const ss = segsByLayer[l];
+	const exitsByGap = new Map<number, WorkEdge[]>();
+	const entriesByGap = new Map<number, WorkEdge[]>();
+	for (const e of goesBack) {
+		for (const [map, l] of [[exitsByGap, e.source.layer], [entriesByGap, e.target.layer - 1]] as const) {
+			const list = map.get(l);
+			if (list) list.push(e);
+			else map.set(l, [e]);
+		}
+	}
+	const planGap = (l: number): GapInfo => {
+		const ss = l >= 0 && l < maxCol ? segsByLayer[l] : [];
 		let labelCol = 0;
 		const groups = new Map<string, LaneGroup>();
 		for (const s of ss) {
@@ -595,7 +684,7 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 			const key = `${s.a.id}|${Math.round(s.y0)}`;
 			let g = groups.get(key);
 			if (!g) {
-				g = {segs: [], itemKey: s.itemKey, y0: s.y0, rawTargets: [], sortedTargets: [], min: s.y0, max: s.y0, bends: false, laneX: null};
+				g = {segs: [], itemKey: s.itemKey, y0: s.y0, rawTargets: [], sortedTargets: [], min: s.y0, max: s.y0, bends: false, down: false, laneX: null};
 				groups.set(key, g);
 			}
 			g.segs.push(s);
@@ -603,6 +692,25 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 			g.min = Math.min(g.min, s.y1);
 			g.max = Math.max(g.max, s.y1);
 			if (Math.abs(s.y1 - s.y0) >= 1) g.bends = true;
+		}
+		for (const e of exitsByGap.get(l) || []) {
+			const y0 = e.source.y + e.outPort.dy;
+			const key = `${e.source.id}|${Math.round(y0)}`;
+			let g = groups.get(key);
+			if (!g) {
+				g = {segs: [], itemKey: e.itemKey, y0, rawTargets: [], sortedTargets: [], min: y0, max: y0, bends: false, down: false, laneX: null};
+				groups.set(key, g);
+			}
+			g.bends = true;
+			g.down = true;
+			g.max = Infinity;
+			e.exit = g;
+		}
+		for (const e of entriesByGap.get(l) || []) {
+			const y = e.target.y + e.inDy;
+			labelCol = Math.max(labelCol, e.labelWidth);
+			e.entry = {segs: [], itemKey: e.itemKey, y0: Infinity, rawTargets: [y], sortedTargets: [], min: y, max: Infinity, bends: true, down: true, laneX: null};
+			groups.set(`back|${e.index}`, e.entry);
 		}
 		const groupList = [...groups.values()];
 		for (const g of groupList) {
@@ -635,8 +743,10 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		const score = (i: LaneGroup, j: LaneGroup): number =>
 			crossings(i, j) + (clashesIfLeft(i, j) ? ROW_PENALTY : 0);
 		let tracks = groupList.filter(g => g.bends);
+		const FAR = 1e9;
+		const slope = (g: LaneGroup): number => g.y0 === Infinity ? g.rawTargets[0] - FAR : g.down ? FAR : g.rawTargets[0] - g.y0;
 		tracks.sort((a, b) => ((a.segs.length > 1 ? 1 : 0) - (b.segs.length > 1 ? 1 : 0))
-			|| ((a.rawTargets[0] - a.y0) - (b.rawTargets[0] - b.y0)));
+			|| (slope(a) - slope(b)));
 		const mustLeft = (i: LaneGroup, j: LaneGroup): boolean => !clashesIfLeft(i, j) && clashesIfLeft(j, i);
 		// A shared height pins some lanes to a side, and those pins chain up, so
 		// lane-by-lane moves alone can stall. Order by the pins first, keeping
@@ -716,8 +826,13 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		}
 		const lanes = Math.max(0, tracks.length - 1) * laneGap;
 		const width = Math.max(minGapWidth, SIDE_PAD + lanes + LABEL_ROOM + labelCol + END_PAD);
-		gaps.push({groups: groupList, tracks, labelCol, width});
-	}
+		return {groups: groupList, tracks, labelCol, width};
+	};
+	const gaps: GapInfo[] = [];
+	for (let l = 0; l < maxCol; l++) gaps.push(planGap(l));
+	// Lines going back can also leave the last column or enter the first.
+	const gapBefore = planGap(-1);
+	const gapAfterLast = planGap(maxCol);
 
 	// Column widths and x positions.
 	const layerW: number[] = [];
@@ -749,6 +864,9 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		}
 	}
 
+	gapBefore.tracks.forEach((t, k) => t.laneX = layerX[0] - gapBefore.width + SIDE_PAD + k * laneGap);
+	gapAfterLast.tracks.forEach((t, k) => t.laneX = totalWidth + SIDE_PAD + k * laneGap);
+
 	const junctions: FlowJunction[] = [];
 	for (let l = 0; l < gaps.length; l++) {
 		const gap = gaps[l];
@@ -779,10 +897,33 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 	}
 
 	// ---------- per-edge routes ----------
-	let maxBottom = -Infinity;
-	for (const n of workNodes) if (n.y + n.height > maxBottom) maxBottom = n.y + n.height;
-	const outerY = maxBottom + Math.max(nodeGap, laneGap) + 10;
-	const backwardOut = Math.min(20, Math.max(8, laneGap));
+	// Lines that go back: one row per output below the blocks and lanes they pass,
+	// shorter rows nearer the chart so they nest instead of crossing.
+	const rows = new Map<LaneGroup, {from: number; to: number; first: number; last: number; y: number}>();
+	for (const e of goesBack) {
+		const g = e.exit as LaneGroup;
+		const from = (e.entry as LaneGroup).laneX as number;
+		const to = g.laneX as number;
+		const row = rows.get(g);
+		if (row) {
+			row.from = Math.min(row.from, from);
+			row.first = Math.min(row.first, e.target.layer);
+		} else {
+			rows.set(g, {from: Math.min(from, to), to: Math.max(from, to), first: Math.min(e.target.layer, e.source.layer), last: Math.max(e.target.layer, e.source.layer), y: 0});
+		}
+	}
+	const bottoms = layers.map(ly => ly.reduce((low, it) => Math.max(low, it.y + (it.node ? it.node.height : it.h)), -Infinity));
+	const placedRows: {from: number; to: number; y: number}[] = [];
+	for (const row of [...rows.values()].sort((a, b) => (a.to - a.from) - (b.to - b.from))) {
+		let y = -Infinity;
+		for (let l = Math.max(0, row.first - 1); l <= Math.min(maxCol, row.last + 1); l++) y = Math.max(y, bottoms[l]);
+		y += Math.max(nodeGap, laneGap);
+		for (const other of placedRows.filter(o => o.from <= row.to + laneGap && o.to >= row.from - laneGap).sort((a, b) => a.y - b.y)) {
+			if (Math.abs(other.y - y) < laneGap) y = other.y + laneGap;
+		}
+		row.y = y;
+		placedRows.push(row);
+	}
 
 	const routeForward = (e: WorkEdge): FlowPoint[] => {
 		const pts: FlowPoint[] = [];
@@ -808,29 +949,24 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		return cleanPoints(pts);
 	};
 
-	// Cycles and other lines that do not move right: leave the output to the
-	// right, go around below every block, and enter the target from its left.
+	// Cycles and other lines that do not move right: down the output's lane, along
+	// its row below the chart, and up a lane left of the target's labels.
 	const routeBackward = (e: WorkEdge): FlowPoint[] => {
-		const s = e.source;
 		const t = e.target;
-		const sx = s.x + s.width;
-		const sy = s.y + e.outPort.dy;
+		const sy = e.source.y + e.outPort.dy;
 		const ty = t.y + e.inDy;
-		const xOut = layerX[s.layer] + layerW[s.layer] + backwardOut;
-		// Keep the vertical approach inside the gap just before the target, even
-		// when the caller asks for very narrow gaps.
-		const prevRight = t.layer > 0 ? layerX[t.layer - 1] + layerW[t.layer - 1] : -Infinity;
-		const labelX = t.x - 12;
-		const xIn = Math.max(labelX, prevRight + 1);
-		const pts: FlowPoint[] = [
-			{x: sx, y: sy},
+		const exit = e.exit as LaneGroup;
+		const xOut = exit.laneX as number;
+		const xIn = (e.entry as LaneGroup).laneX as number;
+		const y = (rows.get(exit) as {y: number}).y;
+		return cleanPoints([
+			{x: e.source.x + e.source.width, y: sy},
 			{x: xOut, y: sy},
-			{x: xOut, y: outerY},
-			{x: xIn, y: outerY},
+			{x: xOut, y},
+			{x: xIn, y},
 			{x: xIn, y: ty},
 			{x: t.x, y: ty},
-		];
-		return cleanPoints(pts);
+		]);
 	};
 
 	const outNodes = new Map<string, FlowNodePlacement>();

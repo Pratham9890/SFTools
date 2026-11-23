@@ -1,4 +1,5 @@
-// Routes the flow chart's lines again while blocks are dragged.
+// Routes the flow chart's lines again while blocks are dragged, and tidies lines that run into something after a layout
+// or in an opened plan, so every line follows the same rules.
 // Pure TypeScript: no imports, no DOM. Works in the 'right' direction; 'down' charts are transposed by the caller.
 //
 // One router lives for one drag. Every step starts from the lines as they were when the drag began, so routes never
@@ -108,6 +109,10 @@ const CROSSING_COST = 60;
 const OVERLAP_COST = 20000;
 /** Searching time per step while dragging, so the block keeps up with the pointer; lines left over wait for the drop. */
 const LIVE_SEARCH_MS = 12;
+/** Tidying a whole chart, or making room after a drop, takes no longer than this; lines left over keep their route. */
+const TIDY_SEARCH_MS = 400;
+/** A drop asks at most this many lines to make room, so it stays quick on large plans. */
+const MAKE_ROOM_LINES = 6;
 /** Over 1 the search heads for the goal sooner, for a slightly longer route at most. */
 const ESTIMATE_WEIGHT = 1.2;
 /** How far around a line's ends the search looks; widened when nothing is found. */
@@ -158,10 +163,122 @@ export class DragRouter
 			}
 		});
 
-		const searchUntil = live ? performance.now() + LIVE_SEARCH_MS : Infinity;
+		let routes = this.reroute(boxes, shifts, live, live ? performance.now() + LIVE_SEARCH_MS : Infinity);
+		if (!live) {
+			// A line left on top of another had no free way: the other line makes room, if that helps.
+			const overlapping = this.overlappingLines(routes, boxes);
+			if (overlapping.size > 0 && overlapping.size <= MAKE_ROOM_LINES) {
+				const deadline = performance.now() + TIDY_SEARCH_MS;
+				const again = this.reroute(boxes, shifts, false, deadline, new Set([...overlapping, ...routes.keys()]), overlapping);
+				if (performance.now() < deadline && this.overlappingLines(again, boxes).size < overlapping.size) {
+					routes = again;
+				}
+			}
+		}
+		const result = new Map<string, DragPoint[]>();
+		routes.forEach((route, index) => result.set(this.lines[index].id, route));
+		this.changed.forEach(index => {
+			if (!routes.has(index)) {
+				result.set(this.lines[index].id, this.lines[index].vertices.map(point => ({x: point.x, y: point.y})));
+			}
+		});
+		this.changed = new Set(routes.keys());
+		return result;
+	}
+
+	/** New inner corners, by line id, of the layout lines that run through a block or a rate label or too close to another line. */
+	public tidy(): Map<string, DragPoint[]>
+	{
+		const movers = this.findConflicts();
+		const result = new Map<string, DragPoint[]>();
+		if (movers.size === 0) {
+			return result;
+		}
+		this.reroute(this.boxes, new Map(), false, performance.now() + TIDY_SEARCH_MS, movers).forEach((route, index) => {
+			if (JSON.stringify(route) !== JSON.stringify(this.lines[index].vertices.map(point => ({x: point.x, y: point.y})))) {
+				result.set(this.lines[index].id, route);
+			}
+		});
+		return result;
+	}
+
+	/** The fewest layout lines whose re-routing leaves no line in another's way. */
+	private findConflicts(): Set<number>
+	{
+		const clashes = new Map<number, Set<number>>();
+		const own = new Set<number>();
+		const movable = (index: number): boolean => this.lines[index].auto;
+		const buckets = new Map<string, Segment[]>();
+		const size = 64;
+		for (const a of this.baseSegments) {
+			const cell = Math.floor(a.c / size);
+			for (const at of [cell - 1, cell, cell + 1]) {
+				for (const b of buckets.get(`${a.vertical}|${at}`) ?? []) {
+					if (a.line !== b.line && overlaps(a, b, SPACING)) {
+						for (const [from, to] of [[a.line, b.line], [b.line, a.line]]) {
+							clashes.set(from, (clashes.get(from) ?? new Set()).add(to));
+						}
+					}
+				}
+			}
+			const key = `${a.vertical}|${cell}`;
+			const list = buckets.get(key);
+			if (list) {
+				list.push(a);
+			} else {
+				buckets.set(key, [a]);
+			}
+		}
+		const hitBy = (box: DragBox, skip: number, horizontalSkip: number): void => {
+			for (const vertical of [true, false]) {
+				const lo = vertical ? box.x : box.y;
+				const hi = lo + (vertical ? box.width : box.height);
+				for (let at = Math.floor(lo / size); at <= Math.floor(hi / size); at++) {
+					for (const segment of buckets.get(`${vertical}|${at}`) ?? []) {
+						if (segment.line !== skip && (vertical || segment.line !== horizontalSkip) && hitsBox(segment, box)) {
+							own.add(segment.line);
+						}
+					}
+				}
+			}
+		};
+		// Ports sit on the block's edge, so a block is taken a little smaller than it is.
+		this.boxes.forEach(box => hitBy({x: box.x + 1, y: box.y + 1, width: box.width - 2, height: box.height - 2}, -1, -1));
+		this.lines.forEach((line, index) => {
+			const label = this.labelOf(line, index, this.boxes);
+			// A line may run straight into its own label, not turn behind it.
+			if (label !== null) {
+				hitBy({...label, x: label.x + 1, y: label.y + 1, width: label.width - 2, height: label.height - 2}, -1, index);
+			}
+		});
+		const movers = new Set([...own].filter(movable));
+		const drop = (index: number): void => {
+			clashes.get(index)?.forEach(other => clashes.get(other)?.delete(index));
+			clashes.delete(index);
+		};
+		movers.forEach(drop);
+		for (;;) {
+			let worst = -1;
+			let most = 0;
+			clashes.forEach((others, index) => {
+				if (movable(index) && others.size > most) {
+					worst = index;
+					most = others.size;
+				}
+			});
+			if (worst < 0) {
+				return movers;
+			}
+			movers.add(worst);
+			drop(worst);
+		}
+	}
+
+	private reroute(boxes: ReadonlyMap<string, DragBox>, shifts: ReadonlyMap<string, DragPoint>, live: boolean, searchUntil: number, conflicts?: Set<number>, giveUp?: ReadonlySet<number>): Map<number, DragPoint[]>
+	{
 		const routes = new Map<number, DragPoint[]>();
 		const labels = this.lines.map((line, index) => this.labelOf(line, index, boxes)).filter(label => label !== null);
-		const movers = this.findMovers(boxes, shifts, labels);
+		const movers = conflicts ?? this.findMovers(boxes, shifts, labels);
 		const occupied = this.baseSegments.filter(segment => !movers.has(segment.line));
 		const around: Surroundings = {boxes: [...boxes.values()], labels, segments: occupied};
 		const waiting: {index: number; kept: DragPoint[] | null}[] = [];
@@ -183,7 +300,7 @@ export class DragRouter
 			// The ends of every line are taken before any of them is routed, so an early route never blocks a later port.
 			occupied.push(...segmentsOf(index, line.group, [ends.start, this.leave(ends)]));
 			occupied.push(...segmentsOf(index, line.group, [this.arrive(ends, this.options.pad), ends.end]));
-			waiting.push({index, kept: this.keepRoute(line, ends, sourceShift, targetShift)});
+			waiting.push({index, kept: giveUp?.has(index) ? null : this.keepRoute(line, ends, sourceShift, targetShift)});
 		});
 
 		const settle = (index: number, route: DragPoint[], ends: Ends): void => {
@@ -207,18 +324,46 @@ export class DragRouter
 			const ends = this.endsOf(this.lines[index], boxes) as Ends;
 			return {index, kept, ends, length: Math.abs(ends.end.x - ends.start.x) + Math.abs(ends.end.y - ends.start.y)};
 		}).sort((a, b) => a.length - b.length || a.index - b.index).forEach(({index, kept, ends}) => {
-			settle(index, this.route(index, ends, kept, around, live, searchUntil), ends);
+			const route = this.route(index, ends, kept, around, live, searchUntil);
+			// Tidying only swaps a route for one that runs over less.
+			const worse = conflicts !== undefined && shifts.size === 0 && kept !== null && this.countClashes(index, route, ends, around, TOO_CLOSE) > 0
+				&& this.countClashes(index, kept, ends, around, TOO_CLOSE) <= this.countClashes(index, route, ends, around, TOO_CLOSE);
+			settle(index, worse ? kept : route, ends);
 		});
+		return routes;
+	}
 
-		const result = new Map<string, DragPoint[]>();
-		routes.forEach((route, index) => result.set(this.lines[index].id, route));
-		this.changed.forEach(index => {
-			if (!routes.has(index)) {
-				result.set(this.lines[index].id, this.lines[index].vertices.map(point => ({x: point.x, y: point.y})));
-			}
+	/** Layout lines that share a stretch with one of the routed lines, and those routed lines. */
+	private overlappingLines(routes: ReadonlyMap<number, DragPoint[]>, boxes: ReadonlyMap<string, DragBox>): Set<number>
+	{
+		const routed: Segment[] = [];
+		routes.forEach((route, index) => {
+			const ends = this.endsOf(this.lines[index], boxes) as Ends;
+			routed.push(...segmentsOf(index, this.lines[index].group, [ends.start, ...route, ends.end]));
 		});
-		this.changed = new Set(routes.keys());
+		const others = [...this.baseSegments.filter(segment => !routes.has(segment.line)), ...routed];
+		const result = new Set<number>();
+		for (const a of routed) {
+			for (const b of others) {
+				if (a.line !== b.line && overlaps(a, b, TOO_CLOSE)) {
+					[a.line, b.line].filter(index => this.lines[index].auto).forEach(index => result.add(index));
+				}
+			}
+		}
 		return result;
+	}
+
+	private countClashes(index: number, route: DragPoint[], ends: Ends, around: Surroundings, spacing: number): number
+	{
+		const points = [ends.start, ...route, ends.end];
+		const {group} = this.lines[index];
+		const region = regionOf(points, 40, around, index, group);
+		let count = 0;
+		for (const segment of segmentsOf(index, group, points)) {
+			count += region.boxes.filter(box => hitsBox(segment, box)).length + region.labels.filter(label => hitsBox(segment, label)).length;
+			count += [...region.segments, ...region.siblings].filter(other => overlaps(segment, other, spacing)).length;
+		}
+		return count;
 	}
 
 	private labelOf(line: DragLine, index: number, boxes: ReadonlyMap<string, DragBox>): LabelBox | null

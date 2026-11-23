@@ -1008,6 +1008,7 @@ export class PlannerGraphService implements OnDestroy
 		const nodeIds = new Set(nodes.map(node => node.id));
 		const layoutEdges = edges.filter(edge => nodeIds.has(edge.sourceId) && nodeIds.has(edge.targetId));
 		const edgeIds = new Map<GraphEdge, string>();
+		const mainOutput = new Map(nodes.map(node => [node.id, node.outputs?.[0]?.item.className]));
 		const flowEdges: FlowLayoutEdge[] = layoutEdges.map((edge, i) => {
 			const id = `e${i}`;
 			edgeIds.set(edge, id);
@@ -1017,6 +1018,8 @@ export class PlannerGraphService implements OnDestroy
 				targetId: edge.targetId,
 				itemKey: edge.itemClassName,
 				labelWidth: this.labelPillFor(edge).width,
+				byproduct: mainOutput.get(edge.sourceId) !== edge.itemClassName,
+				amount: edge.amount,
 			};
 		});
 
@@ -1231,11 +1234,21 @@ export class PlannerGraphService implements OnDestroy
 			const source = outgoing.get(edge.sourceId);
 			if (source) source.push(edge); else outgoing.set(edge.sourceId, [edge]);
 		}
-		const stacked = (node: Node, index: number, count: number): number => {
+		const stacked = (node: Node, index: number, count: number, taken: readonly number[]): number => {
 			// Centre the ports on the block, in room the block actually has for them.
 			const height = Math.max(this.nodeSizeForDraw(node).height, count * gap + 18);
-			return height / 2 + (index - (count - 1) / 2) * gap;
+			const wish = height / 2 + (index - (count - 1) / 2) * gap;
+			// The closest place no other line uses.
+			const places = [wish, ...taken.flatMap(dy => [dy - gap, dy + gap]).filter(dy => dy >= gap / 2 && dy <= height - gap / 2).sort((a, b) => Math.abs(a - wish) - Math.abs(b - wish))];
+			for (const room of [gap, gap / 2]) {
+				const free = places.find(place => taken.every(dy => Math.abs(dy - place) >= room - 0.5));
+				if (free !== undefined) {
+					return free;
+				}
+			}
+			return Math.max(...taken) + gap;
 		};
+		const portsOf = (list: GraphEdge[], side: 'sourcePortDy' | 'targetPortDy'): number[] => list.map(edge => edge[side]).filter(dy => dy !== undefined);
 		incoming.forEach((list, nodeId) => {
 			const node = nodes.get(nodeId);
 			if (!node) {
@@ -1243,7 +1256,7 @@ export class PlannerGraphService implements OnDestroy
 			}
 			list.forEach((edge, index) => {
 				if (edge.targetPortDy === undefined) {
-					edge.targetPortDy = stacked(node, index, list.length);
+					edge.targetPortDy = stacked(node, index, list.length, portsOf(list, 'targetPortDy'));
 				}
 			});
 		});
@@ -1261,7 +1274,8 @@ export class PlannerGraphService implements OnDestroy
 			});
 			list.forEach(edge => {
 				if (edge.sourcePortDy === undefined) {
-					edge.sourcePortDy = stacked(node, itemIndex.get(edge.itemClassName) ?? 0, itemIndex.size);
+					edge.sourcePortDy = list.find(other => other.itemClassName === edge.itemClassName && other.sourcePortDy !== undefined)?.sourcePortDy
+						?? stacked(node, itemIndex.get(edge.itemClassName) ?? 0, itemIndex.size, portsOf(list, 'sourcePortDy'));
 				}
 			});
 		});
@@ -1432,6 +1446,7 @@ export class PlannerGraphService implements OnDestroy
 		this.buildLinePalette(graph);
 		this.applyLayoutHeights(graph);
 		this.prepareFlowEdges(graph);
+		this.tidyFlowEdges(graph);
 
 		// Before addEdge, so edges between done nodes fade too.
 		this.doneNodeIds = new Set(graph.nodes.filter(node => node.done).map(node => node.id));
@@ -1691,13 +1706,13 @@ export class PlannerGraphService implements OnDestroy
 		// One snapshot for the whole change; the per-edge handler below must not take one for each cell.
 		this.vertexGestureActive = true;
 		// Back to the plain two-corner route between the two ports, which is still right-angled.
-		const vertices = this.straightRoute(source, target, edge.sourcePortDy ?? 0, edge.targetPortDy ?? 0);
-		edge.vertices = vertices;
+		edge.vertices = this.straightRoute(source, target, edge.sourcePortDy ?? 0, edge.targetPortDy ?? 0);
 		edge.autoRouted = true;
-		const x6Graph = this.x6Graph;
-		x6Graph?.getEdges().forEach(cell => {
-			if (this.edgeById.get(cell.id) === edge) {
-				cell.setVertices([...vertices], {autoRoute: true});
+		const changed = new Set([edge, ...(this.renderedGraph === null ? [] : this.tidyFlowEdges(this.renderedGraph))]);
+		this.x6Graph?.getEdges().forEach(cell => {
+			const modelEdge = this.edgeById.get(cell.id);
+			if (modelEdge !== undefined && changed.has(modelEdge)) {
+				cell.setVertices((modelEdge.vertices ?? []).map(point => ({...point})), {autoRoute: true});
 			}
 		});
 		this.graphChangedSubject.next();
@@ -3806,10 +3821,67 @@ export class PlannerGraphService implements OnDestroy
 		this.drawFlowJunctions();
 	}
 
-	/** Top-to-bottom charts are routed lying on their side, so the router only knows left-to-right. */
-	private routingFlips(): boolean
+	/** The router only knows left-to-right: other charts are turned that way for it, and its routes turned back. */
+	private routingFrame(): {vertical: boolean; toFlow: (point: GraphPoint) => DragPoint; fromFlow: (point: DragPoint) => GraphPoint; box: (x: number, y: number, width: number, height: number) => DragBox}
 	{
-		return this.isVertical(this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction);
+		const direction = this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction;
+		const vertical = this.isVertical(direction);
+		const sign = direction === 'right' || direction === 'up' ? -1 : 1;
+		return {
+			vertical,
+			toFlow: point => vertical ? {x: sign * point.y, y: point.x} : {x: sign * point.x, y: point.y},
+			fromFlow: point => vertical ? {x: point.y, y: sign * point.x} : {x: sign * point.x, y: point.y},
+			box: (x, y, width, height) => {
+				const along = vertical ? y : x;
+				const length = vertical ? height : width;
+				return {x: sign > 0 ? along : -along - length, y: vertical ? x : y, width: length, height: vertical ? width : height};
+			},
+		};
+	}
+
+	private createRouter(boxes: Map<string, DragBox>, edges: readonly GraphEdge[]): DragRouter
+	{
+		const {vertical, toFlow} = this.routingFrame();
+		const lines = edges.map((edge, index) => {
+			const vertices = edge.vertices ?? [];
+			// Labels stay level in a top-to-bottom chart, so there the label's height lies along the line.
+			const labelWidth = this.labelPillFor(edge).width;
+			const labelLength = vertical ? FLOW_LABEL_HEIGHT : labelWidth;
+			const labelThickness = vertical ? labelWidth : FLOW_LABEL_HEIGHT;
+			return {
+				id: String(index),
+				group: `${edge.sourceId}|${edge.itemClassName}`,
+				sourceId: edge.sourceId,
+				targetId: edge.targetId,
+				sourcePortDy: edge.sourcePortDy ?? (boxes.get(edge.sourceId)?.height ?? 0) / 2,
+				targetPortDy: edge.targetPortDy ?? (boxes.get(edge.targetId)?.height ?? 0) / 2,
+				vertices: vertices.map(toFlow),
+				// A line without corners has no bends of the user's to keep.
+				auto: edge.autoRouted === true || vertices.length === 0,
+				labelRoom: FLOW_LABEL_GAP + labelLength + LINE_ROUTER_PAD,
+				label: {width: labelLength, height: labelThickness, gap: FLOW_LABEL_GAP},
+			};
+		});
+		return new DragRouter(boxes, lines, {pad: LINE_ROUTER_PAD, clearance: LINE_ROUTER_CLEARANCE, laneStep: FLOW_LANE_GAP});
+	}
+
+	/** Lines of the layout, of older plans and of new connections follow the rules dragging has (DragRouter). Returns the changed lines. */
+	private tidyFlowEdges(graph: Graph): GraphEdge[]
+	{
+		const frame = this.routingFrame();
+		const boxes = new Map<string, DragBox>();
+		graph.nodes.forEach(node => {
+			const size = this.nodeSizeForDraw(node);
+			boxes.set(node.id, frame.box(node.x, node.y, size.width, size.height));
+		});
+		const changed: GraphEdge[] = [];
+		this.createRouter(boxes, graph.edges).tidy().forEach((route, id) => {
+			const edge = graph.edges[Number(id)];
+			edge.vertices = route.map(frame.fromFlow);
+			edge.autoRouted = true;
+			changed.push(edge);
+		});
+		return changed;
 	}
 
 	private startDragRouter(x6Graph: X6Graph): void
@@ -3819,37 +3891,15 @@ export class PlannerGraphService implements OnDestroy
 		if (this.readOnly) {
 			return;
 		}
-		const vertical = this.routingFlips();
+		const frame = this.routingFrame();
 		const boxes = new Map<string, DragBox>();
 		x6Graph.getNodes().forEach(node => {
 			const box = node.getBBox();
-			boxes.set(node.id, vertical
-				? {x: box.y, y: box.x, width: box.height, height: box.width}
-				: {x: box.x, y: box.y, width: box.width, height: box.height});
+			boxes.set(node.id, frame.box(box.x, box.y, box.width, box.height));
 		});
-		const lines = [...new Set(this.edgeById.values())].map((edge, index) => {
-			const id = String(index);
-			this.dragEdgeById.set(id, edge);
-			const vertices = edge.vertices ?? [];
-			// Labels stay level in a top-to-bottom chart, so there the label's height lies along the line.
-			const labelWidth = this.labelPillFor(edge).width;
-			const labelLength = vertical ? FLOW_LABEL_HEIGHT : labelWidth;
-			const labelThickness = vertical ? labelWidth : FLOW_LABEL_HEIGHT;
-			return {
-				id,
-				group: `${edge.sourceId}|${edge.itemClassName}`,
-				sourceId: edge.sourceId,
-				targetId: edge.targetId,
-				sourcePortDy: edge.sourcePortDy ?? (boxes.get(edge.sourceId)?.height ?? 0) / 2,
-				targetPortDy: edge.targetPortDy ?? (boxes.get(edge.targetId)?.height ?? 0) / 2,
-				vertices: vertices.map(point => vertical ? {x: point.y, y: point.x} : {x: point.x, y: point.y}),
-				// A line without corners has no bends of the user's to keep.
-				auto: edge.autoRouted === true || vertices.length === 0,
-				labelRoom: FLOW_LABEL_GAP + labelLength + LINE_ROUTER_PAD,
-				label: {width: labelLength, height: labelThickness, gap: FLOW_LABEL_GAP},
-			};
-		});
-		this.dragRouter = new DragRouter(boxes, lines, {pad: LINE_ROUTER_PAD, clearance: LINE_ROUTER_CLEARANCE, laneStep: FLOW_LANE_GAP});
+		const edges = [...new Set(this.edgeById.values())];
+		edges.forEach((edge, index) => this.dragEdgeById.set(String(index), edge));
+		this.dragRouter = this.createRouter(boxes, edges);
 	}
 
 	/** Routes every line the moved blocks affect (DragRouter); bend points picked up with a box selection move with it instead. */
@@ -3860,13 +3910,13 @@ export class PlannerGraphService implements OnDestroy
 		if (this.readOnly || this.movedNodeIds.size === 0 || x6Graph === null || router === null) {
 			return false;
 		}
-		const vertical = this.routingFlips();
+		const frame = this.routingFrame();
 		const moved = new Map<string, DragPoint>();
 		this.movedNodeIds.forEach(id => {
 			const cell = x6Graph.getCellById(id);
 			if (cell instanceof X6Node) {
-				const position = cell.getPosition();
-				moved.set(id, vertical ? {x: position.y, y: position.x} : {x: position.x, y: position.y});
+				const box = cell.getBBox();
+				moved.set(id, frame.box(box.x, box.y, box.width, box.height));
 			}
 		});
 		const cellsByEdge = new Map<GraphEdge, X6Edge[]>();
@@ -3884,7 +3934,7 @@ export class PlannerGraphService implements OnDestroy
 			if (edge === undefined || cells.some(cell => this.selectedVertexMap.has(cell.id))) {
 				return;
 			}
-			const vertices = route.map(point => vertical ? {x: point.y, y: point.x} : {x: point.x, y: point.y});
+			const vertices = route.map(frame.fromFlow);
 			if (edge.autoRouted !== false || (edge.vertices ?? []).length === 0) {
 				edge.autoRouted = true;
 			}
