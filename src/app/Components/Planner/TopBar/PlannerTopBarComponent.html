@@ -181,6 +181,12 @@
 				<span class="pl-menu-title"><fa-icon [icon]="faUserPlus" [fixedWidth]="true"></fa-icon> Invite friend to edit</span>
 				<span class="pl-menu-hint">Copies the co-op invite link. Everyone with it edits the same plans live.</span>
 			</button>
+			@if (coop.configured()) {
+				<button class="dropdown-item pl-menu-item" type="button" [disabled]="!hasPlan() || sendingCopy()" (click)="sendCopy()">
+					<span class="pl-menu-title"><fa-icon [icon]="faCopy" [fixedWidth]="true"></fa-icon> Send a copy</span>
+					<span class="pl-menu-hint">Copies a link to a copy of this plan. Their changes don't touch yours.</span>
+				</button>
+			}
 			<button class="dropdown-item pl-menu-item" type="button" [disabled]="!hasPlan()" (click)="downloadPlan()">
 				<span class="pl-menu-title"><fa-icon [icon]="faFileArrowDown" [fixedWidth]="true"></fa-icon> Download plan file</span>
 				<span class="pl-menu-hint">Save this plan as a file</span>

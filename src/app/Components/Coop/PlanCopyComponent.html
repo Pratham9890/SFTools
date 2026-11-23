@@ -1,0 +1,24 @@
+<div class="container py-5">
+	<div class="card border-secondary mx-auto" style="max-width: 420px;">
+		<div class="card-body p-4">
+			<h1 class="h4 mb-3 text-center">Open plan copy</h1>
+
+			@if (!configured()) {
+				<p class="mb-3">No co-op server set. Enter the server this copy is stored on.</p>
+				<coop-server-settings></coop-server-settings>
+			} @else if (id === null) {
+				<p class="mb-3">This link is incomplete. Ask for a new one.</p>
+				<div class="text-center">
+					<a routerLink="/">Back to the version list</a>
+				</div>
+			} @else if (error(); as message) {
+				<div class="alert alert-danger py-2">{{ message }}</div>
+				<button type="button" class="btn btn-primary w-100" [disabled]="busy()" (click)="open()">Retry</button>
+			} @else {
+				<div class="text-center py-2">
+					<div class="spinner-border" role="status"></div>
+				</div>
+			}
+		</div>
+	</div>
+</div>

@@ -69,6 +69,9 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 			box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 			pointer-events: auto;
 		}
+		.pl-dock:has(> .pl-fill) {
+			max-height: 70vh;
+		}
 		.pl-dock-head {
 			display: flex;
 			align-items: center;
@@ -139,7 +142,7 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 		}
 		/* The map needs a definite height for its own layout and must not add a second scrollbar. */
 		.pl-body.pl-fill {
-			height: calc(44vh - 62px);
+			height: calc(70vh - 62px);
 			min-height: 260px;
 			overflow: hidden;
 			padding-bottom: 2px;

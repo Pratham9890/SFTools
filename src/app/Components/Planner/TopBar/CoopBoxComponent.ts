@@ -115,7 +115,7 @@ export class CoopBoxComponent
 		}
 		try {
 			await navigator.clipboard.writeText(link);
-			this.notifications.show('Invite link copied. Anyone with it can open and edit this space.', 5_000);
+			this.notifications.showSuccess('Invite link copied. Anyone with it can open and edit this space.', 5_000);
 		} catch {
 			window.prompt('Copy the invite link:', link);
 		}

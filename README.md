@@ -28,7 +28,7 @@ Adjust `apiUrl` in `src/env/env.ts` if you want to point at a different backend.
 Co-op spaces are stored in a Supabase project that you host. Everything else works without one.
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the project's SQL editor and run [`supabase/migrations/20261110000001_coop_spaces.sql`](supabase/migrations/20261110000001_coop_spaces.sql). With the Supabase CLI set up you can run `supabase db push` instead.
+2. Open the project's SQL editor and run the files in [`supabase/migrations`](supabase/migrations), oldest first. The second one stores the plans sent with Share, Send a copy. With the Supabase CLI set up you can run `supabase db push` instead.
 3. In the project, open Settings, then API, and copy the Project URL and the publishable (anon) key.
 4. In the app, open Settings, Co-op server, and paste the address and the key there. The Co-op panel shows the same form until a server is set.
 

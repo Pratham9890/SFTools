@@ -16,6 +16,7 @@ import {PlannerComponent} from '@src/Components/Planner/PlannerComponent';
 import {SettingsComponent} from '@src/Components/Settings/SettingsComponent';
 import {ShareRedirectComponent} from '@src/Components/Shares/ShareRedirectComponent';
 import {CoopJoinComponent} from '@src/Components/Coop/CoopJoinComponent';
+import {PlanCopyComponent} from '@src/Components/Coop/PlanCopyComponent';
 import {AuthGuard} from '@src/Model/Auth/AuthGuard';
 import {HelpEditorGuard} from '@src/Model/Help/HelpEditorGuard';
 import {NotFoundComponent} from '@src/Components/Errors/NotFoundComponent';
@@ -212,6 +213,12 @@ export class RouteList
 					path: 'coop/join',
 					title: 'Join co-op space',
 					component: CoopJoinComponent,
+				},
+				{
+					// Must precede the ':versionSlug' catch-all.
+					path: 'coop/copy',
+					title: 'Open plan copy',
+					component: PlanCopyComponent,
 				},
 				{
 					// Must precede the ':versionSlug' catch-all, which would send them home.

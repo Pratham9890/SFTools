@@ -146,7 +146,8 @@ export class LoadFromSaveDialogComponent implements OnInit, OnDestroy
 	public ngOnInit(): void
 	{
 		// Opened from inside a panel, it would stay below other panels: each one stacks on its own.
-		document.body.append(this.host.nativeElement);
+		// Inside the planner so it gets the planner look, outside the panel so the panel cannot clip it.
+		(document.querySelector('.planner-ui') ?? document.body).append(this.host.nativeElement);
 		if (this.mapOnly || !this.canLoadUnlocks()) {
 			this.loadMachines = this.loadRecipes = this.loadGenerators = false;
 		}

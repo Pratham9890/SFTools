@@ -253,8 +253,11 @@
 		filter: brightness(1.08);
 	}
 
+	// Automatic mode has nothing to press, so it reads as a state: outlined, not a faded button.
 	.pl-primary:disabled {
-		opacity: 0.5;
+		background: var(--accent-soft);
+		color: var(--accent);
+		box-shadow: inset 0 0 0 1px var(--accent);
 		cursor: default;
 	}
 
@@ -343,9 +346,9 @@
 
 	// ---- narrower PC windows --------------------------------------------------------------------
 	// The top bar is the full window width, so plain media queries match the mock-up's breakpoints exactly.
-	// Below 1480 px Preview and Share become icons; below 1180 px the logo and the co-op text go too,
+	// Below 1600 px Preview and Share become icons; below 1180 px the logo and the co-op text go too,
 	// so the tabs and the gear stay reachable down to 1024 px.
-	@media (max-width: 1480px) {
+	@media (max-width: 1600px) {
 		.pl-preview .pl-label,
 		.pl-share .pl-label {
 			display: none;
@@ -409,7 +412,7 @@
 		}
 
 		// The logo goes and the co-op indicator keeps only its icon/dots. Preview, Share and Calculate
-		// already lost their text at 1480/1180 px, so the spec's phone row (name, Calculate + ▾, co-op, Share, gear)
+		// already lost their text at 1600/1180 px, so the spec's phone row (name, Calculate + ▾, co-op, Share, gear)
 		// fits on one line; Preview stays as its icon-only button.
 		.pl-logo,
 		.pl-coop .pl-label {
@@ -967,4 +970,9 @@ navbar.planner-site-bar-hidden {
 .pl-coop-swatch.selected {
 	border-color: var(--ink);
 	box-shadow: 0 0 0 2px var(--surface-2);
+}
+
+.pl-coop-row .pl-coop-action {
+	flex: none;
+	width: auto;
 }

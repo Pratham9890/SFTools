@@ -7,6 +7,7 @@
 		<p class="pl-coop-title">Playing solo</p>
 		<p class="pl-coop-line">Your plans are saved on this device. Start co-op to plan together with friends.</p>
 
+		<!-- The button goes away with the form; its click must not reach the menu, which would take it for one outside. -->
 		@if (player() === null) {
 			<p class="pl-coop-label">Your name</p>
 			<p class="pl-coop-line">Shown to the other players next to what you claim. No account needed.</p>
@@ -23,7 +24,7 @@
 					></button>
 				}
 			</div>
-			<button class="pl-coop-action" type="button" [disabled]="playerName.trim() === ''" (click)="savePlayer()">Save my name and colour</button>
+			<button class="pl-coop-action" type="button" [disabled]="playerName.trim() === ''" (click)="savePlayer(); $event.stopPropagation()">Save my name and colour</button>
 		} @else {
 			<p class="pl-coop-label">Name for your co-op space</p>
 			<div class="pl-coop-row">

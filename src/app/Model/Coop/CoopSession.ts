@@ -177,10 +177,15 @@ export class CoopSession implements OnDestroy
 	{
 		const credentials = this.credentials();
 		if (credentials === null) return null;
-		// The desktop app's own address means nothing to a friend, so it links to the website.
+		return CoopSession.siteLink(`coop/join#${credentials.spaceId}.${credentials.token}`);
+	}
+
+	/** The desktop app's own address means nothing to a friend, so it links to the website. */
+	public static siteLink(path: string): string
+	{
 		const base = new URL(document.baseURI);
 		const site = base.protocol.startsWith('http') ? `${base.origin}${base.pathname}` : env.coop.siteUrl;
-		return `${site.replace(/\/$/, '')}/coop/join#${credentials.spaceId}.${credentials.token}`;
+		return `${site.replace(/\/$/, '')}/${path}`;
 	}
 
 	public static parseInvite(fragment: string | null): CoopCredentials | null

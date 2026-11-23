@@ -1,4 +1,4 @@
-<settings-section [resetCategories]="['graph']" helpTopic="settings.graph" title="Chart" [icon]="sectionIcon">
+<settings-section [resetCategories]="['graph']" helpTopic="settings.graph" title="Chart" [foldable]="false" [icon]="sectionIcon">
 	@if (inSheet) {
 		<!-- In the sheet the groups are cards, so the Flow chart section stays short; the first one is open. -->
 		<collapsible-card title="Icons" [open]="foldState.isOpen('icons', true)" (toggle)="foldState.toggle('icons', true)">

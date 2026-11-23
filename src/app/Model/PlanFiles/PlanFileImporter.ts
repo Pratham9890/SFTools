@@ -59,7 +59,12 @@ export class PlanFileImporter
 			? {...entry, folderId: folder.id, parentPlanId: null, order: rootOrder.get(entry.id)}
 			: entry);
 		this.planManager.importTree([folder, ...folders], plans, {id: folder.id, type: 'folder'});
-		this.planManager.setActiveFolder(folder.id);
+		const [root] = preview.roots;
+		if (preview.roots.length === 1 && root.type === 'plan') {
+			this.planManager.setActivePlan(root.id);
+		} else {
+			this.planManager.setActiveFolder(folder.id);
+		}
 		return folder;
 	}
 

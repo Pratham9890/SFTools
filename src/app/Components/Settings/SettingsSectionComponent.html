@@ -1,5 +1,11 @@
 <div class="card">
 	<div class="card-header d-flex align-items-center gap-2 py-2">
+		@if (folds) {
+			<button type="button" class="section-fold" [attr.aria-expanded]="isOpen" (click)="toggle()">
+				<fa-icon [icon]="isOpen ? faChevronDown : faChevronRight" [fixedWidth]="true"></fa-icon>
+				<span class="visually-hidden">{{ title }}</span>
+			</button>
+		}
 		<span class="section-icon"><fa-icon [icon]="icon"></fa-icon></span>
 		<div class="flex-grow-1">
 			<div class="fw-semibold d-flex align-items-center gap-2">
@@ -22,7 +28,7 @@
 			><fa-icon [icon]="faRotateLeft"></fa-icon> Reset</button>
 		}
 	</div>
-	<div class="card-body">
+	<div class="card-body" [hidden]="!isOpen">
 		<ng-content></ng-content>
 	</div>
 </div>

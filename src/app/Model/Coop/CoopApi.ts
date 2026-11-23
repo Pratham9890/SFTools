@@ -169,6 +169,18 @@ export class CoopApi
 		await this.rpc('coop_move_claims', {...this.auth(credentials), p_plan: planId, p_moves: moves});
 	}
 
+	/** Stores a plan file behind a link; resolves to the copy's id. */
+	public async saveCopy(name: string, content: string): Promise<string>
+	{
+		return this.rpc('coop_save_copy', {p_name: name, p_content: content});
+	}
+
+	/** Null when there is no such copy. */
+	public async copy(id: string): Promise<{name: string; content: string} | null>
+	{
+		return this.rpc('coop_get_copy', {p_id: id});
+	}
+
 	private auth(credentials: CoopCredentials): {p_space: string; p_token: string}
 	{
 		return {p_space: credentials.spaceId, p_token: credentials.token};

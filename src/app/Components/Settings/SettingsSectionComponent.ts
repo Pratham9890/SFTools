@@ -1,7 +1,8 @@
-import {Component, ChangeDetectionStrategy, Input} from '@angular/core';
+import {Component, ChangeDetectionStrategy, Input, inject, signal} from '@angular/core';
 import {FaIconComponent} from '@fortawesome/angular-fontawesome';
-import {IconDefinition, faRotateLeft} from '@fortawesome/free-solid-svg-icons';
+import {IconDefinition, faChevronDown, faChevronRight, faRotateLeft} from '@fortawesome/free-solid-svg-icons';
 import {AppTooltipDirective} from '@src/Components/Common/AppTooltipDirective';
+import {SETTINGS_FOLD} from '@src/Components/Settings/SettingsFold';
 import {HelpButtonComponent} from '@src/Components/Help/HelpButtonComponent';
 import {HelpTopicId} from '@src/Model/Help/HelpTopicId';
 import {SettingsCategory} from '@src/Model/Settings/SettingsCategory';
@@ -20,6 +21,26 @@ import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 		}
 		.section-reset {
 			white-space: nowrap;
+		}
+		.section-fold {
+			border: 0;
+			padding: 0;
+			background: none;
+			color: inherit;
+			flex: none;
+		}
+		.card-header:has(.section-fold) {
+			position: relative;
+		}
+		/* The whole header folds the section; the help and reset buttons stay above it. */
+		.section-fold::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+		}
+		help-button, .section-reset {
+			position: relative;
+			z-index: 1;
 		}
 		.section-icon {
 			width: 1.75rem;
@@ -47,10 +68,33 @@ export class SettingsSectionComponent
 	/** Added to the confirmation when a reset reaches further than this page. */
 	@Input() public resetWarning = '';
 
+	/** The chart section has folding groups of its own. */
+	@Input() public foldable = true;
+
 	public readonly faRotateLeft = faRotateLeft;
+	public readonly faChevronDown = faChevronDown;
+	public readonly faChevronRight = faChevronRight;
+
+	private readonly inSheet = inject(SETTINGS_FOLD, {optional: true}) !== null;
+	private readonly unfolded = signal(false);
 
 	public constructor(private readonly settings: SettingsManager)
 	{
+	}
+
+	public get folds(): boolean
+	{
+		return this.inSheet && this.foldable;
+	}
+
+	public get isOpen(): boolean
+	{
+		return !this.folds || this.unfolded();
+	}
+
+	public toggle(): void
+	{
+		this.unfolded.update(open => !open);
 	}
 
 	public get isDefault(): boolean

@@ -7,6 +7,7 @@ import {PlannerSettingsComponent} from '@src/Components/Planner/Panels/Settings/
 import {SettingsSheetService} from '@src/Components/Planner/SettingsSheet/SettingsSheetService';
 import {SettingsAccountComponent} from '@src/Components/Settings/SettingsAccountComponent';
 import {SettingsDesktopComponent} from '@src/Components/Settings/SettingsDesktopComponent';
+import {SETTINGS_FOLD} from '@src/Components/Settings/SettingsFold';
 import {SettingsGraphComponent} from '@src/Components/Settings/SettingsGraphComponent';
 import {SettingsHotkeysComponent} from '@src/Components/Settings/SettingsHotkeysComponent';
 import {SettingsMapComponent} from '@src/Components/Settings/SettingsMapComponent';
@@ -40,6 +41,7 @@ import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 		SettingsAccountComponent,
 		SettingsSupporterComponent,
 	],
+	providers: [{provide: SETTINGS_FOLD, useValue: true}],
 	host: {
 		role: 'region',
 		'aria-label': 'Settings',
