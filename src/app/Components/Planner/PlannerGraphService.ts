@@ -5,7 +5,7 @@ import type {Metadata as PortsMetadata, PortMetadata} from '@antv/x6/lib/model/p
 import type {Handle as VertexHandle} from '@antv/x6/lib/registry/tool/vertices';
 import {GraphPoint} from '@src/Model/Planner/Graph/GraphPoint';
 import {FlowLayoutEdge, FlowLayoutNode, FlowLayoutOptions, layoutFlow} from '@src/Model/Planner/Layout/FlowLayout';
-import {RouterBox, rerouteLine} from '@src/Model/Planner/Layout/LineRouter';
+import {DragBox, DragPoint, DragRouter} from '@src/Model/Planner/Layout/DragRouter';
 import {collectFlowJunctions, FlowLinePalette} from '@src/Components/Planner/Graph/FlowLinePalette';
 import {Observable, Subject, Subscription} from 'rxjs';
 import {debounceTime} from 'rxjs/operators';
@@ -253,7 +253,7 @@ const FLOW_LANE_GAP = 17;
 const ALT_RIGHT_PAD = 16;
 const FLOW_NODE_GAP_FLOOR = 34;
 const FLOW_LABEL_GAP = 12;
-/** Shortest stub out of a port before a re-routed line turns (LineRouter). */
+/** Shortest stub out of a port before a re-routed line turns (DragRouter). */
 const LINE_ROUTER_PAD = 14;
 /** Gap a re-routed line keeps from a block it loops around. */
 const LINE_ROUTER_CLEARANCE = 20;
@@ -862,9 +862,9 @@ export class PlannerGraphService implements OnDestroy
 	/** Ids of the nodes x6 moved since the drag began, so the drag end can see the whole multi-selection. */
 	private readonly movedNodeIds = new Set<string>();
 	/** Where each node of the current drag started, so its connections can follow it by the same distance. */
-	private readonly dragStartPositions = new Map<string, GraphPoint>();
-	/** Every line's corners when a drag began: x6 shifts all corners of a line touching any moved block, even when its other end stays. */
-	private readonly dragStartVertices = new Map<GraphEdge, GraphPoint[]>();
+	/** Routes lines for the drag in progress, from the chart as it was when the block was pressed. */
+	private dragRouter: DragRouter | null = null;
+	private readonly dragEdgeById = new Map<string, GraphEdge>();
 	/** A block is pressed: position changes now come from a drag, not from a layout or a remote update. */
 	private nodePressed = false;
 	private liveRerouteScheduled = false;
@@ -3746,9 +3746,6 @@ export class PlannerGraphService implements OnDestroy
 				this.graphEditStartSubject.next();
 			}
 			this.movedNodeIds.add(node.id);
-			if (previous && !this.dragStartPositions.has(node.id)) {
-				this.dragStartPositions.set(node.id, {x: previous.x, y: previous.y});
-			}
 			const modelNode = this.nodeById.get(node.id);
 			if (modelNode) {
 				const position = node.getPosition();
@@ -3769,11 +3766,7 @@ export class PlannerGraphService implements OnDestroy
 		x6Graph.on('node:mousedown', () => {
 			this.nodePressed = true;
 			this.movedNodeIds.clear();
-			this.dragStartPositions.clear();
-			this.dragStartVertices.clear();
-			new Set(this.edgeById.values()).forEach(edge => {
-				this.dragStartVertices.set(edge, (edge.vertices ?? []).map(point => ({x: point.x, y: point.y})));
-			});
+			this.startDragRouter(x6Graph);
 		});
 		// x6 notifies every selected node once the drag ends, so the first call sees them all.
 		x6Graph.on('node:mouseup', () => {
@@ -3794,8 +3787,8 @@ export class PlannerGraphService implements OnDestroy
 		this.liveRerouteScheduled = true;
 		requestAnimationFrame(() => {
 			this.liveRerouteScheduled = false;
-			if (this.nodePressed) {
-				this.rerouteMovedLines();
+			if (this.nodePressed && this.rerouteMovedLines(true)) {
+				this.drawFlowJunctions();
 			}
 		});
 	}
@@ -3803,34 +3796,74 @@ export class PlannerGraphService implements OnDestroy
 	/** The drag ended: the last route, then the split dots and a save. */
 	private endNodeDrag(): void
 	{
-		const changed = this.rerouteMovedLines();
+		const changed = this.rerouteMovedLines(false);
 		this.movedNodeIds.clear();
-		this.dragStartPositions.clear();
-		this.dragStartVertices.clear();
+		this.dragRouter = null;
+		this.dragEdgeById.clear();
 		if (changed) {
 			this.graphChangedSubject.next();
 		}
 		this.drawFlowJunctions();
 	}
 
-	/**
-	 * Lines with one moved end get routed again from their corners at the start of the drag (LineRouter), so the
-	 * route never drifts. Lines with both ends moved keep their shape: x6 translates their corners. Lines the user
-	 * bent by hand keep their bends.
-	 */
-	private rerouteMovedLines(): boolean
+	/** Top-to-bottom charts are routed lying on their side, so the router only knows left-to-right. */
+	private routingFlips(): boolean
+	{
+		return this.isVertical(this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction);
+	}
+
+	private startDragRouter(x6Graph: X6Graph): void
+	{
+		this.dragRouter = null;
+		this.dragEdgeById.clear();
+		if (this.readOnly) {
+			return;
+		}
+		const vertical = this.routingFlips();
+		const boxes = new Map<string, DragBox>();
+		x6Graph.getNodes().forEach(node => {
+			const box = node.getBBox();
+			boxes.set(node.id, vertical
+				? {x: box.y, y: box.x, width: box.height, height: box.width}
+				: {x: box.x, y: box.y, width: box.width, height: box.height});
+		});
+		const lines = [...new Set(this.edgeById.values())].map((edge, index) => {
+			const id = String(index);
+			this.dragEdgeById.set(id, edge);
+			const vertices = edge.vertices ?? [];
+			return {
+				id,
+				group: `${edge.sourceId}|${edge.itemClassName}`,
+				sourceId: edge.sourceId,
+				targetId: edge.targetId,
+				sourcePortDy: edge.sourcePortDy ?? (boxes.get(edge.sourceId)?.height ?? 0) / 2,
+				targetPortDy: edge.targetPortDy ?? (boxes.get(edge.targetId)?.height ?? 0) / 2,
+				vertices: vertices.map(point => vertical ? {x: point.y, y: point.x} : {x: point.x, y: point.y}),
+				// A line without corners has no bends of the user's to keep.
+				auto: edge.autoRouted === true || vertices.length === 0,
+				labelRoom: FLOW_LABEL_GAP + this.labelPillFor(edge).width + LINE_ROUTER_PAD,
+			};
+		});
+		this.dragRouter = new DragRouter(boxes, lines, {pad: LINE_ROUTER_PAD, clearance: LINE_ROUTER_CLEARANCE, laneStep: FLOW_LANE_GAP});
+	}
+
+	/** Routes every line the moved blocks affect (DragRouter); bend points picked up with a box selection move with it instead. */
+	private rerouteMovedLines(live: boolean): boolean
 	{
 		const x6Graph = this.x6Graph;
-		const movedIds = this.movedNodeIds;
-		if (this.readOnly || movedIds.size === 0 || x6Graph === null) {
+		const router = this.dragRouter;
+		if (this.readOnly || this.movedNodeIds.size === 0 || x6Graph === null || router === null) {
 			return false;
 		}
-		const vertical = this.isVertical(this.graphLayout.resolve(this.planManager.activePlan()?.settings.graph).direction);
-		const flip = (point: GraphPoint): GraphPoint => vertical ? {x: point.y, y: point.x} : point;
-		const flipBox = (box: {x: number; y: number; width: number; height: number}): RouterBox => vertical
-			? {x: box.y, y: box.x, width: box.height, height: box.width}
-			: {x: box.x, y: box.y, width: box.width, height: box.height};
-
+		const vertical = this.routingFlips();
+		const moved = new Map<string, DragPoint>();
+		this.movedNodeIds.forEach(id => {
+			const cell = x6Graph.getCellById(id);
+			if (cell instanceof X6Node) {
+				const position = cell.getPosition();
+				moved.set(id, vertical ? {x: position.y, y: position.x} : {x: position.x, y: position.y});
+			}
+		});
 		const cellsByEdge = new Map<GraphEdge, X6Edge[]>();
 		x6Graph.getEdges().forEach(cell => {
 			const modelEdge = this.edgeById.get(cell.id);
@@ -3839,38 +3872,25 @@ export class PlannerGraphService implements OnDestroy
 			}
 		});
 
-		const boxes = new Map<string, RouterBox>();
-		x6Graph.getNodes().forEach(node => boxes.set(node.id, flipBox(node.getBBox())));
-
 		let changed = false;
-		cellsByEdge.forEach((cells, edge) => {
-			const sourceMoved = movedIds.has(edge.sourceId);
-			if (edge.autoRouted !== true || sourceMoved === movedIds.has(edge.targetId)) {
+		router.update(moved, live).forEach((route, id) => {
+			const edge = this.dragEdgeById.get(id);
+			const cells = edge === undefined ? [] : cellsByEdge.get(edge) ?? [];
+			if (edge === undefined || cells.some(cell => this.selectedVertexMap.has(cell.id))) {
 				return;
 			}
-			const source = x6Graph.getCellById(edge.sourceId);
-			const target = x6Graph.getCellById(edge.targetId);
-			if (!(source instanceof X6Node) || !(target instanceof X6Node)) {
-				return;
+			const vertices = route.map(point => vertical ? {x: point.y, y: point.x} : {x: point.x, y: point.y});
+			if (edge.autoRouted !== false || (edge.vertices ?? []).length === 0) {
+				edge.autoRouted = true;
 			}
-			const sourceBox = source.getBBox();
-			const targetBox = target.getBBox();
-			const before = (this.dragStartVertices.get(edge) ?? edge.vertices ?? []).map(flip);
-			const routed = rerouteLine({
-				source: flipBox(sourceBox),
-				target: flipBox(targetBox),
-				sourcePortDy: edge.sourcePortDy ?? (vertical ? sourceBox.width : sourceBox.height) / 2,
-				targetPortDy: edge.targetPortDy ?? (vertical ? targetBox.width : targetBox.height) / 2,
-			}, before, sourceMoved, {
-				labelRoom: FLOW_LABEL_GAP + this.labelPillFor(edge).width + LINE_ROUTER_PAD,
-				pad: LINE_ROUTER_PAD,
-				clearance: LINE_ROUTER_CLEARANCE,
-				laneStep: FLOW_LANE_GAP,
-				obstacles: [...boxes].filter(([id]) => id !== edge.sourceId && id !== edge.targetId).map(([, box]) => box),
-			}).map(flip);
-			edge.vertices = routed;
-			cells.forEach(cell => cell.setVertices(routed.map(point => ({...point})), {autoRoute: true}));
-			changed = true;
+			cells.forEach(cell => {
+				const current = cell.getVertices();
+				if (current.length !== vertices.length || current.some((point, i) => point.x !== vertices[i].x || point.y !== vertices[i].y)) {
+					cell.setVertices(vertices.map(point => ({...point})), {autoRoute: true});
+					changed = true;
+				}
+			});
+			edge.vertices = vertices;
 		});
 		return changed;
 	}
