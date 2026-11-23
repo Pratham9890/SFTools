@@ -610,7 +610,20 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 			g.min = Math.min(g.min, g.y0);
 			g.max = Math.max(g.max, g.y0);
 		}
-		const tracks = groupList.filter(g => g.bends);
+		// Same-row rule. In a gap a lane's run in spans from the gap's left edge
+		// to its lane, and each run out spans from the lane to the right edge.
+		// With i left of j the only pairing that stays apart is i leaving at a
+		// height j arrives at, so i's run ends before j's begins. Every other
+		// shared height lays two runs on one row.
+		const near = (a: number, b: number): boolean => Math.abs(a - b) < ROW_CLEAR;
+		const clashesIfLeft = (i: LaneGroup, j: LaneGroup): boolean => {
+			if (near(i.y0, j.y0)) return true;
+			for (const a of i.rawTargets) {
+				if (near(a, j.y0)) return true;
+				for (const b of j.rawTargets) if (near(a, b)) return true;
+			}
+			return false;
+		};
 		const inside = (y: number, g: LaneGroup): boolean => y > g.min + 0.5 && y < g.max - 0.5;
 		// Crossings a lane pair adds when i sits left of j: j's run in crosses
 		// i's lane, and i's runs out cross j's lane.
@@ -619,31 +632,56 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 			for (const y of i.sortedTargets) if (inside(y, j)) n++;
 			return n;
 		};
-		// Same-row rule: when a lane arrives at the height another lane leaves
-		// from, it has to bend after it, or both horizontals run on one row.
-		// Penalising that order outweighs any crossing count.
-		const rowClash = (i: LaneGroup, j: LaneGroup): boolean => {
-			for (const y of i.rawTargets) if (Math.abs(y - j.y0) < ROW_CLEAR) return true;
-			return false;
-		};
 		const score = (i: LaneGroup, j: LaneGroup): number =>
-			crossings(i, j) + (rowClash(i, j) ? ROW_PENALTY : 0);
+			crossings(i, j) + (clashesIfLeft(i, j) ? ROW_PENALTY : 0);
+		let tracks = groupList.filter(g => g.bends);
 		tracks.sort((a, b) => ((a.segs.length > 1 ? 1 : 0) - (b.segs.length > 1 ? 1 : 0))
 			|| ((a.rawTargets[0] - a.y0) - (b.rawTargets[0] - b.y0)));
-		for (let pass = 0; pass < 80; pass++) {
-			let swapped = false;
-			for (let k = 0; k + 1 < tracks.length; k++) {
-				if (score(tracks[k], tracks[k + 1]) > score(tracks[k + 1], tracks[k])) {
-					const t = tracks[k];
-					tracks[k] = tracks[k + 1];
-					tracks[k + 1] = t;
-					swapped = true;
+		const mustLeft = (i: LaneGroup, j: LaneGroup): boolean => !clashesIfLeft(i, j) && clashesIfLeft(j, i);
+		// A shared height pins some lanes to a side, and those pins chain up, so
+		// lane-by-lane moves alone can stall. Order by the pins first, keeping
+		// the working order for everything the pins leave free.
+		const n = tracks.length;
+		const fans: number[][] = [];
+		const blocked: number[] = [];
+		for (let i = 0; i < n; i++) {
+			fans.push([]);
+			blocked.push(0);
+		}
+		for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+			if (i === j || !mustLeft(tracks[i], tracks[j])) continue;
+			fans[i].push(j);
+			blocked[j]++;
+		}
+		const ordered: LaneGroup[] = [];
+		const done: boolean[] = [];
+		const ready: number[] = [];
+		for (let i = 0; i < n; i++) {
+			done.push(false);
+			if (blocked[i] === 0) ready.push(i);
+		}
+		while (ordered.length < n) {
+			// A cycle means two shared heights want both sides; take the first
+			// unpinned lane so every lane still gets placed.
+			if (!ready.length) {
+				for (let i = 0; i < n; i++) if (!done[i]) {
+					ready.push(i);
+					break;
 				}
 			}
-			if (!swapped) break;
+			const k = ready.shift() as number;
+			if (done[k]) continue;
+			done[k] = true;
+			ordered.push(tracks[k]);
+			for (const j of fans[k]) {
+				blocked[j]--;
+				if (blocked[j] === 0) ready.push(j);
+			}
 		}
-		// Fewer crossings: move one lane across its neighbours while that lowers
-		// the pair sum. Adjacent swaps stall, moving a lane over several does not.
+		tracks = ordered;
+		// Fewer crossings: move one lane past its neighbours while that lowers
+		// the pair sum. Adjacent swaps stall when two lanes each clash with the
+		// other's partner, a longer move does not.
 		for (let pass = 0; pass < 8; pass++) {
 			let bestDelta = -0.5;
 			let bestFrom = -1;

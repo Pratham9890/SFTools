@@ -2520,6 +2520,8 @@ export class PlannerGraphService implements OnDestroy
 		return {
 			display: 'inline',
 			text: 'Alt',
+			// Centred on the tag: the shape's default anchor is the start, which pushed the word into the right border.
+			textAnchor: 'middle',
 			x: x + LOOK_C_ALT_WIDTH * scale / 2,
 			y,
 			fontSize: LOOK_C_ALT_FONT * scale,
