@@ -144,6 +144,10 @@ const GEOM_EPS = 0.011;
 const SIDE_PAD = 26;
 const END_PAD = 16;
 const LABEL_ROOM = 22;
+// Two horizontals further apart than this never read as one line.
+const ROW_CLEAR = 6;
+// Outweighs any crossing count, so the same-row rule always wins.
+const ROW_PENALTY = 1000;
 
 export function layoutFlow(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayoutEdge[], options: FlowLayoutOptions): FlowLayoutResult {
 	if (options.direction === 'down') {
@@ -608,17 +612,28 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 		}
 		const tracks = groupList.filter(g => g.bends);
 		const inside = (y: number, g: LaneGroup): boolean => y > g.min + 0.5 && y < g.max - 0.5;
-		const cost = (i: LaneGroup, j: LaneGroup): number => {
+		// Crossings a lane pair adds when i sits left of j: j's run in crosses
+		// i's lane, and i's runs out cross j's lane.
+		const crossings = (i: LaneGroup, j: LaneGroup): number => {
 			let n = inside(j.y0, i) ? 1 : 0;
 			for (const y of i.sortedTargets) if (inside(y, j)) n++;
 			return n;
 		};
+		// Same-row rule: when a lane arrives at the height another lane leaves
+		// from, it has to bend after it, or both horizontals run on one row.
+		// Penalising that order outweighs any crossing count.
+		const rowClash = (i: LaneGroup, j: LaneGroup): boolean => {
+			for (const y of i.rawTargets) if (Math.abs(y - j.y0) < ROW_CLEAR) return true;
+			return false;
+		};
+		const score = (i: LaneGroup, j: LaneGroup): number =>
+			crossings(i, j) + (rowClash(i, j) ? ROW_PENALTY : 0);
 		tracks.sort((a, b) => ((a.segs.length > 1 ? 1 : 0) - (b.segs.length > 1 ? 1 : 0))
 			|| ((a.rawTargets[0] - a.y0) - (b.rawTargets[0] - b.y0)));
 		for (let pass = 0; pass < 80; pass++) {
 			let swapped = false;
 			for (let k = 0; k + 1 < tracks.length; k++) {
-				if (cost(tracks[k], tracks[k + 1]) > cost(tracks[k + 1], tracks[k])) {
+				if (score(tracks[k], tracks[k + 1]) > score(tracks[k + 1], tracks[k])) {
 					const t = tracks[k];
 					tracks[k] = tracks[k + 1];
 					tracks[k + 1] = t;
@@ -626,6 +641,40 @@ function layoutRight(nodes: readonly FlowLayoutNode[], edges: readonly FlowLayou
 				}
 			}
 			if (!swapped) break;
+		}
+		// Fewer crossings: move one lane across its neighbours while that lowers
+		// the pair sum. Adjacent swaps stall, moving a lane over several does not.
+		for (let pass = 0; pass < 8; pass++) {
+			let bestDelta = -0.5;
+			let bestFrom = -1;
+			let bestTo = -1;
+			for (let i = 0; i < tracks.length; i++) {
+				const t = tracks[i];
+				let delta = 0;
+				for (let j = i + 1; j < tracks.length; j++) {
+					const x = tracks[j];
+					delta += score(x, t) - score(t, x);
+					if (delta < bestDelta) {
+						bestDelta = delta;
+						bestFrom = i;
+						bestTo = j;
+					}
+				}
+				delta = 0;
+				for (let j = i - 1; j >= 0; j--) {
+					const x = tracks[j];
+					delta += score(t, x) - score(x, t);
+					if (delta < bestDelta) {
+						bestDelta = delta;
+						bestFrom = i;
+						bestTo = j;
+					}
+				}
+			}
+			if (bestFrom < 0) break;
+			const t = tracks[bestFrom];
+			tracks.splice(bestFrom, 1);
+			tracks.splice(bestTo, 0, t);
 		}
 		const lanes = Math.max(0, tracks.length - 1) * laneGap;
 		const width = Math.max(minGapWidth, SIDE_PAD + lanes + LABEL_ROOM + labelCol + END_PAD);
