@@ -154,6 +154,10 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 			margin: 0;
 			min-width: 0;
 		}
+		/* Passes the body's height on, or the map inside gets none and stays blank. */
+		.pl-fill > .pl-fieldset {
+			height: 100%;
+		}
 		.pl-fieldset:disabled {
 			opacity: 0.6;
 		}

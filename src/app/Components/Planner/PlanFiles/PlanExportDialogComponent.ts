@@ -56,7 +56,7 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 			min-height: 1.75rem;
 		}
 		.export-row:hover {
-			background-color: rgba(255, 255, 255, 0.05);
+			background-color: var(--surface-2);
 		}
 		.export-row-subplan .export-row-label {
 			font-size: 0.9rem;

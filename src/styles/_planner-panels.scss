@@ -227,3 +227,34 @@ body:has(.planner-ui) .picker-menu {
 		flex: none;
 	}
 }
+
+// Filled buttons, bars and toggles still on the site theme's blue-greys.
+.planner-ui, body:has(.planner-ui) .add-node-dialog {
+	.btn-secondary, .btn-dark {
+		background: var(--surface-2);
+		border-color: var(--rule-strong);
+		color: var(--ink);
+		&:hover, &.active { background: var(--rule-strong); border-color: var(--rule-strong); color: var(--ink); }
+	}
+	.progress { background: var(--ground); }
+	.bg-info { background-color: var(--accent) !important; }
+	.text-info { color: var(--ink) !important; }
+	.btn-close { filter: none; background: none; position: relative; opacity: 1; color: var(--ink-2); }
+	.btn-close::after { content: "\00d7"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; line-height: 1; }
+	.btn-close:hover { color: var(--ink); }
+	.leaflet-bar a { background: var(--surface); color: var(--ink); border-color: var(--rule-strong); }
+	.leaflet-bar a:hover { background: var(--surface-2); }
+}
+
+// The chart's hover box.
+planner-node-tooltip > * {
+	background: var(--surface-2) !important;
+	border: 1px solid var(--rule-strong) !important;
+	border-radius: var(--ctl-radius);
+	color: var(--ink) !important;
+}
+
+// Look and Layout switches follow the look's corners.
+.planner-ui[data-look="game"] planner-settings-sheet {
+	[role="radiogroup"][role], [role="radiogroup"] [role="radio"] { border-radius: 2px; }
+}

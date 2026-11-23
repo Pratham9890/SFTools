@@ -51,7 +51,7 @@ import {PlanNameResolver} from '@src/Model/Planner/PlanNameResolver';
 			cursor: pointer;
 		}
 		.import-row-toggle:hover {
-			background-color: rgba(255, 255, 255, 0.05);
+			background-color: var(--surface-2);
 		}
 		.import-row-subplan .import-row-label {
 			font-size: 0.9rem;

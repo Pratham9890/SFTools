@@ -38,14 +38,14 @@ import {AppPlatform} from '@src/Model/Desktop/AppPlatform';
 			width: 100%;
 			text-align: left;
 			padding: 0.65rem 0.8rem;
-			border: 1px solid rgba(255, 255, 255, 0.15);
-			background: rgba(255, 255, 255, 0.03);
+			border: 1px solid var(--rule-strong);
+			background: var(--ground);
 			color: inherit;
 			transition: background 0.15s, border-color 0.15s;
 		}
 		.share-option:hover:not(:disabled) {
-			background: rgba(255, 255, 255, 0.08);
-			border-color: rgba(255, 255, 255, 0.35);
+			background: var(--surface-2);
+			border-color: var(--dim);
 		}
 		.share-option:disabled {
 			opacity: 0.6;

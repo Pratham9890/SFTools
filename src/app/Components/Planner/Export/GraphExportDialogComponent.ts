@@ -48,12 +48,12 @@ const SCALES = [0.5, 0.75, 1, 1.25, 1.5];
 		.preview-box {
 			max-height: 240px;
 			overflow: auto;
-			border: 1px solid rgba(255, 255, 255, 0.15);
+			border: 1px solid var(--rule-strong);
 			/* A checkerboard, so a transparent picture reads as transparent. */
-			background-color: #4a5d71;
+			background-color: var(--surface-2);
 			background-image:
-				linear-gradient(45deg, #3a4d60 25%, transparent 25%, transparent 75%, #3a4d60 75%),
-				linear-gradient(45deg, #3a4d60 25%, transparent 25%, transparent 75%, #3a4d60 75%);
+				linear-gradient(45deg, var(--ground) 25%, transparent 25%, transparent 75%, var(--ground) 75%),
+				linear-gradient(45deg, var(--ground) 25%, transparent 25%, transparent 75%, var(--ground) 75%);
 			background-size: 16px 16px;
 			background-position: 0 0, 8px 8px;
 		}

@@ -47,8 +47,8 @@ type LoadFromSaveState = 'idle' | 'parsing' | 'ready' | 'error';
 			overflow-y: auto;
 		}
 		.save-dialog input[type='file']::file-selector-button {
-			background-color: #4e5d6c;
-			color: #ebebeb;
+			background-color: var(--surface);
+			color: var(--ink);
 			border: 0;
 		}
 	`,

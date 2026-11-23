@@ -54,8 +54,8 @@ interface ImportRow
 			width: min(560px, calc(100vw - 2rem));
 		}
 		.import-dialog input[type='file']::file-selector-button {
-			background-color: #4e5d6c;
-			color: #ebebeb;
+			background-color: var(--surface);
+			color: var(--ink);
 			border: 0;
 		}
 		.import-rows {

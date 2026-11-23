@@ -31,8 +31,8 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 		}
 		.codex-toolbar {
 			z-index: 5;
-			background: #213040;
-			border-bottom: 1px solid #34475a;
+			background: var(--surface);
+			border-bottom: 1px solid var(--rule);
 		}
 	`,
 })

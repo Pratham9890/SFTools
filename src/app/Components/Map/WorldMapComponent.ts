@@ -144,8 +144,8 @@ import {SettingsManager} from '@src/Model/Settings/SettingsManager';
 			flex-direction: column;
 			gap: 6px;
 			padding: 6px;
-			background: rgba(20, 24, 36, 0.92);
-			border: 1px solid #34475a;
+			background: var(--surface, rgba(20, 24, 36, 0.92));
+			border: 1px solid var(--rule-strong, #34475a);
 		}
 		.strip-label {
 			display: flex;
