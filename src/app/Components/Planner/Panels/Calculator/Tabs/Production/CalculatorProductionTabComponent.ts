@@ -26,20 +26,21 @@ import {VersionManager} from '@src/Model/Data/VersionManager';
 	imports: [FormsModule, FaIconComponent, ItemPickerComponent, InfoNoteComponent],
 	styles: [`
 		.stack { display: grid; gap: 10px; }
-		.rows { display: grid; gap: 6px; }
-		.rows .pp-row {
-			padding: 6px 8px;
-			background: var(--ground);
-			border: 1px solid var(--rule);
-			border-radius: 8px;
-		}
-		.pick { flex: 1 1 240px; min-width: 180px; }
-		.mode { flex: none; width: 170px; }
-		.pp-amount { width: 180px; }
-		.pp-amount .form-control { padding-right: 88px; }
-		.pp-note { flex: 1 1 200px; min-width: 0; }
+		.rows { display: grid; gap: 10px; }
+		.pick { flex: 0 1 320px; min-width: 180px; }
+		.mode { flex: none; width: 150px; }
+		.pp-amount { width: 150px; }
+		.pp-amount .form-control { padding-right: 64px; }
+		.pp-note { flex: none; }
 		.pp-note .value { color: var(--ink); font-weight: 600; }
 		.remove { flex: none; }
+
+		@media (max-width: 560px) {
+			.pick { flex: 1 1 100%; }
+			.mode { flex: 1 1 130px; width: auto; }
+			.pp-amount { flex: 1 1 130px; width: auto; }
+			.pp-note { flex: 1 1 auto; }
+		}
 		.foot { margin-top: 4px; }
 		.foot .btn { flex: none; }
 	`],

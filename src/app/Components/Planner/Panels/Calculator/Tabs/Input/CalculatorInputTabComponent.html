@@ -1,6 +1,4 @@
-<div class="p-2 stack">
-	<info-note>Parts you already have, for example from another factory. The plan uses up to this amount.</info-note>
-
+<div class="stack">
 	@if (!weightsEnabled()) {
 		<info-note kind="warning">
 			Part weights are turned off in the Optimisation tab. Every part is free and the weights below are ignored.
@@ -52,6 +50,8 @@
 
 				<button
 					class="btn btn-sm btn-outline-danger px-2 remove"
+					aria-label="Remove"
+					title="Remove"
 					type="button"
 					(click)="removeRow(i)"
 				><fa-icon [icon]="faXmark"></fa-icon></button>

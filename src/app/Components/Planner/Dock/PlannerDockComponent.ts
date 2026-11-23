@@ -120,7 +120,9 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 			height: 30px;
 			display: grid;
 			place-items: center;
-			border-radius: 8px;
+			border: 0;
+			background: none;
+			border-radius: var(--ctl-radius, 6px);
 			color: var(--ink-2);
 			font-size: 15px;
 		}

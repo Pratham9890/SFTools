@@ -1,4 +1,4 @@
-<div class="p-2 stack">
+<div class="stack">
 	<div class="rows">
 		@for (row of rows; track $index; let i = $index) {
 			<div class="pp-row">
@@ -20,7 +20,7 @@
 						<option value="MW">MW</option>
 						<option value="GW">GW</option>
 						<option value="TW">TW</option>
-						<option value="maximise" [disabled]="maximiseDisabled(row)">maximise</option>
+						<option value="maximise" [disabled]="maximiseDisabled(row)">Maximise</option>
 					</select>
 				} @else {
 					<select
@@ -29,8 +29,8 @@
 						[ngModel]="modeOf(row)"
 						(ngModelChange)="setMode(row, $event)"
 					>
-						<option value="rate">{{ rateUnit(row.itemClassName) }}</option>
-						<option value="maximise" [disabled]="maximiseDisabled(row)">maximise</option>
+						<option value="rate">Per minute</option>
+						<option value="maximise" [disabled]="maximiseDisabled(row)">Maximise</option>
 					</select>
 				}
 
@@ -71,6 +71,8 @@
 
 				<button
 					class="btn btn-sm btn-outline-danger px-2 remove"
+					aria-label="Remove"
+					title="Remove"
 					type="button"
 					(click)="removeRow(i)"
 				><fa-icon [icon]="faXmark"></fa-icon></button>
@@ -80,7 +82,7 @@
 
 	<div class="pp-row foot">
 		<button class="btn btn-sm btn-outline-success" type="button" (click)="addRow()">
-			+ Add Item
+			+ Add item
 		</button>
 
 		@if (showSloopWarning) {

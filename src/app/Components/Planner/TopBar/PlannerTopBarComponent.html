@@ -195,14 +195,9 @@
 	<button
 		class="pl-ghost pl-gear"
 		type="button"
-		#gearTip="bs-tooltip"
-		tooltip="Settings"
-		placement="bottom"
-		container="body"
-		[delay]="400"
-		[isDisabled]="sheet.isOpen()"
+		title="Settings"
+		aria-label="Settings"
 		[class.active]="sheet.isOpen()"
-		(mousedown)="gearTip.hide()"
 		(click)="toggleSettings()"
 	><fa-icon [icon]="faGear"></fa-icon></button>
 </div>

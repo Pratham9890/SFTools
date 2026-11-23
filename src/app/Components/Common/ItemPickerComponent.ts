@@ -18,7 +18,7 @@ import {TextMatcher} from '@src/Model/Search/TextMatcher';
 			box-shadow: inset 2px 0 0 var(--bs-primary);
 		}
 		.picker-option.highlighted.active {
-			box-shadow: inset 2px 0 0 #fff;
+			box-shadow: inset 2px 0 0 var(--bs-primary);
 		}
 		.picker-menu {
 			min-width: min(320px, calc(100vw - 16px));

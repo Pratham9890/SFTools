@@ -24,24 +24,23 @@ import {ResourceWeightResolver} from '@src/Model/Planner/ResourceWeightResolver'
 	imports: [FormsModule, FaIconComponent, ItemPickerComponent, InfoNoteComponent],
 	styles: [`
 		.stack { display: grid; gap: 10px; }
-		.rows { display: grid; gap: 6px; }
-		.rows .pp-row {
-			padding: 6px 8px;
-			background: var(--ground);
-			border: 1px solid var(--rule);
-			border-radius: 8px;
-		}
-		.pick { flex: 1 1 240px; min-width: 180px; }
+		.rows { display: grid; gap: 10px; }
+		.pick { flex: 0 1 320px; min-width: 180px; }
 		.pp-note.label { white-space: nowrap; }
 		.pp-amount { width: 140px; }
 		.pp-amount.narrow { width: 100px; }
 		.pp-amount .form-control { padding-right: 46px; }
 		.pp-amount.narrow .form-control { padding-right: 10px; }
-		.used { flex: 1 1 160px; min-width: 0; }
+		.used { flex: none; }
 		.empty { padding: 6px 8px; font-style: italic; }
 		.remove { flex: none; }
 		.foot { margin-top: 4px; }
 		.foot .btn { flex: none; }
+
+		@media (max-width: 560px) {
+			.pick { flex: 1 1 100%; }
+			.used { flex: 1 1 auto; }
+		}
 	`],
 })
 export class CalculatorInputTabComponent implements OnDestroy

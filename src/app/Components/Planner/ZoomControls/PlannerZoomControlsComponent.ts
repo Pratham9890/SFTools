@@ -47,8 +47,15 @@ import {PlanManager} from '@src/Model/Planner/PlanManager';
 			width: auto;
 			gap: 5px;
 			padding: 0 10px;
-			font-size: 11px;
+			font-size: 13px;
 			font-weight: 600;
+		}
+
+		/* One row along the bottom on a PC; the phone keeps its column. */
+		@media (min-width: 761px) {
+			:host { flex-direction: row; }
+			.zb { border-bottom: none; }
+			.zb-separated { border-top: none; border-left: 1px solid var(--rule); }
 		}
 	`],
 })

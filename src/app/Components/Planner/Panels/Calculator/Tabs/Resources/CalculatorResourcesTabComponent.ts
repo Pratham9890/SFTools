@@ -55,8 +55,8 @@ import {RateFormatter} from '@src/Model/RateFormatter';
 		.res-item .form-check-input { flex: none; margin: 0; float: none; }
 		.res-name { flex: 1 1 auto; min-width: 60px; font-weight: 600; }
 		.limit-group { flex: 0 0 230px; }
-		.weight-cell { flex: 0 0 auto; min-width: 96px; display: flex; align-items: center; gap: 6px; }
-		.w-label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .02em; }
+		.weight-cell { flex: 0 0 118px; display: flex; align-items: center; gap: 6px; }
+		.w-label { color: var(--dim); font-size: 13px; }
 		.weight-cell .form-control { width: 76px; min-width: 0; }
 		.used-cell { flex: none; }
 
